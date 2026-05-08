@@ -3,20 +3,36 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: ViewViet API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: words
+    description: Vocabulary words
+  - name: sceneSentences
+    description: Scene sentences
+  - name: complexSentences
+    description: Complex sentences
+  - name: legalArticles
+    description: Legal articles
+  - name: travelGuides
+    description: Travel guides
+  - name: lawyers
+    description: Lawyers directory
+  - name: activities
+    description: Community activities
+  - name: dashboard
+    description: Admin dashboard stats
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +40,715 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Words ──────────────────────────────────────────────────────────────────
+  /words:
+    get:
+      operationId: getWords
+      tags: [words]
+      summary: List vocabulary words
+      parameters:
+        - name: language_code
+          in: query
+          schema: { type: string }
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: difficulty
+          in: query
+          schema: { type: integer }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Word list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WordListResponse"
+
+  /words/{id}:
+    get:
+      operationId: getWord
+      tags: [words]
+      summary: Get word detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Word detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Word"
+        "404":
+          description: Not found
+
+  /words/categories:
+    get:
+      operationId: getWordCategories
+      tags: [words]
+      summary: Get all word categories
+      responses:
+        "200":
+          description: Category list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: string }
+
+  /admin/words:
+    post:
+      operationId: createWord
+      tags: [words]
+      summary: Create a word (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWordBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Word"
+
+  /admin/words/{id}:
+    delete:
+      operationId: deleteWord
+      tags: [words]
+      summary: Delete a word (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Scene Sentences ─────────────────────────────────────────────────────────
+  /scene-sentences:
+    get:
+      operationId: getSceneSentences
+      tags: [sceneSentences]
+      summary: List scene sentences
+      parameters:
+        - name: language_code
+          in: query
+          schema: { type: string }
+        - name: scene_name
+          in: query
+          schema: { type: string }
+        - name: difficulty
+          in: query
+          schema: { type: integer }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Scene sentence list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SceneSentenceListResponse"
+
+  /scene-sentences/scenes:
+    get:
+      operationId: getSceneNames
+      tags: [sceneSentences]
+      summary: Get all unique scene names
+      responses:
+        "200":
+          description: Scene names
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: string }
+
+  /admin/scene-sentences:
+    post:
+      operationId: createSceneSentence
+      tags: [sceneSentences]
+      summary: Create a scene sentence (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSceneSentenceBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SceneSentence"
+
+  # ── Complex Sentences ───────────────────────────────────────────────────────
+  /complex-sentences:
+    get:
+      operationId: getComplexSentences
+      tags: [complexSentences]
+      summary: List complex sentences
+      parameters:
+        - name: language_code
+          in: query
+          schema: { type: string }
+        - name: difficulty
+          in: query
+          schema: { type: integer }
+        - name: context
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Complex sentence list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplexSentenceListResponse"
+
+  /admin/complex-sentences:
+    post:
+      operationId: createComplexSentence
+      tags: [complexSentences]
+      summary: Create a complex sentence (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateComplexSentenceBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplexSentence"
+
+  # ── Legal Articles ──────────────────────────────────────────────────────────
+  /legal-articles:
+    get:
+      operationId: getLegalArticles
+      tags: [legalArticles]
+      summary: List legal articles
+      parameters:
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: country
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: featured
+          in: query
+          schema: { type: boolean }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 12 }
+      responses:
+        "200":
+          description: Article list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalArticleListResponse"
+
+  /legal-articles/featured:
+    get:
+      operationId: getFeaturedLegalArticles
+      tags: [legalArticles]
+      summary: Get featured legal articles
+      responses:
+        "200":
+          description: Featured articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LegalArticle"
+
+  /legal-articles/categories:
+    get:
+      operationId: getLegalArticleCategories
+      tags: [legalArticles]
+      summary: Get legal article categories with counts
+      responses:
+        "200":
+          description: Categories with counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryCount"
+
+  /legal-articles/{slug}:
+    get:
+      operationId: getLegalArticle
+      tags: [legalArticles]
+      summary: Get legal article by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Article detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalArticle"
+        "404":
+          description: Not found
+
+  /legal-articles/related/{id}:
+    get:
+      operationId: getRelatedLegalArticles
+      tags: [legalArticles]
+      summary: Get related legal articles
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Related articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LegalArticle"
+
+  /admin/legal-articles:
+    post:
+      operationId: createLegalArticle
+      tags: [legalArticles]
+      summary: Create legal article (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLegalArticleBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalArticle"
+
+  /admin/legal-articles/{id}:
+    put:
+      operationId: updateLegalArticle
+      tags: [legalArticles]
+      summary: Update legal article (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLegalArticleBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalArticle"
+    delete:
+      operationId: deleteLegalArticle
+      tags: [legalArticles]
+      summary: Delete legal article (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Travel Guides ───────────────────────────────────────────────────────────
+  /travel-guides:
+    get:
+      operationId: getTravelGuides
+      tags: [travelGuides]
+      summary: List travel guides
+      parameters:
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: country
+          in: query
+          schema: { type: string }
+        - name: city
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 12 }
+      responses:
+        "200":
+          description: Guide list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TravelGuideListResponse"
+
+  /travel-guides/featured:
+    get:
+      operationId: getFeaturedTravelGuides
+      tags: [travelGuides]
+      summary: Get featured travel guides
+      responses:
+        "200":
+          description: Featured guides
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TravelGuide"
+
+  /travel-guides/{id}:
+    get:
+      operationId: getTravelGuide
+      tags: [travelGuides]
+      summary: Get travel guide detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Guide detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TravelGuide"
+        "404":
+          description: Not found
+
+  /admin/travel-guides:
+    post:
+      operationId: createTravelGuide
+      tags: [travelGuides]
+      summary: Create travel guide (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTravelGuideBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TravelGuide"
+
+  /admin/travel-guides/{id}:
+    put:
+      operationId: updateTravelGuide
+      tags: [travelGuides]
+      summary: Update travel guide (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTravelGuideBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TravelGuide"
+    delete:
+      operationId: deleteTravelGuide
+      tags: [travelGuides]
+      summary: Delete travel guide (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Lawyers ─────────────────────────────────────────────────────────────────
+  /lawyers:
+    get:
+      operationId: getLawyers
+      tags: [lawyers]
+      summary: List lawyers
+      parameters:
+        - name: country
+          in: query
+          schema: { type: string }
+        - name: city
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lawyer list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lawyer"
+
+  /lawyers/featured:
+    get:
+      operationId: getFeaturedLawyers
+      tags: [lawyers]
+      summary: Get featured lawyers
+      responses:
+        "200":
+          description: Featured lawyers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lawyer"
+
+  /lawyers/{id}:
+    get:
+      operationId: getLawyer
+      tags: [lawyers]
+      summary: Get lawyer detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Lawyer detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lawyer"
+        "404":
+          description: Not found
+
+  /admin/lawyers:
+    post:
+      operationId: createLawyer
+      tags: [lawyers]
+      summary: Create lawyer (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLawyerBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lawyer"
+
+  /admin/lawyers/{id}:
+    put:
+      operationId: updateLawyer
+      tags: [lawyers]
+      summary: Update lawyer (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLawyerBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lawyer"
+
+  # ── Community Activities ─────────────────────────────────────────────────────
+  /activities:
+    get:
+      operationId: getActivities
+      tags: [activities]
+      summary: List published activities
+      parameters:
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: upcoming
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Activity list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Activity"
+
+    post:
+      operationId: createActivity
+      tags: [activities]
+      summary: Create activity (requires login)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivityBody"
+      responses:
+        "201":
+          description: Created (pending review)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+
+  /activities/{id}:
+    get:
+      operationId: getActivity
+      tags: [activities]
+      summary: Get activity detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Activity detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+        "404":
+          description: Not found
+
+  /admin/activities/{id}/approve:
+    put:
+      operationId: approveActivity
+      tags: [activities]
+      summary: Approve activity (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+
+  /admin/activities/{id}/reject:
+    put:
+      operationId: rejectActivity
+      tags: [activities]
+      summary: Reject activity (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+
+  # ── Dashboard ───────────────────────────────────────────────────────────────
+  /admin/dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Get admin dashboard stats
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +756,601 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    # ── Shared ────────────────────────────────────────────────────────────────
+    CategoryCount:
+      type: object
+      properties:
+        category:
+          type: string
+        count:
+          type: integer
+      required: [category, count]
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+      required: [total, page, limit, totalPages]
+
+    # ── Word ─────────────────────────────────────────────────────────────────
+    Word:
+      type: object
+      properties:
+        id:
+          type: integer
+        languageCode:
+          type: string
+        word:
+          type: string
+        pronunciation:
+          type: ["string", "null"]
+        meaningZh:
+          type: ["string", "null"]
+        meaningEn:
+          type: ["string", "null"]
+        meaningVi:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        sceneTag:
+          type: ["string", "null"]
+        audioUrl:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        exampleSentence:
+          type: ["string", "null"]
+        exampleTranslation:
+          type: ["string", "null"]
+        difficulty:
+          type: ["integer", "null"]
+        isPublished:
+          type: boolean
+        createdAt:
+          type: string
+      required: [id, languageCode, word, isPublished, createdAt]
+
+    CreateWordBody:
+      type: object
+      properties:
+        languageCode:
+          type: string
+        word:
+          type: string
+        pronunciation:
+          type: ["string", "null"]
+        meaningZh:
+          type: ["string", "null"]
+        meaningEn:
+          type: ["string", "null"]
+        meaningVi:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        sceneTag:
+          type: ["string", "null"]
+        audioUrl:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        exampleSentence:
+          type: ["string", "null"]
+        exampleTranslation:
+          type: ["string", "null"]
+        difficulty:
+          type: ["integer", "null"]
+        isPublished:
+          type: boolean
+      required: [languageCode, word]
+
+    WordListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Word"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+      required: [data, pagination]
+
+    # ── Scene Sentence ────────────────────────────────────────────────────────
+    SceneSentence:
+      type: object
+      properties:
+        id:
+          type: integer
+        languageCode:
+          type: string
+        sceneName:
+          type: string
+        sentence:
+          type: string
+        pronunciation:
+          type: ["string", "null"]
+        translationZh:
+          type: ["string", "null"]
+        translationEn:
+          type: ["string", "null"]
+        translationVi:
+          type: ["string", "null"]
+        audioUrl:
+          type: ["string", "null"]
+        videoUrl:
+          type: ["string", "null"]
+        difficulty:
+          type: ["integer", "null"]
+        isPublished:
+          type: boolean
+        createdAt:
+          type: string
+      required: [id, languageCode, sceneName, sentence, isPublished, createdAt]
+
+    CreateSceneSentenceBody:
+      type: object
+      properties:
+        languageCode:
+          type: string
+        sceneName:
+          type: string
+        sentence:
+          type: string
+        pronunciation:
+          type: ["string", "null"]
+        translationZh:
+          type: ["string", "null"]
+        translationEn:
+          type: ["string", "null"]
+        translationVi:
+          type: ["string", "null"]
+        audioUrl:
+          type: ["string", "null"]
+        videoUrl:
+          type: ["string", "null"]
+        difficulty:
+          type: ["integer", "null"]
+        isPublished:
+          type: boolean
+      required: [languageCode, sceneName, sentence]
+
+    SceneSentenceListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SceneSentence"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+      required: [data, pagination]
+
+    # ── Complex Sentence ──────────────────────────────────────────────────────
+    ComplexSentence:
+      type: object
+      properties:
+        id:
+          type: integer
+        languageCode:
+          type: string
+        sentence:
+          type: string
+        pronunciation:
+          type: ["string", "null"]
+        translationZh:
+          type: ["string", "null"]
+        translationEn:
+          type: ["string", "null"]
+        translationVi:
+          type: ["string", "null"]
+        grammarNotes:
+          type: ["string", "null"]
+        context:
+          type: ["string", "null"]
+        audioUrl:
+          type: ["string", "null"]
+        videoUrl:
+          type: ["string", "null"]
+        difficulty:
+          type: ["integer", "null"]
+        isPublished:
+          type: boolean
+        createdAt:
+          type: string
+      required: [id, languageCode, sentence, isPublished, createdAt]
+
+    CreateComplexSentenceBody:
+      type: object
+      properties:
+        languageCode:
+          type: string
+        sentence:
+          type: string
+        pronunciation:
+          type: ["string", "null"]
+        translationZh:
+          type: ["string", "null"]
+        translationEn:
+          type: ["string", "null"]
+        translationVi:
+          type: ["string", "null"]
+        grammarNotes:
+          type: ["string", "null"]
+        context:
+          type: ["string", "null"]
+        audioUrl:
+          type: ["string", "null"]
+        videoUrl:
+          type: ["string", "null"]
+        difficulty:
+          type: ["integer", "null"]
+        isPublished:
+          type: boolean
+      required: [languageCode, sentence]
+
+    ComplexSentenceListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplexSentence"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+      required: [data, pagination]
+
+    # ── Legal Article ─────────────────────────────────────────────────────────
+    LegalArticle:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        titleVn:
+          type: ["string", "null"]
+        titleEn:
+          type: ["string", "null"]
+        slug:
+          type: string
+        content:
+          type: ["string", "null"]
+        summary:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        tags:
+          type: ["array", "null"]
+          items: { type: string }
+        coverImage:
+          type: ["string", "null"]
+        videoUrl:
+          type: ["string", "null"]
+        isFeatured:
+          type: boolean
+        isPublished:
+          type: boolean
+        viewCount:
+          type: integer
+        publishedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, title, slug, isPublished, isFeatured, viewCount, createdAt]
+
+    CreateLegalArticleBody:
+      type: object
+      properties:
+        title:
+          type: string
+        titleVn:
+          type: ["string", "null"]
+        titleEn:
+          type: ["string", "null"]
+        slug:
+          type: string
+        content:
+          type: ["string", "null"]
+        summary:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        tags:
+          type: ["array", "null"]
+          items: { type: string }
+        coverImage:
+          type: ["string", "null"]
+        videoUrl:
+          type: ["string", "null"]
+        isFeatured:
+          type: boolean
+        isPublished:
+          type: boolean
+      required: [title, slug]
+
+    LegalArticleListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LegalArticle"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+      required: [data, pagination]
+
+    # ── Travel Guide ─────────────────────────────────────────────────────────
+    TravelGuide:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        titleLocal:
+          type: ["string", "null"]
+        titleEn:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        content:
+          type: ["string", "null"]
+        coverImage:
+          type: ["string", "null"]
+        budgetRange:
+          type: ["string", "null"]
+        mapEmbed:
+          type: ["string", "null"]
+        isFeatured:
+          type: boolean
+        isPublished:
+          type: boolean
+        viewCount:
+          type: integer
+        publishedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, title, isPublished, isFeatured, viewCount, createdAt]
+
+    CreateTravelGuideBody:
+      type: object
+      properties:
+        title:
+          type: string
+        titleLocal:
+          type: ["string", "null"]
+        titleEn:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        content:
+          type: ["string", "null"]
+        coverImage:
+          type: ["string", "null"]
+        budgetRange:
+          type: ["string", "null"]
+        mapEmbed:
+          type: ["string", "null"]
+        isFeatured:
+          type: boolean
+        isPublished:
+          type: boolean
+      required: [title]
+
+    TravelGuideListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TravelGuide"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+      required: [data, pagination]
+
+    # ── Lawyer ───────────────────────────────────────────────────────────────
+    Lawyer:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        nameEn:
+          type: ["string", "null"]
+        nameVi:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        lawFirm:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        photo:
+          type: ["string", "null"]
+        bio:
+          type: ["string", "null"]
+        bioEn:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        whatsapp:
+          type: ["string", "null"]
+        wechat:
+          type: ["string", "null"]
+        specialties:
+          type: ["array", "null"]
+          items: { type: string }
+        languages:
+          type: ["array", "null"]
+          items: { type: string }
+        isFeatured:
+          type: boolean
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+      required: [id, name, isActive, isFeatured, createdAt]
+
+    CreateLawyerBody:
+      type: object
+      properties:
+        name:
+          type: string
+        nameEn:
+          type: ["string", "null"]
+        nameVi:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        lawFirm:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        photo:
+          type: ["string", "null"]
+        bio:
+          type: ["string", "null"]
+        bioEn:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        whatsapp:
+          type: ["string", "null"]
+        wechat:
+          type: ["string", "null"]
+        specialties:
+          type: ["array", "null"]
+          items: { type: string }
+        languages:
+          type: ["array", "null"]
+          items: { type: string }
+        isFeatured:
+          type: boolean
+        isActive:
+          type: boolean
+      required: [name]
+
+    # ── Activity ─────────────────────────────────────────────────────────────
+    Activity:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        mapLink:
+          type: ["string", "null"]
+        startTime:
+          type: ["string", "null"]
+        endTime:
+          type: ["string", "null"]
+        maxParticipants:
+          type: ["integer", "null"]
+        currentParticipants:
+          type: integer
+        organizerName:
+          type: ["string", "null"]
+        organizerContact:
+          type: ["string", "null"]
+        coverImage:
+          type: ["string", "null"]
+        isPublished:
+          type: boolean
+        isFeatured:
+          type: boolean
+        createdAt:
+          type: string
+      required: [id, title, currentParticipants, isPublished, isFeatured, createdAt]
+
+    CreateActivityBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        mapLink:
+          type: ["string", "null"]
+        startTime:
+          type: ["string", "null"]
+        endTime:
+          type: ["string", "null"]
+        maxParticipants:
+          type: ["integer", "null"]
+        organizerName:
+          type: ["string", "null"]
+        organizerContact:
+          type: ["string", "null"]
+        coverImage:
+          type: ["string", "null"]
+      required: [title]
+
+    # ── Dashboard ─────────────────────────────────────────────────────────────
+    DashboardStats:
+      type: object
+      properties:
+        totalWords:
+          type: integer
+        totalLegalArticles:
+          type: integer
+        totalTravelGuides:
+          type: integer
+        totalLawyers:
+          type: integer
+        totalActivities:
+          type: integer
+        pendingActivities:
+          type: integer
+        recentWords:
+          type: array
+          items:
+            $ref: "#/components/schemas/Word"
+        recentLegalArticles:
+          type: array
+          items:
+            $ref: "#/components/schemas/LegalArticle"
+        contentByCategory:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryCount"
+      required: [totalWords, totalLegalArticles, totalTravelGuides, totalLawyers, totalActivities, pendingActivities, recentWords, recentLegalArticles, contentByCategory]

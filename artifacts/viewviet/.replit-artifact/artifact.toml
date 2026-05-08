@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "ViewViet"
+version = "1.0.0"
+id = "artifacts/viewviet"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20108
+
+[services.development]
+run = "pnpm --filter @workspace/viewviet run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/viewviet", "run", "build" ]
+publicDir = "artifacts/viewviet/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20108"
+BASE_PATH = "/"

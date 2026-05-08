@@ -1,0 +1,793 @@
+ViewViet — 跨境内容中台开发说明书 V3.1
+版本：V3.1 | 交付日期：2026-05-09
+技术栈：React (Vite) + Node.js Express + Supabase + Hostinger Business
+品牌：ViewViet（原 VietHub）
+域名：viewviet.net | falaw.pro | admin.viewviet.net | api.viewviet.net
+
+一、品牌定位与命名规范
+1.1 品牌架构
+域名	品牌名	定位	目标用户
+viewviet.net	ViewViet	跨境内容中台（学习+旅游+法律聚合入口）	出海企业、旅行者、语言学习者
+falaw.pro	FaLaw Pro	专业法律博客（ASEAN Legal Hub）	企业法务、跨境律师、投资者
+admin.viewviet.net	ViewViet Admin	后台管理系统	内容编辑、超级管理员
+api.viewviet.net	ViewViet API	统一接口网关	内部服务、第三方合作
+1.2 命名规范
+•代码中所有 VietHub / viet_hub / VIETHUB 统一替换为 ViewViet / view_viet / VIEWVIET
+•数据库表名、环境变量、CSS 变量保持小写 + 下划线
+•用户可见文案统一使用 ViewViet（首字母大写，无空格）
+
+二、系统架构总览
+2.1 部署架构
+用户端 (viewviet.net)          法律站 (falaw.pro)           管理端 (admin.viewviet.net)
+    │                              │                              │
+    └──────────────┬───────────────┘──────────────────────────────┘
+                   │
+           Hostinger Business
+           ├── public_html/          → viewviet.net (静态 React)
+           ├── public_html_falaw/    → falaw.pro (静态 React)
+           ├── Node.js #1            → api.viewviet.net (Express API)
+           └── Node.js #2            → admin.viewviet.net (React + Node SSR)
+                   │
+                   ▼
+           Supabase (PostgreSQL + Storage + Auth)
+2.2 技术选型理由
+层级	技术	选型理由
+前端框架	React 18 + Vite	构建速度快，Hostinger 静态部署友好
+UI 组件	Tailwind CSS + Headless UI	原子化样式，暗色模式切换零成本
+状态管理	Zustand + React Query	轻量，学习曲线低，适合中小项目
+后端 API	Node.js Express	Hostinger Node.js 环境原生支持
+数据库	Supabase PostgreSQL	免费额度充足，实时订阅，越南访问延迟可接受
+文件存储	Supabase Storage	CDN 加速，替代 Hostinger 本地存储
+认证	Supabase Auth (JWT)	内置用户系统，支持邮箱/手机号/第三方登录
+部署	Hostinger + Cloudflare DNS	成本可控，支持 Node.js 进程
+
+三、数据库设计（Supabase）
+3.1 核心表结构
+site_config — 站点配置（UI 实时配置中心）
+CREATE TABLE site_config (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  config_group VARCHAR(50) NOT NULL, -- theme / layout / nav / footer / legal_theme
+  config_key VARCHAR(100) NOT NULL,
+  config_value TEXT,
+  value_type VARCHAR(20) DEFAULT 'string', -- string / number / boolean / json / color
+  is_active BOOLEAN DEFAULT true,
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(config_group, config_key)
+);
+关键配置项： | config_group | config_key | 说明 | |————-|———–|——| | theme | primary_color | 主色 #0D7377 | | theme | accent_color | 强调色 #F2A900 | | theme | bg_color | 背景色 | | theme | text_color | 文字主色 | | layout | hero_modules | 首页模块排序 JSON | | nav | nav_items | 导航菜单 JSON 数组 | | footer | footer_content | 页脚富文本 | | legal_theme | legal_primary | falaw.pro 独立主题色 |
+languages — 语言管理
+CREATE TABLE languages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code VARCHAR(10) UNIQUE NOT NULL, -- vi / en / zh / ko
+  name VARCHAR(50), -- Tiếng Việt
+  name_en VARCHAR(50), -- Vietnamese
+  flag_icon VARCHAR(10), -- 🇻🇳
+  is_active BOOLEAN DEFAULT true,
+  sort_order INT DEFAULT 0
+);
+words — 单词库
+CREATE TABLE words (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  language_code VARCHAR(10) REFERENCES languages(code),
+  word VARCHAR(100) NOT NULL, -- 目标语单词
+  pronunciation VARCHAR(100), -- 音标/罗马字
+  meaning_zh VARCHAR(255), -- 中文释义
+  meaning_en VARCHAR(255), -- 英文释义
+  meaning_vi VARCHAR(255), -- 越南语释义（新增）
+  category VARCHAR(50), -- 机场/餐厅/医院/商务/购物...
+  scene_tag VARCHAR(50), -- 细分场景标签
+  audio_url TEXT, -- TTS 音频 URL
+  image_url TEXT, -- 配图 URL
+  example_sentence TEXT, -- 例句（目标语）
+  example_translation TEXT, -- 例句翻译
+  difficulty INT CHECK (difficulty BETWEEN 1 AND 5), -- 1=入门 5=精通
+  is_published BOOLEAN DEFAULT false,
+  created_by UUID REFERENCES auth.users(id), -- 新增：记录创建者
+  created_at TIMESTAMP DEFAULT NOW()
+);
+scene_sentences — 场景句子
+CREATE TABLE scene_sentences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  language_code VARCHAR(10),
+  scene_name VARCHAR(100), -- 机场值机 / 餐厅点餐 / 医院挂号...
+  sentence TEXT NOT NULL, -- 目标语句子
+  pronunciation VARCHAR(255), -- 发音标注
+  translation_zh TEXT, -- 中文翻译
+  translation_en TEXT, -- 英文翻译
+  translation_vi TEXT, -- 越南语翻译（新增）
+  audio_url TEXT,
+  video_url TEXT, -- YouTube 切片链接
+  related_word_ids UUID[], -- 关联单词
+  difficulty INT CHECK (difficulty BETWEEN 1 AND 5),
+  is_published BOOLEAN DEFAULT false,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+complex_sentences — 长难句
+CREATE TABLE complex_sentences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  language_code VARCHAR(10),
+  sentence TEXT NOT NULL,
+  pronunciation VARCHAR(255),
+  translation_zh TEXT,
+  translation_en TEXT,
+  translation_vi TEXT,
+  grammar_notes TEXT, -- 语法拆解说明
+  context VARCHAR(100), -- 使用场景上下文
+  audio_url TEXT,
+  video_url TEXT,
+  difficulty INT CHECK (difficulty BETWEEN 1 AND 5),
+  is_published BOOLEAN DEFAULT false,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+legal_articles — 法律文章
+CREATE TABLE legal_articles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(200),
+  title_vn VARCHAR(200), -- 越南语标题
+  title_en VARCHAR(200), -- 英文标题（新增）
+  slug VARCHAR(200) UNIQUE,
+  content TEXT, -- HTML 富文本
+  summary TEXT, -- 摘要（新增，用于列表页）
+  category VARCHAR(50), -- FDI / ODI / 劳动法 / 知识产权 / 税务 / 海关
+  country VARCHAR(50), -- 越南 / 菲律宾 / 文莱 / 印尼...
+  tags VARCHAR(50)[], -- PostgreSQL 数组
+  cover_image TEXT,
+  video_url TEXT,
+  meta_description TEXT,
+  source_type VARCHAR(20) DEFAULT 'original', -- original / rss_import / translated
+  source_url TEXT, -- RSS 原文链接
+  rss_source_id UUID REFERENCES rss_sources(id), -- 新增：关联 RSS 源
+  is_featured BOOLEAN DEFAULT false, -- 首页精选标记
+  is_published BOOLEAN DEFAULT false,
+  published_at TIMESTAMP,
+  view_count INT DEFAULT 0,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+travel_guides — 旅游攻略
+CREATE TABLE travel_guides (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(200),
+  title_local VARCHAR(200),
+  title_en VARCHAR(200), -- 英文标题（新增）
+  country VARCHAR(50),
+  city VARCHAR(50),
+  category VARCHAR(50), -- 美食 / 咖啡 / 夜生活 / 户外 / 购物 / 法律贴士 / 住宿
+  content TEXT,
+  cover_image TEXT,
+  gallery_images TEXT[], -- 图集数组
+  map_embed TEXT, -- Google Maps 嵌入代码
+  budget_range VARCHAR(50), -- 人均消费区间
+  practical_info JSONB, -- {address, hours, phone, website, tips}
+  related_word_ids UUID[],
+  related_article_ids UUID[],
+  is_featured BOOLEAN DEFAULT false,
+  source_type VARCHAR(20) DEFAULT 'original',
+  source_url TEXT,
+  is_published BOOLEAN DEFAULT false,
+  published_at TIMESTAMP,
+  view_count INT DEFAULT 0,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+lawyers — 律师资料
+CREATE TABLE lawyers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(100),
+  name_en VARCHAR(100),
+  name_vi VARCHAR(100),
+  title VARCHAR(100), -- 资深合伙人 / 执业律师
+  law_firm VARCHAR(100),
+  country VARCHAR(50),
+  city VARCHAR(50),
+  photo TEXT,
+  bio TEXT, -- 简介
+  bio_en TEXT,
+  email VARCHAR(100),
+  phone VARCHAR(50),
+  whatsapp VARCHAR(50), -- 新增
+  wechat VARCHAR(50), -- 新增
+  specialties VARCHAR(50)[], -- 专长标签数组
+  languages VARCHAR(20)[], -- 工作语言
+  is_featured BOOLEAN DEFAULT false,
+  is_active BOOLEAN DEFAULT true,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+rss_sources — RSS 源管理
+CREATE TABLE rss_sources (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(100), -- 越南法律速递
+  feed_url TEXT NOT NULL,
+  target_module VARCHAR(20), -- legal / travel / both
+  auto_publish BOOLEAN DEFAULT false,
+  category_mapping JSONB, -- {"FDI": "FDI/投资", "河内": "旅游-河内"}
+  last_sync_at TIMESTAMP,
+  last_article_title VARCHAR(200),
+  sync_status VARCHAR(20) DEFAULT 'active', -- active / error / paused
+  error_count INT DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+rss_sync_logs — 同步日志
+CREATE TABLE rss_sync_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_id UUID REFERENCES rss_sources(id),
+  status VARCHAR(20), -- success / partial / failed
+  articles_fetched INT,
+  articles_imported INT,
+  articles_skipped INT,
+  error_message TEXT,
+  details JSONB, -- 详细日志
+  synced_at TIMESTAMP DEFAULT NOW()
+);
+activities — 本地活动（社区模块）
+CREATE TABLE activities (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(200),
+  description TEXT,
+  category VARCHAR(50), -- 户外 / 美食 / 文化 / 商务 / 运动
+  location VARCHAR(200),
+  map_link TEXT,
+  start_time TIMESTAMP,
+  end_time TIMESTAMP,
+  max_participants INT,
+  current_participants INT DEFAULT 0,
+  organizer_name VARCHAR(100),
+  organizer_contact VARCHAR(100),
+  cover_image TEXT,
+  is_published BOOLEAN DEFAULT false, -- 新增：需审核
+  is_featured BOOLEAN DEFAULT false,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+activity_participants — 活动报名
+CREATE TABLE activity_participants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  activity_id UUID REFERENCES activities(id),
+  user_id UUID REFERENCES auth.users(id),
+  name VARCHAR(100),
+  wechat VARCHAR(100),
+  phone VARCHAR(50),
+  message TEXT,
+  status VARCHAR(20) DEFAULT 'pending', -- pending / confirmed / cancelled
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(activity_id, user_id)
+);
+user_profiles — 用户资料（新增）
+CREATE TABLE user_profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id),
+  display_name VARCHAR(100),
+  avatar_url TEXT,
+  bio TEXT,
+  location VARCHAR(100),
+  native_language VARCHAR(10),
+  learning_languages VARCHAR(10)[],
+  streak_days INT DEFAULT 0, -- 连续学习天数
+  total_words_learned INT DEFAULT 0,
+  total_sentences_learned INT DEFAULT 0,
+  bookmarks UUID[], -- 收藏内容 ID 数组
+  is_admin BOOLEAN DEFAULT false,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+study_progress — 学习进度（新增）
+CREATE TABLE study_progress (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id),
+  content_type VARCHAR(20), -- word / scene_sentence / complex_sentence
+  content_id UUID,
+  status VARCHAR(20) DEFAULT 'learning', -- learning / mastered / bookmarked
+  review_count INT DEFAULT 0,
+  last_reviewed TIMESTAMP,
+  next_review TIMESTAMP, -- 间隔重复算法用
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, content_type, content_id)
+);
+favorites — 收藏（新增）
+CREATE TABLE favorites (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id),
+  content_type VARCHAR(20), -- word / article / guide / lawyer / activity
+  content_id UUID,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, content_type, content_id)
+);
+3.2 索引优化
+-- 搜索优化
+CREATE INDEX idx_words_category ON words(language_code, category);
+CREATE INDEX idx_words_difficulty ON words(difficulty);
+CREATE INDEX idx_legal_articles_category ON legal_articles(category, is_published, published_at);
+CREATE INDEX idx_legal_articles_country ON legal_articles(country, is_published);
+CREATE INDEX idx_legal_articles_featured ON legal_articles(is_featured, is_published);
+CREATE INDEX idx_travel_guides_category ON travel_guides(category, is_published);
+CREATE INDEX idx_travel_guides_featured ON travel_guides(is_featured, is_published);
+CREATE INDEX idx_activities_time ON activities(start_time, is_published);
+
+-- 全文搜索（Supabase 内置）
+CREATE INDEX idx_legal_articles_search ON legal_articles USING gin(to_tsvector('english', title || ' ' || content));
+CREATE INDEX idx_words_search ON words USING gin(to_tsvector('english', word || ' ' || meaning_zh));
+
+四、API 接口清单（Node.js Express）
+4.1 认证模块
+方法	路径	说明	权限
+POST	/api/auth/register	用户注册（邮箱+密码）	公开
+POST	/api/auth/login	登录，返回 JWT	公开
+POST	/api/auth/logout	登出	需登录
+GET	/api/auth/me	获取当前用户信息	需登录
+PUT	/api/auth/profile	更新用户资料	需登录
+4.2 站点配置
+方法	路径	说明	权限
+GET	/api/config	获取全站 UI 配置（用户端调用）	公开
+GET	/api/config/:group	按分组获取	公开
+PUT	/api/admin/config	批量更新配置	需管理员
+POST	/api/admin/upload	上传图片/音频至 Supabase Storage	需管理员
+4.3 学习资源
+方法	路径	说明	权限
+GET	/api/words	单词列表（language_code, category, difficulty, search, page, limit）	公开
+GET	/api/words/:id	单词详情	公开
+POST	/api/admin/words	单条创建	需管理员
+POST	/api/admin/words/batch	批量导入（JSON 数组）	需管理员
+POST	/api/admin/words/upload	CSV/Excel 上传解析	需管理员
+DELETE	/api/admin/words/:id	删除	需管理员
+GET	/api/scene-sentences	场景句子列表	公开
+POST	/api/admin/scene-sentences	创建	需管理员
+POST	/api/admin/scene-sentences/batch	批量导入	需管理员
+GET	/api/complex-sentences	长难句列表	公开
+POST	/api/admin/complex-sentences	创建	需管理员
+POST	/api/admin/complex-sentences/batch	批量导入	需管理员
+4.4 法律博客
+方法	路径	说明	权限
+GET	/api/legal-articles	列表（category, country, search, page, limit, featured）	公开
+GET	/api/legal-articles/:slug	单篇详情（自动 +1 view_count）	公开
+GET	/api/legal-articles/related/:id	相关文章推荐	公开
+POST	/api/admin/legal-articles	创建	需管理员
+PUT	/api/admin/legal-articles/:id	更新	需管理员
+DELETE	/api/admin/legal-articles/:id	删除（软删除）	需管理员
+POST	/api/admin/legal-articles/import	Word/TXT 导入 + AI 排版	需管理员
+4.5 旅游攻略
+方法	路径	说明	权限
+GET	/api/travel-guides	列表（category, country, city, search, page）	公开
+GET	/api/travel-guides/:id	详情	公开
+GET	/api/travel-guides/featured	精选攻略（首页 Banner 用）	公开
+POST	/api/admin/travel-guides	创建	需管理员
+PUT	/api/admin/travel-guides/:id	更新	需管理员
+DELETE	/api/admin/travel-guides/:id	删除	需管理员
+POST	/api/admin/travel-guides/import	Word/TXT 导入	需管理员
+4.6 律师资料
+方法	路径	说明	权限
+GET	/api/lawyers	列表（country, city, specialties, search）	公开
+GET	/api/lawyers/:id	详情	公开
+GET	/api/lawyers/featured	精选律师	公开
+POST	/api/admin/lawyers	创建	需管理员
+PUT	/api/admin/lawyers/:id	更新	需管理员
+4.7 社区活动
+方法	路径	说明	权限
+GET	/api/activities	活动列表（category, status=published, upcoming）	公开
+GET	/api/activities/:id	活动详情	公开
+POST	/api/activities	创建活动（默认 is_published=false，待审核）	需登录
+POST	/api/activities/:id/join	报名活动	需登录
+GET	/api/activities/my	我发布的活动（含审核状态）	需登录
+GET	/api/activities/joined	我报名的活动	需登录
+PUT	/api/admin/activities/:id/approve	审核通过	需管理员
+PUT	/api/admin/activities/:id/reject	拒绝发布	需管理员
+4.8 用户中心
+方法	路径	说明	权限
+GET	/api/user/progress	学习进度（单词/句子/连续天数）	需登录
+GET	/api/user/bookmarks	收藏列表	需登录
+POST	/api/user/bookmarks	添加收藏	需登录
+DELETE	/api/user/bookmarks/:id	取消收藏	需登录
+GET	/api/user/streak	连续学习天数	需登录
+POST	/api/user/study-log	记录学习行为	需登录
+4.9 RSS 同步
+方法	路径	说明	权限
+GET	/api/admin/rss-sources	RSS 源列表	需管理员
+POST	/api/admin/rss-sources	新增源	需管理员
+PUT	/api/admin/rss-sources/:id	编辑	需管理员
+DELETE	/api/admin/rss-sources/:id	删除	需管理员
+POST	/api/admin/rss-sources/:id/sync	手动触发同步	需管理员
+GET	/api/admin/rss-logs	同步日志	需管理员
+GET	/api/admin/rss-preview	预览 Feed 内容	需管理员
+4.10 第三方代理
+方法	路径	说明	权限
+GET	/api/proxy/youtube/search	YouTube 视频搜索（隐藏 API Key）	公开
+GET	/api/proxy/dictionary	词典查询代理	公开
+GET	/api/proxy/tts	TTS 语音合成代理	公开
+
+五、前端页面结构
+5.1 viewviet.net（用户端）
+/                          → 首页（Hero + 精选模块 + 语言入口）
+/learn                     → 语言选择（越南语/英语/汉语/韩语卡片）
+/learn/:lang/words         → 单词库（分类侧边栏 + 单词卡片网格 + TTS）
+/learn/:lang/scenes        → 场景句子（分类 Tab + 句子列表 + 音频）
+/learn/:lang/complex       → 长难句（难度筛选 + 语法拆解 + 视频）
+/learn/:lang/quiz          → 测验模式（新增）
+/guides                    → 旅游攻略（分类 Tab + 精选 Banner + 卡片流）
+/guides/:id                → 攻略详情（封面 + 实用信息 + 地图 + 相关词汇）
+/community                 → 活动社区（活动列表 + 发布按钮 + 分类筛选）
+/community/:id             → 活动详情（报名 + 评论区）
+/profile                   → 个人中心（学习进度 + 收藏 + 我的活动）
+/legal                     → 法律博客入口（跳转 falaw.pro 或嵌入）
+5.2 falaw.pro（法律站）
+/                          → 法律博客首页（精选文章 + 分类导航 + 最新列表）
+/articles/:slug            → 文章详情（富文本 + 视频 + 律师卡片 + 相关法条）
+/lawyers                   → 律师团队（筛选 + 卡片网格）
+/lawyers/:id               → 律师详情页
+/services                  → 服务介绍（ODI/FDI/公司注册/知识产权，后台可配置）
+/consultation              → 法律咨询预约表单
+5.3 admin.viewviet.net（管理端）
+/login                     → 管理员登录
+/dashboard                 → 仪表盘（访问量/新增内容/待审核/同步状态）
+/words                     → 单词管理（表格 + CSV/Excel 上传 + AI 导入）
+/scenes                    → 场景句子管理
+/complex                   → 长难句管理
+/legal                     → 法律文章管理（富文本编辑器 + Word 导入）
+/travel                    → 旅游攻略管理
+/lawyers                   → 律师资料管理
+/community                 → 社区活动审核（待审核列表 + 一键通过/拒绝）
+/rss                       → RSS 源管理（新增/编辑/同步/日志）
+/settings                  → 站点设置（主题色/导航/页脚/模块排序）
+/users                     → 用户管理（新增）
+
+六、UI 设计系统（ViewViet Design System）
+6.1 色彩体系
+:root {
+  /* 主色 - 深青绿：专业、信任、跨境 */
+  --primary-50: #e6f4f4;
+  --primary-100: #cce9e9;
+  --primary-200: #99d3d3;
+  --primary-300: #66bdbd;
+  --primary-400: #33a7a7;
+  --primary-500: #0D7377;  /* 主色 */
+  --primary-600: #0a5c5f;
+  --primary-700: #074548;
+  --primary-800: #052e30;
+  --primary-900: #021718;
+
+  /* 强调色 - 温暖金：越南文化、活力 */
+  --accent-50: #fff8e6;
+  --accent-100: #ffefcc;
+  --accent-200: #ffdf99;
+  --accent-300: #ffcf66;
+  --accent-400: #ffbf33;
+  --accent-500: #F2A900;  /* 强调色 */
+  --accent-600: #c28700;
+  --accent-700: #916500;
+  --accent-800: #614400;
+  --accent-900: #302200;
+
+  /* 中性色 */
+  --neutral-50: #f9fafb;
+  --neutral-100: #f3f4f6;
+  --neutral-200: #e5e7eb;
+  --neutral-300: #d1d5db;
+  --neutral-400: #9ca3af;
+  --neutral-500: #6b7280;
+  --neutral-600: #4b5563;
+  --neutral-700: #374151;
+  --neutral-800: #1f2937;
+  --neutral-900: #111827;
+
+  /* 功能色 */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+}
+6.2 字体规范
+语言	字体	备选
+中文	Noto Sans SC	PingFang SC, Microsoft YaHei
+越南语	Noto Sans	Roboto, Arial
+韩语	Noto Sans KR	Malgun Gothic
+英文/数字	Inter	SF Pro Display, system-ui
+6.3 组件规范
+组件	规范
+卡片	圆角 12px，Hover 上浮 4px + shadow-lg，过渡 0.3s ease
+按钮	主按钮：实心 primary-500，圆角 8px；次按钮：描边；点击缩放 0.98
+导航栏	固定顶部，Glassmorphism（backdrop-filter: blur(12px)），滚动后加阴影
+表格	斑马纹，操作列固定右侧，表头吸顶（sticky top）
+表单输入	圆角 8px，聚焦边框变 primary-500，带图标前缀
+标签 Chip	圆角全角 pill，primary/accent 背景，白色文字
+模态框	圆角 16px，背景模糊遮罩，进入动画 scale + fade
+6.4 响应式断点
+断点	宽度	布局
+Mobile	< 768px	单栏，底部固定导航（App-like）
+Tablet	768-1024px	双栏，侧边栏可折叠
+Desktop	> 1024px	最大宽度 1280px 居中，三栏
+6.5 暗色模式
+[data-theme="dark"] {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #334155;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --border: #475569;
+}
+
+七、核心功能实现说明
+7.1 多语言学习模块
+单词卡片 UI
+┌─────────────────────────────┐
+│  [场景标签]  [难度星级]        │
+│                             │
+│        Xin chào             │
+│     /sin chao/               │
+│                             │
+│  ┌─────┐  ┌─────┐  ┌─────┐ │
+│  │ 🔊  │  │ 🎬  │  │ ⭐  │ │
+│  │ TTS │  │视频 │  │收藏 │ │
+│  └─────┘  └─────┘  └─────┘ │
+│                             │
+│  中文：你好                   │
+│  English: Hello              │
+│                             │
+│  例句：Xin chào, bạn khỏe     │
+│  không?                     │
+│  翻译：你好，你好吗？          │
+└─────────────────────────────┘
+TTS 实现
+•前端：Web Speech API（免费，浏览器原生）
+•备选：Google Cloud TTS（通过 /api/proxy/tts 代理，隐藏 Key）
+•越南语 TTS：优先使用 Web Speech API 的 vi-VN 语音
+视频发音搜索
+•前端输入单词 → 调用 /api/proxy/youtube/search?q=单词+pronunciation+vi
+•结果展示：缩略图 + 时间戳 + 上下文句子 + 跳转播放
+7.2 旅游攻略重构（社交感增强）
+旧版问题
+•国家/城市下拉筛选 → 操作繁琐，无浏览感
+•列表页信息密度低，缺乏社交属性
+新版设计
+┌─────────────────────────────────────┐
+│  [精选 Banner - 前3篇大图轮播]       │
+├─────────────────────────────────────┤
+│  [全部] [美食] [咖啡] [夜生活] [户外] │
+│  [购物] [住宿] [法律贴士] [文化]      │
+├─────────────────────────────────────┤
+│ ┌─────────┐ ┌─────────┐ ┌─────────┐ │
+│ │ 封面图   │ │ 封面图   │ │ 封面图   │ │
+│ │ 标题     │ │ 标题     │ │ 标题     │ │
+│ │ 👁 1.2k  │ │ 👁 890   │ │ 👁 2.1k  │ │
+│ │ 📍河内   │ │ 📍胡志明 │ │ 📍岘港   │ │
+│ └─────────┘ └─────────┘ └─────────┘ │
+│ ┌─────────┐ ┌─────────┐ ┌─────────┐ │
+│ │ ...     │ │ ...     │ │ ...     │ │
+│ └─────────┘ └─────────┘ └─────────┘ │
+└─────────────────────────────────────┘
+详情页增强
+•顶部：封面图全宽 + 双语标题
+•实用信息框：地址 / 营业时间 / 人均 / 电话（可复制）
+•地图嵌入：Google Maps 或 Mapbox
+•相关词汇卡片：自动关联学习模块单词
+•相关文章推荐：同城市/同分类
+•评论区：用户留言 + 评分
+7.3 法律博客重构（专业感增强）
+旧版问题
+•列表页信息扁平，缺乏法律专业感
+•分类筛选不明显
+新版设计
+┌─────────────────────────────────────────────────┐
+│  [Logo: FaLaw Pro]    [搜索框]  [语言切换]      │
+├─────────────────────────────────────────────────┤
+│ ┌──────────────┐ ┌──────────────────────────┐  │
+│ │ 分类导航       │ │  [精选文章大图卡片 × 2]   │  │
+│ │              │ │                          │  │
+│ │ ▶ FDI/投资   │ │ ┌────────────────────┐   │  │
+│ │   (12篇)     │ │ │ 封面图              │   │  │
+│ │ ▶ 劳动法     │ │ │ 标题 / 摘要 / 标签   │   │  │
+│ │   (8篇)      │ │ └────────────────────┘   │  │
+│ │ ▶ 知识产权   │ │                          │  │
+│ │   (5篇)      │ │ [文章列表 - 行式布局]     │  │
+│ │ ▶ 税务       │ │ ┌──┬──────────────┐     │  │
+│ │   (3篇)      │ │ │图│ 标题          │     │  │
+│ │ ▶ 公司注册   │ │ │  │ 摘要 / 日期   │     │  │
+│ │   (7篇)      │ │ └──┴──────────────┘     │  │
+│ │ ▶ 争议解决   │ │ ...                     │  │
+│ │   (4篇)      │ │                          │  │
+│ └──────────────┘ └──────────────────────────┘  │
+└─────────────────────────────────────────────────┘
+文章页增强
+•顶部：面包屑导航 + 分类标签
+•正文：富文本渲染（TipTap / React-Quill）
+•侧边栏：律师资料卡片 + 相关法条 + 相关文章
+•底部：分享按钮 + 评论 + 收藏
+7.4 管理后台功能
+仪表盘
+┌─────────────────────────────────────────┐
+│ 今日访问: 1,234  │ 新增词汇: 56  │ 待审核: 3 │
+├─────────────────────────────────────────┤
+│ [访问趋势图 - 近7天]  [内容分布饼图]      │
+├─────────────────────────────────────────┤
+│ [最近同步的 RSS 文章]  [待审核活动列表]    │
+└─────────────────────────────────────────┘
+批量上传流程（单词/场景句/长难句）
+用户操作：
+1. 点击"批量导入" → 弹出模态框
+2. 选择方式：
+   a) 粘贴文字（每行一条）
+   b) 上传 CSV/TXT 文件
+   c) 上传 Excel（.xlsx）
+3. AI 自动处理：
+   - 识别中文内容
+   - 自动翻译为目标语言
+   - 自动分配分类（基于关键词匹配）
+   - 自动分配难度（基于句子长度/词汇复杂度）
+4. 预览界面：表格展示 AI 处理结果，可手动修正
+5. 确认导入：一键保存至数据库
+Word 文章导入流程
+用户操作：
+1. 法律/旅游管理页 → 点击"Word 导入"
+2. 粘贴原文 或 上传 .docx/.txt
+3. AI 自动排版：
+   - 识别标题层级 → 生成 h1/h2/h3
+   - 识别正文段落 → 生成 p
+   - 识别列表 → 生成 ul/li
+   - 识别图片 → 提示上传替换
+   - 自动提取摘要
+   - 自动识别分类（基于标题关键词）
+4. 生成草稿 → 进入富文本编辑器微调
+5. 发布或保存
+7.5 RSS 自动同步系统
+同步流程
+定时任务（node-cron，每 6 小时）
+    │
+    ▼
+读取 rss_sources 表中 is_active=true 的记录
+    │
+    ▼
+解析 RSS Feed（rss-parser 库）
+    │
+    ▼
+去重检查：
+  - source_url 唯一索引
+  - 标题 MD5 比对
+  - 7 天时间窗口
+    │
+    ▼
+分类映射：基于 title + content 关键词匹配 category_mapping
+    │
+    ▼
+内容清洗：
+  - 去除微信 data-src，转为正常 src
+  - 去除广告卡片、二维码、阅读原文按钮
+  - 保留 p/h2/img/ul，去除内联 style
+  - 图片下载至 Supabase Storage
+    │
+    ▼
+入库：
+  - auto_publish=true → 直接发布
+  - auto_publish=false → 草稿待审
+    │
+    ▼
+记录日志：rss_sync_logs
+
+八、用户系统实现
+8.1 认证流程
+注册/登录 → Supabase Auth (邮箱+密码/手机号/第三方 OAuth)
+    │
+    ▼
+自动创建 user_profiles 记录（触发器）
+    │
+    ▼
+JWT Token 存储于 httpOnly Cookie
+    │
+    ▼
+前端通过 /api/auth/me 获取用户信息
+8.2 用户角色
+角色	权限
+visitor	浏览公开内容，无个人记录
+user	学习记录、收藏、活动报名、发布活动（需审核）
+editor	内容编辑（文章/攻略/律师），无站点设置权限
+admin	全权限（站点设置、用户管理、审核、RSS 配置）
+8.3 个人中心页面（/profile）
+┌─────────────────────────────────────────┐
+│ [头像] 用户名                           │
+│ 连续学习 🔥 12 天 │ 已学单词 156 │ 收藏 23 │
+├─────────────────────────────────────────┤
+│ [学习进度]                              │
+│ 单词掌握度 ████████░░ 80%                │
+│ 场景句子 ██████░░░░ 60%                │
+│ 长难句   ████░░░░░░ 40%                │
+├─────────────────────────────────────────┤
+│ [我的活动]                               │
+│ ┌─────────────────────────────────────┐ │
+│ │ 活动标题 [待审核] [已通过] [已拒绝]   │ │
+│ │ 时间 / 地点 / 报名人数              │ │
+│ └─────────────────────────────────────┘ │
+├─────────────────────────────────────────┤
+│ [我的报名]                               │
+│ ┌─────────────────────────────────────┐ │
+│ │ 活动标题 [已确认] [待确认] [已取消]   │ │
+│ │ 组织者联系方式                       │ │
+│ └─────────────────────────────────────┘ │
+├─────────────────────────────────────────┤
+│ [我的收藏]                               │
+│ [单词] [文章] [攻略] [律师] [活动]        │
+└─────────────────────────────────────────┘
+
+九、开发排期建议
+第一阶段：MVP（2 周）
+天数	任务	产出
+1-2	环境搭建 + 数据库建表 + Supabase 配置	可运行的空项目
+3-4	首页 + 学习模块（单词卡片 + TTS）	viewviet.net 基础版
+5-6	法律博客（列表 + 详情） + 管理后台登录	falaw.pro 基础版
+7-8	旅游攻略（列表 + 详情）	攻略模块上线
+9-10	管理后台（文章编辑 + 单词上传）	admin 可用
+11-12	用户系统（注册/登录/个人中心）	用户可注册
+13-14	部署 + 测试 + 修复	全站上线
+第二阶段：增强（2 周）
+•RSS 自动同步系统
+•社区活动模块（发布 + 报名 + 审核）
+•AI 批量导入（翻译 + 分类 + 难度）
+•Word 文章导入
+•收藏/学习进度/连续天数
+•多语言完整适配（zh/en/vi/ko）
+第三阶段：优化（持续）
+•SEO 优化（SSR / SSG）
+•性能优化（图片懒加载 / CDN）
+•数据分析（用户行为追踪）
+•移动端 App（PWA / React Native）
+
+十、部署检查清单
+Hostinger 部署步骤
+# 1. 用户端（viewviet.net）
+cd viewviet-client
+npm run build
+# 上传 dist/ 到 public_html/
+
+# 2. 法律站（falaw.pro）
+cd falaw-client
+npm run build
+# 上传 dist/ 到 public_html_falaw/
+
+# 3. API 服务（api.viewviet.net）
+cd api
+npm install
+# 上传到 Node.js #1 目录
+# 配置环境变量（.env）：
+#   SUPABASE_URL=xxx
+#   SUPABASE_KEY=xxx
+#   JWT_SECRET=xxx
+#   YOUTUBE_API_KEY=xxx
+
+# 4. 管理端（admin.viewviet.net）
+cd admin-client
+npm run build
+# 上传到 Node.js #2 目录
+# 或作为静态站点部署到 public_html_admin/
+环境变量清单
+# 数据库
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_ANON_KEY=xxx
+SUPABASE_SERVICE_KEY=xxx
+
+# 认证
+JWT_SECRET=your-strong-secret-key
+
+# API 密钥（第三方服务）
+YOUTUBE_DATA_API_KEY=xxx
+GOOGLE_MAPS_API_KEY=xxx
+OPENAI_API_KEY=xxx  # AI 翻译/排版用
+
+# 站点
+SITE_URL=https://viewviet.net
+ADMIN_URL=https://admin.viewviet.net
+API_URL=https://api.viewviet.net
+
+# 邮件（可选）
+SMTP_HOST=xxx
+SMTP_USER=xxx
+SMTP_PASS=xxx
+
+十一、风险与规避
+风险	影响	规避策略
+Supabase 免费额度用完	数据库/存储中断	监控使用量，设置告警，准备迁移方案（PlanetScale / AWS RDS）
+YouTube API 限流	视频搜索不可用	缓存搜索结果，降级为静态推荐列表
+AI 翻译成本过高	运营亏损	批量翻译时限制并发，优先翻译高频内容，低频内容人工处理
+越南访问速度慢	用户体验差	Cloudflare CDN + 图片 WebP 格式 + 懒加载
+内容版权风险	法律纠纷	RSS 导入注明来源，原创为主，用户上传内容需审核
+用户数据安全	泄露风险	Supabase Row Level Security (RLS)，敏感操作二次验证
+
+文档结束
+下一步行动： 1. 确认本说明书版本（V3.1）是否符合预期 2. 提供 Supabase 项目 URL 和 API Key，开始数据库初始化 3. 确认 Hostinger 目录结构，开始部署配置

@@ -1,19 +1,21 @@
-# [Project name]
+# ViewViet
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Your trusted cross-border content hub for Chinese expats and travelers in Southeast Asia — combining Vietnamese language learning, travel guides, legal resources, and community events in one place.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080, proxied at `/api`)
+- `pnpm --filter @workspace/viewviet run dev` — run the frontend (port 20108, proxied at `/`)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
+- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `DATABASE_URL` — Postgres connection string, `SESSION_SECRET` — session secret
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
+- Frontend: React + Vite + Tailwind CSS + shadcn/ui + wouter + TanStack Query
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`
@@ -22,23 +24,56 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — OpenAPI contract (source of truth for all endpoints)
+- `lib/api-spec/orval.config.ts` — Orval codegen config (zod: mode single, target generated/api.ts)
+- `lib/api-client-react/src/generated/` — generated React Query hooks
+- `lib/api-zod/src/generated/api.ts` — generated Zod schemas
+- `lib/db/src/schema/` — Drizzle ORM table schemas (words, sentences, legal, travel, lawyers, activities)
+- `artifacts/api-server/src/routes/` — Express route handlers
+- `artifacts/viewviet/src/pages/` — React page components
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Contract-first API: OpenAPI spec → Orval codegen → typed React hooks and Zod validators
+- Orval zod config uses `mode: "single"` to avoid barrel file conflicts (NOT split mode)
+- All API hooks imported from `@workspace/api-client-react`; all Zod schemas from `@workspace/api-zod`
+- DB uses serial PKs (not UUID) for simplicity; text arrays for specialties/tags/languages
+- Routes split by domain: words.ts, sentences.ts, legal.ts, travel.ts, lawyers.ts, activities.ts, dashboard.ts
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- `/` — Homepage with hero, featured guides, legal articles, lawyers, upcoming activities
+- `/learn` — Language hub (Vietnamese, English, Chinese, Korean)
+- `/learn/:lang/words` — Vocabulary with category sidebar, TTS, difficulty stars
+- `/learn/:lang/scenes` — Scene sentences with scene name tabs
+- `/learn/:lang/complex` — Complex sentences with grammar notes
+- `/guides` — Travel guides with featured banner carousel + category filters
+- `/guides/:id` — Guide detail with full content
+- `/legal` — Legal blog with category sidebar + country filter
+- `/legal/:slug` — Article detail with related articles sidebar + "Find a Lawyer" CTA
+- `/lawyers` — Lawyer directory with search/country/city filters
+- `/community` — Activity listings with category filter + upcoming toggle
+- `/community/:id` — Activity detail with organizer info + join button
+- `/admin` — Admin dashboard with stats row + bar chart + recent content
+- `/admin/words` — Word management table with create/delete
+- `/admin/legal` — Legal article CRUD with publish/featured toggles
+- `/admin/guides` — Travel guide CRUD
+- `/admin/lawyers` — Lawyer management
+- `/admin/activities` — Activity moderation (approve/reject pending)
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Brand: teal primary `#0D7377`, gold accent `#F2A900`
+- No emojis in UI (language flags as characters are OK)
+- Chinese content is the primary language for data (users are Chinese expats)
+- TTS via Web Speech API (window.speechSynthesis)
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Do NOT run `pnpm dev` at workspace root — use individual artifact workflows
+- Orval zod output MUST use `mode: "single"` — split mode overwrites `lib/api-zod/src/index.ts`
+- After schema changes: run `pnpm --filter @workspace/db run push` then restart API server
+- After OpenAPI changes: run `pnpm --filter @workspace/api-spec run codegen` then restart frontend
 
 ## Pointers
 
