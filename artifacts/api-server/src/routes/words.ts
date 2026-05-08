@@ -71,6 +71,52 @@ router.post("/admin/words", async (req, res): Promise<void> => {
   res.status(201).json(word);
 });
 
+router.put("/admin/words/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params["id"]);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const parsed = CreateWordBody.partial().safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const [word] = await db.update(wordsTable).set(parsed.data).where(eq(wordsTable.id, id)).returning();
+  if (!word) { res.status(404).json({ error: "Word not found" }); return; }
+  res.json(word);
+});
+
+router.post("/admin/words/bulk", async (req, res): Promise<void> => {
+  const { rows } = req.body as { rows: unknown[] };
+  if (!Array.isArray(rows) || rows.length === 0) {
+    res.status(400).json({ error: "rows array is required" });
+    return;
+  }
+  const valid: any[] = [];
+  const errors: { index: number; error: string }[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] as any;
+    if (!row?.word || typeof row.word !== "string" || !row.word.trim()) {
+      errors.push({ index: i, error: "word is required" });
+      continue;
+    }
+    valid.push({
+      word: row.word.trim(),
+      languageCode: row.languageCode ?? "vi",
+      pronunciation: row.pronunciation || null,
+      meaningZh: row.meaningZh || null,
+      meaningEn: row.meaningEn || null,
+      meaningVi: row.meaningVi || null,
+      category: row.category || null,
+      exampleSentence: row.exampleSentence || null,
+      exampleTranslation: row.exampleTranslation || null,
+      difficulty: Math.min(5, Math.max(1, Number(row.difficulty) || 1)),
+      isPublished: row.isPublished === true || row.isPublished === "true",
+    });
+  }
+  if (valid.length === 0) {
+    res.status(400).json({ error: "No valid rows", errors });
+    return;
+  }
+  const inserted = await db.insert(wordsTable).values(valid).returning();
+  res.status(201).json({ inserted: inserted.length, errors });
+});
+
 router.delete("/admin/words/:id", async (req, res): Promise<void> => {
   const params = DeleteWordParams.safeParse(req.params);
   if (!params.success) {

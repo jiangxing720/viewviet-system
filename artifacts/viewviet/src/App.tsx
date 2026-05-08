@@ -5,6 +5,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { ThemeProvider } from "@/components/theme-provider";
 import Layout from "@/components/layout";
+import { AuthProvider } from "@/contexts/auth";
+import ProtectedAdminRoute from "@/components/protected-route";
+import "@/i18n";
 
 // Pages
 import Home from "@/pages/home";
@@ -19,6 +22,9 @@ import ArticleDetail from "@/pages/legal/detail";
 import Lawyers from "@/pages/lawyers";
 import Community from "@/pages/community";
 import ActivityDetail from "@/pages/community/detail";
+import LoginPage from "@/pages/login";
+import RegisterPage from "@/pages/register";
+import AdminLoginPage from "@/pages/admin/login";
 
 // Admin
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -42,34 +48,51 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={Home} />
-        
+
+        {/* Auth */}
+        <Route path="/login" component={LoginPage} />
+        <Route path="/register" component={RegisterPage} />
+        <Route path="/admin/login" component={AdminLoginPage} />
+
         {/* Learn */}
         <Route path="/learn" component={LearnHub} />
         <Route path="/learn/:lang/words" component={Vocabulary} />
         <Route path="/learn/:lang/scenes" component={SceneSentences} />
         <Route path="/learn/:lang/complex" component={ComplexSentences} />
-        
+
         {/* Guides */}
         <Route path="/guides" component={TravelGuides} />
         <Route path="/guides/:id" component={GuideDetail} />
-        
+
         {/* Legal */}
         <Route path="/legal" component={LegalBlog} />
         <Route path="/legal/:slug" component={ArticleDetail} />
         <Route path="/lawyers" component={Lawyers} />
-        
+
         {/* Community */}
         <Route path="/community" component={Community} />
         <Route path="/community/:id" component={ActivityDetail} />
-        
-        {/* Admin */}
-        <Route path="/admin" component={AdminDashboard} />
-        <Route path="/admin/words" component={AdminWords} />
-        <Route path="/admin/legal" component={AdminLegal} />
-        <Route path="/admin/guides" component={AdminGuides} />
-        <Route path="/admin/lawyers" component={AdminLawyers} />
-        <Route path="/admin/activities" component={AdminActivities} />
-        
+
+        {/* Admin — protected */}
+        <Route path="/admin">
+          {() => <ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>}
+        </Route>
+        <Route path="/admin/words">
+          {() => <ProtectedAdminRoute><AdminWords /></ProtectedAdminRoute>}
+        </Route>
+        <Route path="/admin/legal">
+          {() => <ProtectedAdminRoute><AdminLegal /></ProtectedAdminRoute>}
+        </Route>
+        <Route path="/admin/guides">
+          {() => <ProtectedAdminRoute><AdminGuides /></ProtectedAdminRoute>}
+        </Route>
+        <Route path="/admin/lawyers">
+          {() => <ProtectedAdminRoute><AdminLawyers /></ProtectedAdminRoute>}
+        </Route>
+        <Route path="/admin/activities">
+          {() => <ProtectedAdminRoute><AdminActivities /></ProtectedAdminRoute>}
+        </Route>
+
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -80,12 +103,14 @@ function App() {
   return (
     <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-          <Toaster />
-        </TooltipProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Router />
+            </WouterRouter>
+            <Toaster />
+          </TooltipProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

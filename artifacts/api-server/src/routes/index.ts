@@ -7,9 +7,11 @@ import travelRouter from "./travel";
 import lawyersRouter from "./lawyers";
 import activitiesRouter from "./activities";
 import dashboardRouter from "./dashboard";
+import authRouter from "./auth";
 
 const router: IRouter = Router();
 
+router.use("/auth", authRouter);
 router.use(healthRouter);
 router.use(wordsRouter);
 router.use(sentencesRouter);
