@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "F10WLQa4pSG4hrkfU53qr"
+uri = "file://ViewViet-说明书.md"
+type = "text"
+title = "ViewViet 平台功能说明书"
