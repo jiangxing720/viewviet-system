@@ -30,8 +30,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isAuthRoute = location === "/login" || location === "/register";
 
   const switchLang = (code: string) => {
+    // Update i18next (handles all static UI strings)
     i18n.changeLanguage(code);
     localStorage.setItem("vv-lang", code);
+
+    // Map i18next codes → Google Translate BCP-47 codes
+    const gtCode: Record<string, string> = { zh: "zh-CN", en: "en", vi: "vi" };
+    const target = gtCode[code] ?? code;
+
+    // Trigger Google Translate for all dynamic content on the page
+    const fn = (window as any).vvSwitchGoogleTranslate;
+    if (typeof fn === "function") fn(target);
   };
 
   if (isAuthRoute) return <>{children}</>;
