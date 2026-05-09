@@ -237,6 +237,9 @@ export default function AdminWords() {
                 <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-medium">{bulkResult.inserted} words imported successfully</p>
+                  {(bulkResult as any).skipped > 0 && (
+                    <p className="text-xs mt-1">{(bulkResult as any).skipped} duplicate(s) skipped</p>
+                  )}
                   {bulkResult.errors?.length > 0 && (
                     <p className="text-xs mt-1">{bulkResult.errors.length} row(s) skipped due to validation errors</p>
                   )}

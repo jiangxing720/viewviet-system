@@ -8,20 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useGetWords, getGetWordsQueryKey, useGetWordCategories, getGetWordCategoriesQueryKey } from "@workspace/api-client-react";
-import { Search, Volume2, BookOpen, Star, SlidersHorizontal } from "lucide-react";
+import { Search, Volume2, BookOpen, Star, SlidersHorizontal, Mic } from "lucide-react";
+import { useTtsVoice } from "@/hooks/useTtsVoice";
 
 const LANG_FLAGS: Record<string, string> = { vi: "🇻🇳", en: "🇬🇧", zh: "🇨🇳", ko: "🇰🇷" };
 const LANG_NAME_KEYS: Record<string, string> = { vi: "learn.lang_vi", en: "learn.lang_en", zh: "learn.lang_zh", ko: "learn.lang_ko" };
-
-const LANG_MAP: Record<string, string> = { vi: "vi-VN", en: "en-US", zh: "zh-CN", ko: "ko-KR" };
-
-function speak(text: string, lang: string) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = LANG_MAP[lang] ?? "en-US";
-  window.speechSynthesis.speak(utter);
-}
 
 function DifficultyStars({ level }: { level?: number | null }) {
   return (
@@ -29,6 +20,29 @@ function DifficultyStars({ level }: { level?: number | null }) {
       {[1, 2, 3, 4, 5].map((i) => (
         <Star key={i} className={`w-3 h-3 ${i <= (level ?? 0) ? "fill-accent text-accent" : "text-muted-foreground/30"}`} />
       ))}
+    </div>
+  );
+}
+
+function VoiceSelector({ lang }: { lang: string }) {
+  const { voices, selectedVoiceName, selectVoice } = useTtsVoice(lang);
+  if (voices.length === 0) return null;
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <Mic className="w-3 h-3 flex-shrink-0" />
+      <select
+        className="text-xs border rounded px-2 py-1 bg-background text-foreground max-w-[180px] truncate"
+        value={selectedVoiceName}
+        onChange={(e) => selectVoice(e.target.value)}
+        title="选择朗读音色"
+      >
+        <option value="">默认音色</option>
+        {voices.map((v) => (
+          <option key={v.name} value={v.name}>
+            {v.name}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -73,6 +87,8 @@ export default function Vocabulary() {
   const [page, setPage] = useState(1);
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  const { speak } = useTtsVoice(lang);
+
   const { data: wordsResp, isLoading } = useGetWords(
     { language_code: lang, category, search: search || undefined, page, limit: 20 },
     { query: { queryKey: getGetWordsQueryKey({ language_code: lang, category, search: search || undefined, page, limit: 20 }) } },
@@ -95,7 +111,7 @@ export default function Vocabulary() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6 flex-wrap">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
         <Link href="/learn">
           <Button variant="ghost" size="sm">{t("learn.back_lang")}</Button>
         </Link>
@@ -113,6 +129,11 @@ export default function Vocabulary() {
         </div>
       </div>
 
+      {/* Voice selector row */}
+      <div className="mb-4">
+        <VoiceSelector lang={lang} />
+      </div>
+
       <div className="flex gap-8">
         {/* Desktop Sidebar */}
         <aside className="w-52 flex-shrink-0 hidden md:block">
@@ -123,7 +144,7 @@ export default function Vocabulary() {
         </aside>
 
         {/* Content */}
-        <div className="flex-1 min-w-0 space-y-4">
+        <div className="flex-1 min-w-0 space-y-3">
           {/* Search + mobile filter */}
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -135,7 +156,6 @@ export default function Vocabulary() {
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               />
             </div>
-            {/* Mobile filter button */}
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="md:hidden flex-shrink-0">
@@ -153,7 +173,6 @@ export default function Vocabulary() {
             </Sheet>
           </div>
 
-          {/* Active category chip on mobile */}
           {category && (
             <div className="flex md:hidden">
               <Badge variant="secondary" className="gap-1">
@@ -164,7 +183,7 @@ export default function Vocabulary() {
           )}
 
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
             </div>
           ) : words.length === 0 ? (
@@ -173,46 +192,49 @@ export default function Vocabulary() {
               <p>{t("learn.no_words")}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {words.map((word: any) => (
-                <Card key={word.id} className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                  <CardContent className="p-4 space-y-3">
+                <Card key={word.id} className="hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5">
+                  <CardContent className="p-4 space-y-2.5">
                     <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-xl font-bold">{word.word}</p>
-                        {word.pronunciation && <p className="text-sm text-muted-foreground font-mono">{word.pronunciation}</p>}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-8 h-8 flex-shrink-0 text-primary"
-                        onClick={() => speak(word.word, lang)}
-                        title={t("learn.tts_play")}
-                      >
-                        <Volume2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    <div className="space-y-1 text-sm">
-                      {word.meaningZh && <p><span className="text-muted-foreground">中文：</span>{word.meaningZh}</p>}
-                      {word.meaningEn && <p><span className="text-muted-foreground">EN：</span>{word.meaningEn}</p>}
-                      {word.meaningVi && <p><span className="text-muted-foreground">VI：</span>{word.meaningVi}</p>}
-                    </div>
-                    {word.exampleSentence && (
-                      <div className="bg-muted/50 rounded-lg p-2 text-xs space-y-1">
-                        <div className="flex items-start justify-between gap-1">
-                          <p className="italic flex-1">{word.exampleSentence}</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xl font-bold truncate">{word.word}</p>
                           <button
-                            onClick={() => speak(word.exampleSentence, lang)}
-                            className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                            onClick={() => speak(word.word)}
                             title={t("learn.tts_play")}
                           >
-                            <Volume2 className="w-3 h-3" />
+                            <Volume2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        {word.exampleTranslation && <p className="text-muted-foreground">{word.exampleTranslation}</p>}
+                        {word.pronunciation && <p className="text-xs text-muted-foreground font-mono mt-0.5">{word.pronunciation}</p>}
                       </div>
+                    </div>
+
+                    <div className="space-y-0.5 text-sm">
+                      {word.meaningZh && <p className="leading-snug"><span className="text-muted-foreground text-xs">中：</span>{word.meaningZh}</p>}
+                      {word.meaningEn && <p className="leading-snug"><span className="text-muted-foreground text-xs">EN：</span>{word.meaningEn}</p>}
+                      {word.meaningVi && <p className="leading-snug"><span className="text-muted-foreground text-xs">VI：</span>{word.meaningVi}</p>}
+                    </div>
+
+                    {word.exampleSentence && (
+                      <button
+                        className="w-full text-left bg-muted/50 rounded-lg p-2.5 space-y-1 hover:bg-primary/5 hover:border-primary/20 border border-transparent transition-colors cursor-pointer"
+                        onClick={() => speak(word.exampleSentence)}
+                        title={t("learn.tts_play")}
+                      >
+                        <div className="flex items-start gap-1.5">
+                          <Volume2 className="w-3 h-3 flex-shrink-0 mt-0.5 text-primary/60" />
+                          <p className="italic text-sm leading-snug flex-1">{word.exampleSentence}</p>
+                        </div>
+                        {word.exampleTranslation && (
+                          <p className="text-xs text-muted-foreground pl-4.5">{word.exampleTranslation}</p>
+                        )}
+                      </button>
                     )}
-                    <div className="flex items-center justify-between">
+
+                    <div className="flex items-center justify-between pt-0.5">
                       <DifficultyStars level={word.difficulty} />
                       {word.category && <Badge variant="secondary" className="text-xs">{word.category}</Badge>}
                     </div>

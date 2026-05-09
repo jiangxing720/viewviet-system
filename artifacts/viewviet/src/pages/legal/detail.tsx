@@ -7,7 +7,8 @@ import {
   useGetLegalArticle, getGetLegalArticleQueryKey,
   useGetRelatedLegalArticles, getGetRelatedLegalArticlesQueryKey,
 } from "@workspace/api-client-react";
-import { Eye, ArrowLeft, Scale, Phone, Mail, Globe } from "lucide-react";
+import { Eye, ArrowLeft, Scale, Globe } from "lucide-react";
+import { parseMarkdown } from "@/lib/markdown";
 
 export default function ArticleDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -44,6 +45,8 @@ export default function ArticleDetail() {
     );
   }
 
+  const contentHtml = a.content ? parseMarkdown(a.content) : "";
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8" data-testid="page-article-detail">
       {/* Breadcrumb */}
@@ -61,7 +64,7 @@ export default function ArticleDetail() {
 
       <div className="flex gap-8">
         {/* Main article */}
-        <div className="flex-1 min-w-0 space-y-6">
+        <div className="flex-1 min-w-0 space-y-5">
           <Button asChild variant="ghost" size="sm" data-testid="button-back-legal">
             <Link href="/legal"><ArrowLeft className="w-4 h-4 mr-1" />Back to Legal</Link>
           </Button>
@@ -78,19 +81,23 @@ export default function ArticleDetail() {
             </div>
             <h1 className="text-2xl md:text-3xl font-bold leading-snug" data-testid="text-article-title">{a.title}</h1>
             {a.titleEn && a.titleEn !== a.title && <p className="text-muted-foreground">{a.titleEn}</p>}
-            {a.summary && <p className="text-muted-foreground italic border-l-4 border-primary pl-4">{a.summary}</p>}
+            {a.summary && <p className="text-muted-foreground italic border-l-4 border-primary pl-4 text-sm leading-relaxed">{a.summary}</p>}
           </div>
 
           {a.coverImage && (
             <div className="w-full h-64 rounded-2xl bg-cover bg-center" style={{ backgroundImage: `url(${a.coverImage})` }} data-testid="img-article-cover" />
           )}
 
-          {a.content ? (
+          {contentHtml ? (
             <div
-              className="prose prose-neutral max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: a.content }}
+              className="prose prose-neutral max-w-none dark:prose-invert text-foreground"
+              dangerouslySetInnerHTML={{ __html: contentHtml }}
               data-testid="text-article-content"
             />
+          ) : a.content ? (
+            <div className="text-foreground whitespace-pre-wrap text-sm leading-relaxed" data-testid="text-article-content">
+              {a.content}
+            </div>
           ) : (
             <p className="text-muted-foreground">Full article content coming soon.</p>
           )}
@@ -107,7 +114,6 @@ export default function ArticleDetail() {
         {/* Sidebar */}
         <aside className="w-64 flex-shrink-0 hidden lg:block">
           <div className="sticky top-24 space-y-6">
-            {/* Related articles */}
             {relatedList.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Related Articles</p>
@@ -126,7 +132,6 @@ export default function ArticleDetail() {
               </div>
             )}
 
-            {/* Contact lawyers CTA */}
             <Card className="bg-primary/5 border-primary/20">
               <CardContent className="p-4 text-center space-y-3">
                 <Scale className="w-8 h-8 text-primary mx-auto" />

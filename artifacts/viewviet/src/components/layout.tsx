@@ -80,6 +80,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link href="/admin/sentences" className={`hover:text-primary ${location === "/admin/sentences" ? "text-primary" : ""}`}>{t("admin.sentences")}</Link>
               <Link href="/admin/lawyers" className={`hover:text-primary ${location === "/admin/lawyers" ? "text-primary" : ""}`}>{t("admin.lawyers")}</Link>
               <Link href="/admin/activities" className={`hover:text-primary ${location === "/admin/activities" ? "text-primary" : ""}`}>{t("admin.activities")}</Link>
+              <Link href="/admin/settings" className={`hover:text-primary ${location === "/admin/settings" ? "text-primary" : ""}`}>站点设置</Link>
             </nav>
           )}
 

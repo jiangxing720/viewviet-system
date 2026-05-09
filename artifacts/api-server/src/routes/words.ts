@@ -87,8 +87,11 @@ router.post("/admin/words/bulk", async (req, res): Promise<void> => {
     res.status(400).json({ error: "rows array is required" });
     return;
   }
+
   const valid: any[] = [];
   const errors: { index: number; error: string }[] = [];
+  const skipped: { index: number; word: string; reason: string }[] = [];
+
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i] as any;
     if (!row?.word || typeof row.word !== "string" || !row.word.trim()) {
@@ -96,6 +99,7 @@ router.post("/admin/words/bulk", async (req, res): Promise<void> => {
       continue;
     }
     valid.push({
+      index: i,
       word: row.word.trim(),
       languageCode: row.languageCode ?? "vi",
       pronunciation: row.pronunciation || null,
@@ -109,12 +113,50 @@ router.post("/admin/words/bulk", async (req, res): Promise<void> => {
       isPublished: row.isPublished === true || row.isPublished === "true",
     });
   }
+
   if (valid.length === 0) {
     res.status(400).json({ error: "No valid rows", errors });
     return;
   }
-  const inserted = await db.insert(wordsTable).values(valid).returning();
-  res.status(201).json({ inserted: inserted.length, errors });
+
+  // Deduplicate: fetch all existing words for the languages in this batch
+  const langCodes = [...new Set(valid.map((r) => r.languageCode))];
+  const existing = await db
+    .select({ word: wordsTable.word, languageCode: wordsTable.languageCode })
+    .from(wordsTable)
+    .where(
+      langCodes.length === 1
+        ? eq(wordsTable.languageCode, langCodes[0]!)
+        : sql`${wordsTable.languageCode} = ANY(${sql.raw(`ARRAY[${langCodes.map(l => `'${l}'`).join(",")}]`)})`,
+    );
+
+  const existingSet = new Set(existing.map((e) => `${e.languageCode}::${e.word.toLowerCase()}`));
+
+  const toInsert: any[] = [];
+  for (const row of valid) {
+    const key = `${row.languageCode}::${row.word.toLowerCase()}`;
+    if (existingSet.has(key)) {
+      skipped.push({ index: row.index, word: row.word, reason: "duplicate" });
+    } else {
+      // Add to local set to prevent duplicates within the same batch
+      existingSet.add(key);
+      const { index: _i, ...rest } = row;
+      toInsert.push(rest);
+    }
+  }
+
+  if (toInsert.length === 0) {
+    res.status(200).json({ inserted: 0, skipped: skipped.length, skippedWords: skipped, errors });
+    return;
+  }
+
+  const inserted = await db.insert(wordsTable).values(toInsert).returning();
+  res.status(201).json({
+    inserted: inserted.length,
+    skipped: skipped.length,
+    skippedWords: skipped,
+    errors,
+  });
 });
 
 router.delete("/admin/words/:id", async (req, res): Promise<void> => {

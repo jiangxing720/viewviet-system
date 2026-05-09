@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetTravelGuide, getGetTravelGuideQueryKey } from "@workspace/api-client-react";
 import { MapPin, Eye, ArrowLeft, DollarSign } from "lucide-react";
+import { parseMarkdown } from "@/lib/markdown";
 
 export default function GuideDetail() {
   const { id } = useParams<{ id: string }>();
@@ -36,10 +37,14 @@ export default function GuideDetail() {
     );
   }
 
+  const contentHtml = g.content ? parseMarkdown(g.content) : "";
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8" data-testid="page-guide-detail">
+    <div className="max-w-4xl mx-auto px-4 py-8 space-y-6" data-testid="page-guide-detail">
       <Link href="/guides">
-        <Button variant="ghost" size="sm" data-testid="button-back-guides"><ArrowLeft className="w-4 h-4 mr-1" />Back to Guides</Button>
+        <Button variant="ghost" size="sm" data-testid="button-back-guides">
+          <ArrowLeft className="w-4 h-4 mr-1" />Back to Guides
+        </Button>
       </Link>
 
       {g.coverImage && (
@@ -50,12 +55,11 @@ export default function GuideDetail() {
         />
       )}
 
-      {/* Info bar */}
       <div className="flex flex-wrap gap-3 items-center">
         {g.category && <Badge>{g.category}</Badge>}
         {g.country && (
           <span className="flex items-center gap-1 text-sm text-muted-foreground">
-            <MapPin className="w-4 h-4" />{g.city}, {g.country}
+            <MapPin className="w-4 h-4" />{g.city}{g.city && g.country ? ", " : ""}{g.country}
           </span>
         )}
         {g.budgetRange && (
@@ -70,16 +74,28 @@ export default function GuideDetail() {
         )}
       </div>
 
-      <h1 className="text-3xl font-bold leading-snug" data-testid="text-guide-title">{g.title}</h1>
-      {g.titleEn && g.titleEn !== g.title && <p className="text-muted-foreground">{g.titleEn}</p>}
+      <div>
+        <h1 className="text-3xl font-bold leading-snug" data-testid="text-guide-title">{g.title}</h1>
+        {g.titleEn && g.titleEn !== g.title && <p className="text-muted-foreground mt-1">{g.titleEn}</p>}
+      </div>
 
-      {g.content && (
+      {g.summary && (
+        <p className="text-muted-foreground italic border-l-4 border-primary pl-4 text-sm leading-relaxed">
+          {g.summary}
+        </p>
+      )}
+
+      {contentHtml ? (
         <div
-          className="prose prose-neutral max-w-none dark:prose-invert"
-          dangerouslySetInnerHTML={{ __html: g.content }}
+          className="prose prose-neutral max-w-none dark:prose-invert text-foreground"
+          dangerouslySetInnerHTML={{ __html: contentHtml }}
           data-testid="text-guide-content"
         />
-      )}
+      ) : g.content ? (
+        <div className="prose prose-neutral max-w-none dark:prose-invert text-foreground whitespace-pre-wrap" data-testid="text-guide-content">
+          {g.content}
+        </div>
+      ) : null}
 
       {g.mapEmbed && (
         <div className="space-y-2">

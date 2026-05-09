@@ -8,6 +8,8 @@ import Layout from "@/components/layout";
 import { AuthProvider } from "@/contexts/auth";
 import ProtectedAdminRoute from "@/components/protected-route";
 import "@/i18n";
+import { useEffect } from "react";
+import { initSiteSettings } from "@/pages/admin/settings";
 
 // Pages
 import Home from "@/pages/home";
@@ -34,6 +36,7 @@ import AdminLegal from "@/pages/admin/legal";
 import AdminGuides from "@/pages/admin/guides";
 import AdminLawyers from "@/pages/admin/lawyers";
 import AdminActivities from "@/pages/admin/activities";
+import AdminSettings from "@/pages/admin/settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,6 +46,13 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function SiteSettingsInit() {
+  useEffect(() => {
+    initSiteSettings();
+  }, []);
+  return null;
+}
 
 function Router() {
   return (
@@ -96,6 +106,9 @@ function Router() {
         <Route path="/admin/activities">
           {() => <ProtectedAdminRoute><AdminActivities /></ProtectedAdminRoute>}
         </Route>
+        <Route path="/admin/settings">
+          {() => <ProtectedAdminRoute><AdminSettings /></ProtectedAdminRoute>}
+        </Route>
 
         <Route component={NotFound} />
       </Switch>
@@ -109,6 +122,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TooltipProvider>
+            <SiteSettingsInit />
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <Router />
             </WouterRouter>
