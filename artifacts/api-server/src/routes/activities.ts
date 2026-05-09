@@ -58,6 +58,33 @@ router.post("/activities", async (req, res): Promise<void> => {
   res.status(201).json(activity);
 });
 
+router.post("/activities/:id/join", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid activity id" });
+    return;
+  }
+  const [activity] = await db.select().from(activitiesTable).where(eq(activitiesTable.id, id));
+  if (!activity) {
+    res.status(404).json({ error: "Activity not found" });
+    return;
+  }
+  if (!activity.isPublished) {
+    res.status(400).json({ error: "Activity not available" });
+    return;
+  }
+  if (activity.maxParticipants && activity.currentParticipants >= activity.maxParticipants) {
+    res.status(409).json({ error: "Activity is full" });
+    return;
+  }
+  const [updated] = await db
+    .update(activitiesTable)
+    .set({ currentParticipants: sql`${activitiesTable.currentParticipants} + 1` })
+    .where(eq(activitiesTable.id, id))
+    .returning();
+  res.json(updated);
+});
+
 router.put("/admin/activities/:id/approve", async (req, res): Promise<void> => {
   const params = ApproveActivityParams.safeParse(req.params);
   if (!params.success) {

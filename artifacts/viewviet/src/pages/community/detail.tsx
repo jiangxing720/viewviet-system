@@ -5,19 +5,49 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetActivity, getGetActivityQueryKey } from "@workspace/api-client-react";
-import { Calendar, MapPin, Users, ArrowLeft, Phone, User, Share2 } from "lucide-react";
+import { Calendar, MapPin, Users, ArrowLeft, Phone, User, Share2, CheckCircle2, Loader2 } from "lucide-react";
 import { ActivityPosterModal } from "@/components/ActivityPoster";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ActivityDetail() {
   const { id } = useParams<{ id: string }>();
   const activityId = Number(id);
   const [posterOpen, setPosterOpen] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [joined, setJoined] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: activity, isLoading, isError } = useGetActivity(activityId, {
     query: { queryKey: getGetActivityQueryKey(activityId), enabled: !!activityId },
   });
 
   const a = activity as any;
+
+  const handleJoin = async () => {
+    if (joining || joined) return;
+    setJoining(true);
+    try {
+      const res = await fetch(`/api/activities/${activityId}/join`, { method: "POST" });
+      if (res.status === 409) {
+        toast({ title: "名额已满，无法报名", variant: "destructive" });
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast({ title: data.error ?? "报名失败，请稍后再试", variant: "destructive" });
+        return;
+      }
+      setJoined(true);
+      toast({ title: "报名成功！期待你的参与" });
+      queryClient.invalidateQueries({ queryKey: getGetActivityQueryKey(activityId) });
+    } catch {
+      toast({ title: "网络错误，请重试", variant: "destructive" });
+    } finally {
+      setJoining(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -34,13 +64,13 @@ export default function ActivityDetail() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center text-muted-foreground">
         <Users className="w-12 h-12 mx-auto mb-4 opacity-30" />
-        <p className="text-lg">Activity not found.</p>
-        <Link href="/community"><Button variant="ghost" className="mt-4">← Back to Community</Button></Link>
+        <p className="text-lg">活动不存在</p>
+        <Link href="/community"><Button variant="ghost" className="mt-4">← 返回社区</Button></Link>
       </div>
     );
   }
 
-  const spotsLeft = a.maxParticipants ? a.maxParticipants - a.currentParticipants : null;
+  const spotsLeft = a.maxParticipants ? a.maxParticipants - (a.currentParticipants ?? 0) : null;
   const isFull = spotsLeft !== null && spotsLeft <= 0;
 
   return (
@@ -115,7 +145,7 @@ export default function ActivityDetail() {
               <Users className="w-5 h-5 text-primary mt-0.5" />
               <div>
                 <p className="text-xs text-muted-foreground font-medium">参与人数</p>
-                <p className="text-sm font-medium">{a.currentParticipants} / {a.maxParticipants}</p>
+                <p className="text-sm font-medium">{a.currentParticipants ?? 0} / {a.maxParticipants}</p>
                 {spotsLeft !== null && (
                   <p className={`text-xs ${isFull ? "text-destructive" : "text-muted-foreground"}`}>
                     {isFull ? "名额已满" : `还剩 ${spotsLeft} 个名额`}
@@ -156,10 +186,24 @@ export default function ActivityDetail() {
       )}
 
       {/* Actions */}
-      <div className="flex gap-3 pt-4 border-t">
-        <Button size="lg" disabled={isFull} className="flex-1" data-testid="button-join-activity">
-          {isFull ? "名额已满" : "立即报名"}
-        </Button>
+      <div className="flex gap-3 pt-4 border-t flex-wrap">
+        {joined ? (
+          <Button size="lg" className="flex-1 gap-2 bg-green-600 hover:bg-green-600 cursor-default" disabled>
+            <CheckCircle2 className="w-5 h-5" />
+            已成功报名
+          </Button>
+        ) : (
+          <Button
+            size="lg"
+            disabled={isFull || joining}
+            className="flex-1 gap-2"
+            onClick={handleJoin}
+            data-testid="button-join-activity"
+          >
+            {joining && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isFull ? "名额已满" : joining ? "报名中…" : "立即报名"}
+          </Button>
+        )}
         <Button variant="outline" size="lg" onClick={() => setPosterOpen(true)} className="gap-1.5">
           <Share2 className="w-4 h-4" />
           分享海报
