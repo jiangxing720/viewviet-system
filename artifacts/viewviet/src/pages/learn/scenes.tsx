@@ -12,6 +12,28 @@ import { useTtsVoice } from "@/hooks/useTtsVoice";
 const LANG_FLAGS: Record<string, string> = { vi: "🇻🇳", en: "🇬🇧", zh: "🇨🇳", ko: "🇰🇷" };
 const LANG_NAME_KEYS: Record<string, string> = { vi: "learn.lang_vi", en: "learn.lang_en", zh: "learn.lang_zh", ko: "learn.lang_ko" };
 
+// Language label badge styles
+const TRANSLATION_BADGES: Record<string, { label: string; bg: string; text: string }> = {
+  zh: { label: "中", bg: "#fef2f2", text: "#b91c1c" },
+  en: { label: "EN", bg: "#eff6ff", text: "#1d4ed8" },
+  vi: { label: "VI", bg: "#fefce8", text: "#92400e" },
+};
+
+function TranslationRow({ lang, content }: { lang: string; content: string }) {
+  const badge = TRANSLATION_BADGES[lang];
+  return (
+    <div className="flex items-start gap-2 text-sm">
+      <span
+        className="flex-shrink-0 text-xs font-bold px-1.5 py-0.5 rounded min-w-[28px] text-center mt-0.5"
+        style={{ background: badge.bg, color: badge.text }}
+      >
+        {badge.label}
+      </span>
+      <p className="leading-snug text-foreground">{content}</p>
+    </div>
+  );
+}
+
 function VoiceSelector({ lang }: { lang: string }) {
   const { voices, selectedVoiceName, selectVoice } = useTtsVoice(lang);
   if (voices.length === 0) return null;
@@ -59,44 +81,55 @@ function KtvText({
   const startKtv = useCallback(() => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const utter = makeUtterance(sentence);
-    utter.onboundary = (e: SpeechSynthesisEvent) => {
-      if (e.name === "word") setActiveChar(e.charIndex);
+    const u = makeUtterance(sentence);
+    setSpeaking(true);
+    setActiveChar(-1);
+
+    u.onboundary = (ev) => {
+      if (ev.name === "word" || ev.name === "sentence") {
+        const charIdx = ev.charIndex;
+        const segIdx = positions.findIndex(
+          (p) => !p.isSpace && p.start <= charIdx && charIdx < p.end,
+        );
+        setActiveChar(segIdx >= 0 ? segIdx : charIdx);
+      }
     };
-    utter.onstart = () => { setSpeaking(true); setActiveChar(0); };
-    utter.onend = () => { setSpeaking(false); setActiveChar(-1); };
-    utter.onerror = () => { setSpeaking(false); setActiveChar(-1); };
-    window.speechSynthesis.speak(utter);
-  }, [sentence, makeUtterance]);
+    u.onend = () => { setSpeaking(false); setActiveChar(-1); };
+    u.onerror = () => { setSpeaking(false); setActiveChar(-1); };
+    window.speechSynthesis.speak(u);
+  }, [sentence, makeUtterance, positions]);
 
   return (
-    <div
-      className="flex items-start gap-2 cursor-pointer group"
+    <button
+      className="w-full text-left group cursor-pointer"
       onClick={startKtv}
       title="点击朗读"
+      type="button"
     >
-      <div className={`flex-1 flex flex-wrap gap-x-0.5 leading-relaxed text-base font-semibold ${speaking ? "text-foreground" : "group-hover:text-primary/90"} transition-colors`}>
-        {segments.map((seg, i) => {
-          const { start, end, isSpace } = positions[i];
-          const isActive = speaking && activeChar >= start && activeChar < end && !isSpace;
-          return (
-            <span
-              key={i}
-              className={`transition-all duration-75 ${isActive ? "bg-accent text-accent-foreground rounded px-0.5 scale-110 inline-block" : ""}`}
-            >
-              {seg}
-            </span>
-          );
-        })}
+      <div className="flex items-start gap-2">
+        <Volume2
+          className={`w-4 h-4 flex-shrink-0 mt-1 transition-colors ${
+            speaking ? "text-primary animate-pulse" : "text-muted-foreground group-hover:text-primary"
+          }`}
+        />
+        <p className="text-base font-medium leading-relaxed flex flex-wrap gap-x-0.5">
+          {segments.map((seg, i) => {
+            const isSpace = /^\s+$/.test(seg);
+            if (isSpace) return <span key={i}>{seg}</span>;
+            return (
+              <span
+                key={i}
+                className={`transition-colors duration-100 ${
+                  activeChar === i ? "text-primary font-bold" : ""
+                }`}
+              >
+                {seg}
+              </span>
+            );
+          })}
+        </p>
       </div>
-      <div
-        className={`flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full transition-all mt-0.5 ${
-          speaking ? "bg-accent text-accent-foreground animate-pulse" : "text-muted-foreground/50 group-hover:text-primary group-hover:bg-primary/10"
-        }`}
-      >
-        <Volume2 className="w-3.5 h-3.5" />
-      </div>
-    </div>
+    </button>
   );
 }
 
@@ -126,7 +159,9 @@ export default function SceneSentences() {
           <Button variant="ghost" size="sm">{t("learn.back_words")}</Button>
         </Link>
         <span className="text-2xl">{LANG_FLAGS[lang]}</span>
-        <h1 className="text-xl md:text-2xl font-bold">{t(LANG_NAME_KEYS[lang] ?? "learn.scene_sentences")} {t("learn.scene_sentences")}</h1>
+        <h1 className="text-xl md:text-2xl font-bold">
+          {t(LANG_NAME_KEYS[lang] ?? "learn.scene_sentences")} {t("learn.scene_sentences")}
+        </h1>
         <Link href={`/learn/${lang}/complex`} className="ml-auto">
           <Button variant="outline" size="sm">{t("learn.complex_btn")}</Button>
         </Link>
@@ -141,7 +176,9 @@ export default function SceneSentences() {
       <div className="overflow-x-auto pb-2 mb-4 -mx-4 px-4">
         <div className="flex gap-2 w-max md:flex-wrap md:w-auto">
           <button
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${!scene ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+              !scene ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"
+            }`}
             onClick={() => setScene(undefined)}
           >
             {t("learn.all_scenes")}
@@ -149,7 +186,9 @@ export default function SceneSentences() {
           {sceneList.map((s: string) => (
             <button
               key={s}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${scene === s ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+                scene === s ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"
+              }`}
               onClick={() => setScene(s)}
             >
               {s}
@@ -169,17 +208,32 @@ export default function SceneSentences() {
         <div className="space-y-2">
           {sentences.map((s: any) => (
             <Card key={s.id} className="hover:shadow-md transition-all duration-200">
-              <CardContent className="p-3.5">
+              <CardContent className="p-3.5 space-y-2.5">
+                {/* Main sentence with KTV highlight */}
                 <KtvText sentence={s.sentence} lang={lang} makeUtterance={makeUtterance} />
-                {s.pronunciation && <p className="text-xs text-muted-foreground font-mono mt-1.5 pl-0.5">{s.pronunciation}</p>}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 text-sm mt-2">
-                  {s.translationZh && <p className="text-sm leading-snug"><span className="text-muted-foreground text-xs">中：</span>{s.translationZh}</p>}
-                  {s.translationEn && <p className="text-sm leading-snug"><span className="text-muted-foreground text-xs">EN：</span>{s.translationEn}</p>}
-                  {s.translationVi && <p className="text-sm leading-snug"><span className="text-muted-foreground text-xs">VI：</span>{s.translationVi}</p>}
-                </div>
-                <div className="flex gap-2 mt-2 flex-wrap">
+
+                {/* Pronunciation */}
+                {s.pronunciation && (
+                  <p className="text-xs text-muted-foreground font-mono pl-6">{s.pronunciation}</p>
+                )}
+
+                {/* Translations — each labeled with a colored badge */}
+                {(s.translationZh || s.translationEn || s.translationVi) && (
+                  <div className="border-l-2 border-muted pl-3 space-y-1.5">
+                    {s.translationZh && <TranslationRow lang="zh" content={s.translationZh} />}
+                    {s.translationEn && <TranslationRow lang="en" content={s.translationEn} />}
+                    {s.translationVi && <TranslationRow lang="vi" content={s.translationVi} />}
+                  </div>
+                )}
+
+                {/* Tags */}
+                <div className="flex gap-2 flex-wrap">
                   {s.sceneName && <Badge variant="outline" className="text-xs">{s.sceneName}</Badge>}
-                  {s.difficulty && <Badge variant="secondary" className="text-xs">{t("learn.level", { n: s.difficulty })}</Badge>}
+                  {s.difficulty && (
+                    <Badge variant="secondary" className="text-xs">
+                      {t("learn.level", { n: s.difficulty })}
+                    </Badge>
+                  )}
                 </div>
               </CardContent>
             </Card>

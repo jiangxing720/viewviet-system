@@ -212,21 +212,38 @@ export default function Vocabulary() {
                       </div>
                     </div>
 
-                    <div className="space-y-0.5 text-sm">
-                      {word.meaningZh && <p className="leading-snug"><span className="text-muted-foreground text-xs">中：</span>{word.meaningZh}</p>}
-                      {word.meaningEn && <p className="leading-snug"><span className="text-muted-foreground text-xs">EN：</span>{word.meaningEn}</p>}
-                      {word.meaningVi && <p className="leading-snug"><span className="text-muted-foreground text-xs">VI：</span>{word.meaningVi}</p>}
+                    {/* Meanings with colored language badges */}
+                    <div className="space-y-1 text-sm border-l-2 border-muted pl-2.5">
+                      {word.meaningZh && (
+                        <div className="flex items-start gap-1.5">
+                          <span className="flex-shrink-0 text-xs font-bold px-1 py-0.5 rounded min-w-[24px] text-center mt-0.5" style={{ background: "#fef2f2", color: "#b91c1c" }}>中</span>
+                          <p className="leading-snug">{word.meaningZh}</p>
+                        </div>
+                      )}
+                      {word.meaningEn && (
+                        <div className="flex items-start gap-1.5">
+                          <span className="flex-shrink-0 text-xs font-bold px-1 py-0.5 rounded min-w-[24px] text-center mt-0.5" style={{ background: "#eff6ff", color: "#1d4ed8" }}>EN</span>
+                          <p className="leading-snug">{word.meaningEn}</p>
+                        </div>
+                      )}
+                      {word.meaningVi && (
+                        <div className="flex items-start gap-1.5">
+                          <span className="flex-shrink-0 text-xs font-bold px-1 py-0.5 rounded min-w-[24px] text-center mt-0.5" style={{ background: "#fefce8", color: "#92400e" }}>VI</span>
+                          <p className="leading-snug">{word.meaningVi}</p>
+                        </div>
+                      )}
                     </div>
 
+                    {/* Example sentence (in target language) */}
                     {word.exampleSentence && (
                       <button
-                        className="w-full text-left bg-muted/50 rounded-lg p-2.5 space-y-1 hover:bg-primary/5 hover:border-primary/20 border border-transparent transition-colors cursor-pointer"
+                        className="w-full text-left bg-primary/5 border border-primary/15 rounded-lg p-2.5 space-y-1 hover:bg-primary/10 hover:border-primary/25 transition-colors cursor-pointer"
                         onClick={() => speak(word.exampleSentence)}
                         title={t("learn.tts_play")}
                       >
                         <div className="flex items-start gap-1.5">
-                          <Volume2 className="w-3 h-3 flex-shrink-0 mt-0.5 text-primary/60" />
-                          <p className="italic text-sm leading-snug flex-1">{word.exampleSentence}</p>
+                          <Volume2 className="w-3 h-3 flex-shrink-0 mt-0.5 text-primary/70" />
+                          <p className="italic text-sm leading-snug flex-1 text-foreground">{word.exampleSentence}</p>
                         </div>
                         {word.exampleTranslation && (
                           <p className="text-xs text-muted-foreground pl-4.5">{word.exampleTranslation}</p>

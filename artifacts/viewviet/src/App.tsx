@@ -37,6 +37,7 @@ import AdminGuides from "@/pages/admin/guides";
 import AdminLawyers from "@/pages/admin/lawyers";
 import AdminActivities from "@/pages/admin/activities";
 import AdminSettings from "@/pages/admin/settings";
+import AdminLanguages from "@/pages/admin/languages";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -108,6 +109,9 @@ function Router() {
         </Route>
         <Route path="/admin/settings">
           {() => <ProtectedAdminRoute><AdminSettings /></ProtectedAdminRoute>}
+        </Route>
+        <Route path="/admin/languages">
+          {() => <ProtectedAdminRoute><AdminLanguages /></ProtectedAdminRoute>}
         </Route>
 
         <Route component={NotFound} />

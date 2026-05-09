@@ -38,6 +38,8 @@ export default function AdminDashboard() {
           <Link href="/admin/guides"><Badge variant="outline" className="cursor-pointer hover:bg-muted">Guides</Badge></Link>
           <Link href="/admin/lawyers"><Badge variant="outline" className="cursor-pointer hover:bg-muted">Lawyers</Badge></Link>
           <Link href="/admin/activities"><Badge variant="outline" className="cursor-pointer hover:bg-muted">Activities</Badge></Link>
+          <Link href="/admin/languages"><Badge variant="outline" className="cursor-pointer hover:bg-muted">Languages</Badge></Link>
+          <Link href="/admin/settings"><Badge variant="outline" className="cursor-pointer hover:bg-muted">Settings</Badge></Link>
         </div>
       </div>
 

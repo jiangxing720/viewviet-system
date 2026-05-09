@@ -1,41 +1,67 @@
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
-import { ArrowRight } from "lucide-react";
 
-const LANGUAGES = [
+const LANG_STORAGE_KEY = "vv-learn-languages";
+
+const DEFAULT_LANGUAGES = [
   {
     code: "vi",
-    flag: "🇻🇳",
     nameKey: "learn.lang_vi",
     descKey: "learn.lang_vi_desc",
-    color: "from-red-50 to-yellow-50 dark:from-red-950/20 dark:to-yellow-950/20",
-    border: "border-red-200 dark:border-red-800/40",
+    photo: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=600&q=80&auto=format&fit=crop",
+    accent: "#f59e0b",
+    label: "越南语",
+    sublabel: "Tiếng Việt",
+    enabled: true,
   },
   {
     code: "en",
-    flag: "🇬🇧",
     nameKey: "learn.lang_en",
     descKey: "learn.lang_en_desc",
-    color: "from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20",
-    border: "border-blue-200 dark:border-blue-800/40",
+    photo: "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=600&q=80&auto=format&fit=crop",
+    accent: "#3b82f6",
+    label: "英语",
+    sublabel: "English",
+    enabled: true,
   },
   {
     code: "zh",
-    flag: "🇨🇳",
     nameKey: "learn.lang_zh",
     descKey: "learn.lang_zh_desc",
-    color: "from-rose-50 to-orange-50 dark:from-rose-950/20 dark:to-orange-950/20",
-    border: "border-rose-200 dark:border-rose-800/40",
+    photo: "https://images.unsplash.com/photo-1508804185872-d7badad00f7d?w=600&q=80&auto=format&fit=crop",
+    accent: "#ef4444",
+    label: "中文",
+    sublabel: "普通话",
+    enabled: true,
   },
   {
     code: "ko",
-    flag: "🇰🇷",
     nameKey: "learn.lang_ko",
     descKey: "learn.lang_ko_desc",
-    color: "from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20",
-    border: "border-violet-200 dark:border-violet-800/40",
+    photo: "https://images.unsplash.com/photo-1601621915196-2621bfb0cd6e?w=600&q=80&auto=format&fit=crop",
+    accent: "#8b5cf6",
+    label: "韩语",
+    sublabel: "한국어",
+    enabled: true,
   },
 ];
+
+function loadLanguages() {
+  try {
+    const raw = localStorage.getItem(LANG_STORAGE_KEY);
+    if (raw) {
+      const stored = JSON.parse(raw);
+      // Merge with default nameKey/descKey for i18n
+      return stored.map((l: any) => ({
+        ...l,
+        nameKey: `learn.lang_${l.code}`,
+        descKey: `learn.lang_${l.code}_desc`,
+      }));
+    }
+  } catch {}
+  return DEFAULT_LANGUAGES;
+}
 
 function OrganicSvg() {
   return (
@@ -49,28 +75,61 @@ function OrganicSvg() {
     >
       <ellipse cx="620" cy="160" rx="320" ry="280" fill="rgba(13,115,119,0.28)" />
       <ellipse cx="100" cy="780" rx="380" ry="260" fill="rgba(13,115,119,0.22)" />
-      <path
-        d="M700 0 C680 120 560 180 480 320 C400 460 460 580 360 680 C260 780 80 800 0 900 L700 900 Z"
-        fill="rgba(13,115,119,0.18)"
-      />
-      <path
-        d="M0 0 C80 60 200 40 280 160 C360 280 280 420 360 520 C440 620 620 580 700 700 L700 0 Z"
-        fill="rgba(13,115,119,0.12)"
-      />
+      <path d="M700 0 C680 120 560 180 480 320 C400 460 460 580 360 680 C260 780 80 800 0 900 L700 900 Z" fill="rgba(13,115,119,0.18)" />
+      <path d="M0 0 C80 60 200 40 280 160 C360 280 280 420 360 520 C440 620 620 580 700 700 L700 0 Z" fill="rgba(13,115,119,0.12)" />
       <circle cx="580" cy="480" r="140" fill="rgba(13,115,119,0.14)" />
       <circle cx="160" cy="280" r="90" fill="rgba(13,115,119,0.10)" />
     </svg>
   );
 }
 
+function LangCard({ lang }: { lang: typeof LANGUAGES[0] }) {
+  const { t } = useTranslation();
+  return (
+    <Link href={`/learn/${lang.code}/words`}>
+      <div className="group relative rounded-2xl overflow-hidden cursor-pointer aspect-[4/3] transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]">
+        {/* Photo background */}
+        <div
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+          style={{ backgroundImage: `url(${lang.photo})` }}
+        />
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/10" />
+        {/* Accent top bar */}
+        <div className="absolute top-0 left-0 right-0 h-1 opacity-90" style={{ background: lang.accent }} />
+        {/* Content */}
+        <div className="absolute inset-0 flex flex-col justify-end p-4 gap-0.5">
+          <p className="text-white font-bold text-xl leading-tight drop-shadow">{lang.label}</p>
+          <p className="text-white/60 text-xs font-medium tracking-wide">{lang.sublabel}</p>
+          <p className="text-white/50 text-xs leading-snug mt-1 line-clamp-2">{t(lang.descKey)}</p>
+        </div>
+        {/* Arrow */}
+        <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function LearnHub() {
   const { t } = useTranslation();
+  const [languages, setLanguages] = useState(() => loadLanguages().filter((l: any) => l.enabled !== false));
+
+  // Reload if storage changes (admin saves)
+  useEffect(() => {
+    const handler = () => setLanguages(loadLanguages().filter((l: any) => l.enabled !== false));
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)]">
       {/* ── Left panel: Language selection ── */}
-      <div className="w-full md:w-2/5 flex flex-col justify-center px-8 py-12 md:px-12 md:py-16 bg-background">
-        <div className="max-w-sm mx-auto md:mx-0 w-full space-y-8">
+      <div className="w-full md:w-[42%] flex flex-col justify-center px-6 py-10 md:px-12 md:py-16 bg-background">
+        <div className="max-w-sm mx-auto md:mx-0 w-full space-y-7">
           <div className="space-y-2">
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
               {t("learn.title")}
@@ -81,23 +140,8 @@ export default function LearnHub() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {LANGUAGES.map((lang) => (
-              <Link key={lang.code} href={`/learn/${lang.code}/words`}>
-                <div
-                  className={`group relative rounded-2xl border bg-gradient-to-br ${lang.color} ${lang.border} p-4 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]`}
-                >
-                  <div className="flex flex-col gap-2">
-                    <span className="text-3xl leading-none">{lang.flag}</span>
-                    <div>
-                      <p className="font-semibold text-sm text-foreground">{t(lang.nameKey)}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">
-                        {t(lang.descKey)}
-                      </p>
-                    </div>
-                  </div>
-                  <ArrowRight className="absolute bottom-3 right-3 w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                </div>
-              </Link>
+            {languages.map((lang: any) => (
+              <LangCard key={lang.code} lang={lang} />
             ))}
           </div>
 
@@ -107,16 +151,12 @@ export default function LearnHub() {
         </div>
       </div>
 
-      {/* ── Right panel: Dark teal with organic shapes ── */}
+      {/* ── Right panel: Dark teal ── */}
       <div
-        className="hidden md:flex md:w-3/5 relative overflow-hidden flex-col items-center justify-center"
-        style={{
-          background:
-            "linear-gradient(145deg, #071a1a 0%, #0c2424 45%, #061414 100%)",
-        }}
+        className="hidden md:flex md:w-[58%] relative overflow-hidden flex-col items-center justify-center"
+        style={{ background: "linear-gradient(145deg, #071a1a 0%, #0c2424 45%, #061414 100%)" }}
       >
         <OrganicSvg />
-
         <div className="relative z-10 text-center px-12 max-w-lg space-y-6">
           <div className="space-y-3">
             <p className="text-[#4dbdc0] text-sm font-medium uppercase tracking-widest">
@@ -130,7 +170,6 @@ export default function LearnHub() {
               情景对话、词汇速记、长难句精讲
             </p>
           </div>
-
           <div className="grid grid-cols-3 gap-4 pt-4">
             {[
               { num: "4+", label: "语言" },
