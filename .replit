@@ -1,35 +1,20 @@
-Modules = [“nodejs-24”， “postgresql-16”]  
+modules = ["nodejs-24"]
 
-[部署 ]    
-router = “应用程序”  
-deploymentTarget = “自动缩放”  
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
 
-[deployment.postBuild]      
-args = [“pnpm”， “store”， “prune”]  
-env = { “CI” = “true” }  
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
 
-[工作流程]  
-runButton = “项目”  
+[workflows]
+runButton = "Project"
 
-[特工]  
-stack = “PNPM_WORKSPACE”  
-expertMode =  真  
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
 
-[合并后]  
-路径  = “脚本/post-merge.sh”  
-暂停时间 Ms = 20000  
-
-[[港口]]  
-localPort = 8080      
-externalPort = 8080      
-
-[[港口]]  
-localPort = 8081      
-externalPort = 80      
-
-[[港口]]  
-localPort = 20108      
-externalPort = 3000      
-
-[不行]  
-频道  = “稳定-25_05”  
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
