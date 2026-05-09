@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetActivity, getGetActivityQueryKey } from "@workspace/api-client-react";
 import { Calendar, MapPin, Users, ArrowLeft, Phone, User, Share2, CheckCircle2, Loader2 } from "lucide-react";
+import { T } from "@/components/T";
 import { ActivityPosterModal } from "@/components/ActivityPoster";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -106,7 +107,7 @@ export default function ActivityDetail() {
           {a.isFeatured && <Badge variant="secondary">推荐活动</Badge>}
         </div>
         <h1 className="text-2xl md:text-3xl font-bold leading-snug" data-testid="text-activity-title">
-          {a.title}
+          <T>{a.title}</T>
         </h1>
       </div>
 
@@ -159,7 +160,7 @@ export default function ActivityDetail() {
 
       {a.description && (
         <div className="prose prose-neutral max-w-none dark:prose-invert">
-          <p className="text-base leading-relaxed">{a.description}</p>
+          <p className="text-base leading-relaxed"><T>{a.description}</T></p>
         </div>
       )}
 

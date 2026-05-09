@@ -12,6 +12,7 @@ import {
   useGetFeaturedLegalArticles, getGetFeaturedLegalArticlesQueryKey,
 } from "@workspace/api-client-react";
 import { Search, Eye, Scale, Globe } from "lucide-react";
+import { T } from "@/components/T";
 
 const COUNTRIES = ["越南", "东南亚", "中国"];
 
@@ -126,9 +127,9 @@ export default function LegalBlog() {
                     <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 overflow-hidden">
                       {a.coverImage && <div className="h-40 bg-cover bg-center" style={{ backgroundImage: `url(${a.coverImage})` }} />}
                       <CardContent className="p-4">
-                        {a.category && <Badge className="mb-2 text-xs">{a.category}</Badge>}
-                        <h3 className="font-semibold leading-snug line-clamp-2">{a.title}</h3>
-                        {a.summary && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{a.summary}</p>}
+                        {a.category && <Badge className="mb-2 text-xs"><T>{a.category}</T></Badge>}
+                        <h3 className="font-semibold leading-snug line-clamp-2"><T>{a.title}</T></h3>
+                        {a.summary && <p className="text-xs text-muted-foreground mt-1 line-clamp-2"><T>{a.summary}</T></p>}
                       </CardContent>
                     </Card>
                   </Link>
@@ -171,8 +172,8 @@ export default function LegalBlog() {
                               </span>
                             )}
                           </div>
-                          <h3 className="font-semibold text-sm leading-snug line-clamp-2 mb-1">{a.title}</h3>
-                          {a.summary && <p className="text-xs text-muted-foreground line-clamp-2">{a.summary}</p>}
+                          <h3 className="font-semibold text-sm leading-snug line-clamp-2 mb-1"><T>{a.title}</T></h3>
+                          {a.summary && <p className="text-xs text-muted-foreground line-clamp-2"><T>{a.summary}</T></p>}
                         </div>
                       </div>
                     </CardContent>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetActivities, getGetActivitiesQueryKey } from "@workspace/api-client-react";
 import { Calendar, MapPin, Users, Plus } from "lucide-react";
+import { T } from "@/components/T";
 
 const CATEGORIES = ["文化", "户外", "商务", "美食", "语言交流", "志愿者"];
 
@@ -91,7 +92,7 @@ export default function Community() {
                         {activity.isFeatured && <Badge className="text-xs">{t("community.featured")}</Badge>}
                       </div>
                     </div>
-                    <h3 className="font-semibold leading-snug line-clamp-2 mb-3">{activity.title}</h3>
+                    <h3 className="font-semibold leading-snug line-clamp-2 mb-3"><T>{activity.title}</T></h3>
                     <div className="space-y-1.5">
                       {activity.startTime && (
                         <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">

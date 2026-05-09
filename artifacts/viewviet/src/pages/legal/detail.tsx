@@ -9,9 +9,21 @@ import {
 } from "@workspace/api-client-react";
 import { Eye, ArrowLeft, Scale, Globe } from "lucide-react";
 import { parseMarkdown } from "@/lib/markdown";
+import { T } from "@/components/T";
+import { useTranslation } from "react-i18next";
+import { useTranslate } from "@/hooks/use-translate";
+
+function TranslatedContent({ content }: { content: string | undefined | null }) {
+  const translated = useTranslate(content);
+  if (!content) return null;
+  const html = parseMarkdown(translated || content);
+  if (html) return <div className="prose prose-neutral max-w-none dark:prose-invert text-foreground" dangerouslySetInnerHTML={{ __html: html }} data-testid="text-article-content" />;
+  return <div className="text-foreground whitespace-pre-wrap text-sm leading-relaxed" data-testid="text-article-content">{translated || content}</div>;
+}
 
 export default function ArticleDetail() {
   const { slug } = useParams<{ slug: string }>();
+  const { i18n } = useTranslation();
 
   const { data: article, isLoading, isError } = useGetLegalArticle(slug, {
     query: { queryKey: getGetLegalArticleQueryKey(slug), enabled: !!slug },
@@ -79,27 +91,25 @@ export default function ArticleDetail() {
                 </span>
               )}
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold leading-snug" data-testid="text-article-title">{a.title}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold leading-snug" data-testid="text-article-title"><T>{a.title}</T></h1>
             {a.titleEn && a.titleEn !== a.title && <p className="text-muted-foreground">{a.titleEn}</p>}
-            {a.summary && <p className="text-muted-foreground italic border-l-4 border-primary pl-4 text-sm leading-relaxed">{a.summary}</p>}
+            {a.summary && <p className="text-muted-foreground italic border-l-4 border-primary pl-4 text-sm leading-relaxed"><T>{a.summary}</T></p>}
           </div>
 
           {a.coverImage && (
             <div className="w-full h-64 rounded-2xl bg-cover bg-center" style={{ backgroundImage: `url(${a.coverImage})` }} data-testid="img-article-cover" />
           )}
 
-          {contentHtml ? (
-            <div
-              className="prose prose-neutral max-w-none dark:prose-invert text-foreground"
-              dangerouslySetInnerHTML={{ __html: contentHtml }}
-              data-testid="text-article-content"
-            />
-          ) : a.content ? (
-            <div className="text-foreground whitespace-pre-wrap text-sm leading-relaxed" data-testid="text-article-content">
-              {a.content}
-            </div>
+          {i18n.language === "zh" || !["en", "vi"].includes(i18n.language) ? (
+            contentHtml ? (
+              <div className="prose prose-neutral max-w-none dark:prose-invert text-foreground" dangerouslySetInnerHTML={{ __html: contentHtml }} data-testid="text-article-content" />
+            ) : a.content ? (
+              <div className="text-foreground whitespace-pre-wrap text-sm leading-relaxed" data-testid="text-article-content">{a.content}</div>
+            ) : (
+              <p className="text-muted-foreground">Full article content coming soon.</p>
+            )
           ) : (
-            <p className="text-muted-foreground">Full article content coming soon.</p>
+            <TranslatedContent content={a.content} />
           )}
 
           {a.tags?.length > 0 && (

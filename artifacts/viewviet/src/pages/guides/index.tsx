@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetTravelGuides, getGetTravelGuidesQueryKey, useGetFeaturedTravelGuides, getGetFeaturedTravelGuidesQueryKey } from "@workspace/api-client-react";
 import { Search, MapPin, Eye, Compass } from "lucide-react";
+import { T } from "@/components/T";
 
 const CATEGORIES = ["美食", "文化", "户外", "夜生活", "购物", "咖啡", "住宿"];
 const COUNTRIES = ["越南", "中国", "东南亚"];
@@ -51,7 +52,7 @@ export default function TravelGuides() {
               <span className="text-sm">{currentFeatured?.city}, {currentFeatured?.country}</span>
               {currentFeatured?.category && <Badge className="bg-accent/90 text-white border-0 text-xs">{currentFeatured.category}</Badge>}
             </div>
-            <h2 className="text-xl md:text-3xl font-bold mb-3 leading-snug">{currentFeatured?.title}</h2>
+            <h2 className="text-xl md:text-3xl font-bold mb-3 leading-snug"><T>{currentFeatured?.title}</T></h2>
             <Link href={`/guides/${currentFeatured?.id}`}>
               <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">{t("guides.read_guide")}</Button>
             </Link>
@@ -134,9 +135,9 @@ export default function TravelGuides() {
                         <span className="ml-auto flex items-center gap-1"><Eye className="w-3 h-3" />{guide.viewCount}</span>
                       )}
                     </div>
-                    <h3 className="font-semibold leading-snug line-clamp-2 mb-2">{guide.title}</h3>
+                    <h3 className="font-semibold leading-snug line-clamp-2 mb-2"><T>{guide.title}</T></h3>
                     <div className="flex flex-wrap gap-1">
-                      {guide.category && <Badge variant="secondary" className="text-xs">{guide.category}</Badge>}
+                      {guide.category && <Badge variant="secondary" className="text-xs"><T>{guide.category}</T></Badge>}
                       {guide.budgetRange && <Badge variant="outline" className="text-xs">{guide.budgetRange}</Badge>}
                     </div>
                   </CardContent>

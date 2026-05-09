@@ -11,6 +11,7 @@ import {
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, Scale, Users, BookOpen, Globe, ArrowRight, Calendar } from "lucide-react";
+import { T } from "@/components/T";
 
 export default function Home() {
   const { t } = useTranslation();
@@ -92,8 +93,8 @@ export default function Home() {
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
                       <MapPin className="w-3 h-3" />{guide.city}, {guide.country}
                     </div>
-                    <h3 className="font-semibold leading-snug line-clamp-2">{guide.title}</h3>
-                    {guide.category && <Badge variant="secondary" className="mt-2 text-xs">{guide.category}</Badge>}
+                    <h3 className="font-semibold leading-snug line-clamp-2"><T>{guide.title}</T></h3>
+                    {guide.category && <Badge variant="secondary" className="mt-2 text-xs"><T>{guide.category}</T></Badge>}
                   </CardContent>
                 </Card>
               </Link>
@@ -125,9 +126,9 @@ export default function Home() {
                         <div className="w-20 h-16 rounded-lg bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${article.coverImage})` }} />
                       )}
                       <div className="flex-1 min-w-0">
-                        {article.category && <Badge variant="outline" className="text-xs mb-1">{article.category}</Badge>}
-                        <h3 className="font-medium text-sm leading-snug line-clamp-2">{article.title}</h3>
-                        {article.summary && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{article.summary}</p>}
+                        {article.category && <Badge variant="outline" className="text-xs mb-1"><T>{article.category}</T></Badge>}
+                        <h3 className="font-medium text-sm leading-snug line-clamp-2"><T>{article.title}</T></h3>
+                        {article.summary && <p className="text-xs text-muted-foreground mt-1 line-clamp-1"><T>{article.summary}</T></p>}
                       </div>
                     </div>
                   </Card>
@@ -165,7 +166,7 @@ export default function Home() {
                     </div>
                     <div className="min-w-0">
                       <p className="font-semibold text-sm truncate">{lawyer.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{lawyer.title}</p>
+                      <p className="text-xs text-muted-foreground truncate"><T>{lawyer.title}</T></p>
                       <p className="text-xs text-muted-foreground truncate">{lawyer.city}, {lawyer.country}</p>
                     </div>
                   </div>
@@ -206,8 +207,8 @@ export default function Home() {
                         <div className="w-20 h-16 rounded-lg bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${activity.coverImage})` }} />
                       )}
                       <div className="flex-1 min-w-0">
-                        {activity.category && <Badge variant="secondary" className="text-xs mb-1">{activity.category}</Badge>}
-                        <h3 className="font-medium text-sm line-clamp-2">{activity.title}</h3>
+                        {activity.category && <Badge variant="secondary" className="text-xs mb-1"><T>{activity.category}</T></Badge>}
+                        <h3 className="font-medium text-sm line-clamp-2"><T>{activity.title}</T></h3>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                           <Calendar className="w-3 h-3" />
                           {activity.startTime ? new Date(activity.startTime).toLocaleDateString() : "TBD"}

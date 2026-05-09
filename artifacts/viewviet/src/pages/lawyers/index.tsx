@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetLawyers, getGetLawyersQueryKey } from "@workspace/api-client-react";
 import { Search, Scale, Phone, Mail, MessageSquare } from "lucide-react";
+import { T } from "@/components/T";
 
 const COUNTRIES = ["越南", "中国", "东南亚"];
 const CITIES = ["河内", "胡志明市", "岘港"];
@@ -80,7 +81,7 @@ export default function Lawyers() {
                   <div className="min-w-0">
                     <p className="font-bold text-base">{lawyer.name}</p>
                     {lawyer.nameEn && lawyer.nameEn !== lawyer.name && <p className="text-xs text-muted-foreground">{lawyer.nameEn}</p>}
-                    {lawyer.title && <p className="text-sm text-muted-foreground">{lawyer.title}</p>}
+                    {lawyer.title && <p className="text-sm text-muted-foreground"><T>{lawyer.title}</T></p>}
                     {lawyer.lawFirm && <p className="text-xs text-primary font-medium mt-0.5">{lawyer.lawFirm}</p>}
                   </div>
                   {lawyer.isFeatured && <Badge className="ml-auto flex-shrink-0 text-xs">{t("lawyers.featured")}</Badge>}
@@ -90,7 +91,7 @@ export default function Lawyers() {
                   <p className="text-sm text-muted-foreground">{[lawyer.city, lawyer.country].filter(Boolean).join(", ")}</p>
                 )}
 
-                {lawyer.bio && <p className="text-sm text-muted-foreground line-clamp-3">{lawyer.bio}</p>}
+                {lawyer.bio && <p className="text-sm text-muted-foreground line-clamp-3"><T>{lawyer.bio}</T></p>}
 
                 {lawyer.specialties?.length > 0 && (
                   <div>

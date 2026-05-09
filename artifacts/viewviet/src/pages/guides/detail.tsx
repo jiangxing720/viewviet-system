@@ -5,10 +5,34 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useGetTravelGuide, getGetTravelGuideQueryKey } from "@workspace/api-client-react";
 import { MapPin, Eye, ArrowLeft, DollarSign } from "lucide-react";
 import { parseMarkdown } from "@/lib/markdown";
+import { T } from "@/components/T";
+import { useTranslation } from "react-i18next";
+import { useTranslate } from "@/hooks/use-translate";
+
+function TranslatedContent({ content, lang }: { content: string | undefined | null; lang: "en" | "vi" }) {
+  const translated = useTranslate(content);
+  if (!content) return null;
+  const html = parseMarkdown(translated || content);
+  if (html) {
+    return (
+      <div
+        className="prose prose-neutral max-w-none dark:prose-invert text-foreground"
+        dangerouslySetInnerHTML={{ __html: html }}
+        data-testid="text-guide-content"
+      />
+    );
+  }
+  return (
+    <div className="prose prose-neutral max-w-none dark:prose-invert text-foreground whitespace-pre-wrap" data-testid="text-guide-content">
+      {translated || content}
+    </div>
+  );
+}
 
 export default function GuideDetail() {
   const { id } = useParams<{ id: string }>();
   const guideId = Number(id);
+  const { i18n } = useTranslation();
 
   const { data: guide, isLoading, isError } = useGetTravelGuide(guideId, {
     query: { queryKey: getGetTravelGuideQueryKey(guideId), enabled: !!guideId },
@@ -37,6 +61,7 @@ export default function GuideDetail() {
     );
   }
 
+  const isZh = i18n.language === "zh" || !["en", "vi"].includes(i18n.language);
   const contentHtml = g.content ? parseMarkdown(g.content) : "";
 
   return (
@@ -56,7 +81,7 @@ export default function GuideDetail() {
       )}
 
       <div className="flex flex-wrap gap-3 items-center">
-        {g.category && <Badge>{g.category}</Badge>}
+        {g.category && <Badge><T>{g.category}</T></Badge>}
         {g.country && (
           <span className="flex items-center gap-1 text-sm text-muted-foreground">
             <MapPin className="w-4 h-4" />{g.city}{g.city && g.country ? ", " : ""}{g.country}
@@ -75,27 +100,25 @@ export default function GuideDetail() {
       </div>
 
       <div>
-        <h1 className="text-3xl font-bold leading-snug" data-testid="text-guide-title">{g.title}</h1>
+        <h1 className="text-3xl font-bold leading-snug" data-testid="text-guide-title"><T>{g.title}</T></h1>
         {g.titleEn && g.titleEn !== g.title && <p className="text-muted-foreground mt-1">{g.titleEn}</p>}
       </div>
 
       {g.summary && (
         <p className="text-muted-foreground italic border-l-4 border-primary pl-4 text-sm leading-relaxed">
-          {g.summary}
+          <T>{g.summary}</T>
         </p>
       )}
 
-      {contentHtml ? (
-        <div
-          className="prose prose-neutral max-w-none dark:prose-invert text-foreground"
-          dangerouslySetInnerHTML={{ __html: contentHtml }}
-          data-testid="text-guide-content"
-        />
-      ) : g.content ? (
-        <div className="prose prose-neutral max-w-none dark:prose-invert text-foreground whitespace-pre-wrap" data-testid="text-guide-content">
-          {g.content}
-        </div>
-      ) : null}
+      {isZh ? (
+        contentHtml ? (
+          <div className="prose prose-neutral max-w-none dark:prose-invert text-foreground" dangerouslySetInnerHTML={{ __html: contentHtml }} data-testid="text-guide-content" />
+        ) : g.content ? (
+          <div className="prose prose-neutral max-w-none dark:prose-invert text-foreground whitespace-pre-wrap" data-testid="text-guide-content">{g.content}</div>
+        ) : null
+      ) : (
+        <TranslatedContent content={g.content} lang={i18n.language as "en" | "vi"} />
+      )}
 
       {g.mapEmbed && (
         <div className="space-y-2">
