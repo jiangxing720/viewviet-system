@@ -19,6 +19,7 @@
     "featured_guides": "Cẩm nang nổi bật",
     "featured_guides_sub": "Hướng dẫn du lịch được tuyển chọn cho người Hoa",
     "view_all": "Xem tất cả",
+    "legal_resources": "Kiến thức pháp lý",
     "legal_insights": "Kiến thức pháp lý",
     "legal_insights_sub": "Phân tích chuyên sâu luật pháp Việt Nam",
     "featured_lawyers": "Luật sư nổi bật",
@@ -27,42 +28,96 @@
     "upcoming_activities_sub": "Kết nối và phát triển cùng cộng đồng người Hoa",
     "contact": "Liên hệ",
     "join": "Tham gia",
-    "spots": "chỗ"
+    "spots": "chỗ",
+    "module_vietnamese": "Tiếng Việt",
+    "module_words": "Từ vựng & Cụm từ",
+    "module_travel": "Cẩm nang du lịch",
+    "module_explore": "Khám phá Việt Nam",
+    "module_legal": "Trung tâm pháp lý",
+    "module_laws": "Luật & Quyền lợi",
+    "module_community": "Cộng đồng",
+    "module_events": "Sự kiện & Hoạt động",
+    "no_guides": "Chưa có cẩm nang.",
+    "no_articles": "Chưa có bài viết.",
+    "no_lawyers": "Chưa có thông tin luật sư.",
+    "no_activities": "Không có hoạt động sắp tới.",
+    "cta_title": "Sẵn sàng đơn giản hóa cuộc sống xuyên biên giới?",
+    "cta_subtitle": "Tham gia cùng hàng nghìn người Hoa tại Đông Nam Á với ViewViet.",
+    "cta_button": "Bắt đầu miễn phí"
   },
   "learn": {
     "title": "Trung tâm học ngôn ngữ",
     "subtitle": "Thành thạo tiếng Việt, tiếng Anh, tiếng Trung và tiếng Hàn",
+    "lang_vi": "Tiếng Việt",
+    "lang_vi_desc": "Học ngôn ngữ địa phương",
+    "lang_en": "Tiếng Anh",
+    "lang_en_desc": "Ngôn ngữ giao tiếp quốc tế",
+    "lang_zh": "Tiếng Trung",
+    "lang_zh_desc": "Kết nối cộng đồng người Hoa",
+    "lang_ko": "Tiếng Hàn",
+    "lang_ko_desc": "Kinh doanh và văn hóa",
     "start": "Bắt đầu học",
     "words": "Từ vựng",
     "scenes": "Hội thoại tình huống",
     "complex": "Câu phức",
     "difficulty": "Độ khó",
     "category": "Danh mục",
+    "categories": "Danh mục từ vựng",
     "all": "Tất cả",
+    "all_words": "Tất cả từ vựng",
+    "all_scenes": "Tất cả tình huống",
+    "search_placeholder": "Tìm kiếm từ vựng...",
+    "scenes_btn": "Tình huống",
+    "complex_btn": "Câu phức",
+    "filter_difficulty": "Lọc theo độ khó:",
+    "level": "Cấp {{n}}",
+    "no_words": "Không tìm thấy từ vựng. Thử danh mục hoặc từ khóa khác.",
+    "no_scenes": "Chưa có câu cho tình huống này.",
+    "no_complex": "Không có câu phức ở cấp độ này.",
+    "context": "Ngữ cảnh",
+    "sentences_tab": "Quản lý câu",
+    "back_lang": "← Ngôn ngữ",
+    "back_words": "← Từ vựng",
+    "back_scenes": "← Tình huống",
     "tts_play": "Nghe phát âm",
-    "grammar_notes": "Ghi chú ngữ pháp"
+    "grammar_notes": "Ghi chú ngữ pháp",
+    "vocabulary": "Từ vựng",
+    "scene_sentences": "Câu tình huống",
+    "complex_sentences": "Câu phức"
   },
   "guides": {
     "title": "Cẩm nang du lịch",
     "subtitle": "Hướng dẫn du lịch Đông Nam Á cho người Hoa",
     "search": "Tìm kiếm cẩm nang...",
     "all_countries": "Tất cả quốc gia",
+    "all": "Tất cả",
     "read_guide": "Đọc cẩm nang",
     "views": "lượt xem",
-    "min_read": "phút đọc"
+    "min_read": "phút đọc",
+    "no_results": "Không tìm thấy cẩm nang. Thử bộ lọc khác.",
+    "previous": "Trang trước",
+    "next": "Trang sau",
+    "page_of": "Trang {{page}} / {{total}}"
   },
   "legal": {
     "title": "Kiến thức pháp lý",
     "subtitle": "Phân tích chuyên sâu luật pháp Việt Nam và Đông Nam Á",
     "search": "Tìm kiếm bài viết...",
+    "categories": "Danh mục",
     "all_categories": "Tất cả danh mục",
+    "country": "Quốc gia",
     "all_countries": "Tất cả quốc gia",
+    "all": "Tất cả",
     "read_more": "Đọc thêm",
     "find_lawyer": "Tìm luật sư",
     "find_lawyer_desc": "Cần hỗ trợ pháp lý chuyên nghiệp? Đội ngũ luật sư của chúng tôi sẵn sàng giúp bạn",
     "related_articles": "Bài viết liên quan",
     "min_read": "phút đọc",
-    "featured": "Nổi bật"
+    "featured": "Nổi bật",
+    "no_results": "Không tìm thấy bài viết. Thử bộ lọc khác.",
+    "previous": "Trang trước",
+    "next": "Trang sau",
+    "page_of": "Trang {{page}} / {{total}}"
   },
   "lawyers": {
     "title": "Chuyên gia pháp lý",
@@ -73,7 +128,8 @@
     "contact": "Liên hệ",
     "featured": "Nổi bật",
     "specialties": "Chuyên môn",
-    "languages": "Ngôn ngữ"
+    "languages": "Ngôn ngữ",
+    "no_results": "Không tìm thấy luật sư. Thử bộ lọc khác."
   },
   "community": {
     "title": "Hoạt động cộng đồng",
@@ -84,7 +140,9 @@
     "spots_left": "chỗ còn lại",
     "featured": "Nổi bật",
     "organizer": "Ban tổ chức",
-    "all": "Tất cả"
+    "all": "Tất cả",
+    "spots": "chỗ",
+    "no_activities": "Không có hoạt động. Hãy là người đầu tiên đăng!"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -108,6 +166,7 @@
   "admin": {
     "dashboard": "Bảng điều khiển",
     "words": "Từ vựng",
+    "sentences": "Câu",
     "legal": "Bài pháp lý",
     "guides": "Cẩm nang",
     "lawyers": "Luật sư",
@@ -128,7 +187,8 @@
     "approve": "Duyệt",
     "reject": "Từ chối",
     "bulk_upload": "Tải lên hàng loạt",
-    "logout": "Đăng xuất"
+    "logout": "Đăng xuất",
+    "auto_category": "Tự động nhận diện danh mục"
   },
   "common": {
     "loading": "Đang tải...",
@@ -145,7 +205,10 @@
     "actions": "Thao tác",
     "status": "Trạng thái",
     "yes": "Có",
-    "no": "Không"
+    "no": "Không",
+    "previous": "Trang trước",
+    "next": "Trang sau",
+    "page_of": "Trang {{page}} / {{total}}"
   },
   "footer": {
     "tagline": "Người bạn đồng hành đáng tin cậy cho cuộc sống xuyên biên giới tại Đông Nam Á",

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useParams, Link } from "wouter";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,21 +8,72 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useGetComplexSentences, getGetComplexSentencesQueryKey } from "@workspace/api-client-react";
 import { Volume2, Brain } from "lucide-react";
 
-const LANG_NAMES: Record<string, string> = { vi: "Vietnamese", en: "English", zh: "Chinese", ko: "Korean" };
 const LANG_FLAGS: Record<string, string> = { vi: "🇻🇳", en: "🇬🇧", zh: "🇨🇳", ko: "🇰🇷" };
-
-function speak(text: string, lang: string) {
-  if (!window.speechSynthesis) return;
-  const utter = new SpeechSynthesisUtterance(text);
-  const langMap: Record<string, string> = { vi: "vi-VN", en: "en-US", zh: "zh-CN", ko: "ko-KR" };
-  utter.lang = langMap[lang] ?? "en-US";
-  window.speechSynthesis.speak(utter);
-}
-
+const LANG_NAME_KEYS: Record<string, string> = { vi: "learn.lang_vi", en: "learn.lang_en", zh: "learn.lang_zh", ko: "learn.lang_ko" };
+const LANG_MAP: Record<string, string> = { vi: "vi-VN", en: "en-US", zh: "zh-CN", ko: "ko-KR" };
 const DIFFICULTIES = [1, 2, 3, 4, 5];
+
+function KtvText({ sentence, lang }: { sentence: string; lang: string }) {
+  const [activeChar, setActiveChar] = useState(-1);
+  const [speaking, setSpeaking] = useState(false);
+
+  const isCJK = /[\u4e00-\u9fff\u3040-\u30ff]/.test(sentence);
+  const segments = isCJK ? sentence.split("") : sentence.split(/(\s+)/);
+
+  let pos = 0;
+  const positions: Array<{ start: number; end: number; isSpace: boolean }> = [];
+  for (const seg of segments) {
+    const isSpace = /^\s+$/.test(seg);
+    positions.push({ start: pos, end: pos + seg.length, isSpace });
+    pos += seg.length;
+  }
+
+  const startKtv = useCallback(() => {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(sentence);
+    utter.lang = LANG_MAP[lang] ?? "en-US";
+    utter.onboundary = (e: SpeechSynthesisEvent) => {
+      if (e.name === "word") setActiveChar(e.charIndex);
+    };
+    utter.onstart = () => { setSpeaking(true); setActiveChar(0); };
+    utter.onend = () => { setSpeaking(false); setActiveChar(-1); };
+    utter.onerror = () => { setSpeaking(false); setActiveChar(-1); };
+    window.speechSynthesis.speak(utter);
+  }, [sentence, lang]);
+
+  return (
+    <div className="flex items-start gap-3">
+      <div className="flex-1 flex flex-wrap leading-relaxed text-lg font-semibold">
+        {segments.map((seg, i) => {
+          const { start, end, isSpace } = positions[i];
+          const isActive = speaking && activeChar >= start && activeChar < end && !isSpace;
+          return (
+            <span
+              key={i}
+              className={`transition-all duration-75 ${isActive ? "bg-accent text-accent-foreground rounded px-0.5 scale-110 inline-block" : ""}`}
+            >
+              {seg}
+            </span>
+          );
+        })}
+      </div>
+      <button
+        onClick={startKtv}
+        title="Play"
+        className={`flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-full transition-all ${
+          speaking ? "bg-accent text-accent-foreground animate-pulse" : "hover:bg-muted text-muted-foreground hover:text-primary"
+        }`}
+      >
+        <Volume2 className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
 
 export default function ComplexSentences() {
   const { lang = "vi" } = useParams<{ lang: string }>();
+  const { t } = useTranslation();
   const [difficulty, setDifficulty] = useState<number | undefined>();
 
   const { data: sentencesResp, isLoading } = useGetComplexSentences(
@@ -35,31 +87,31 @@ export default function ComplexSentences() {
     <div className="container mx-auto px-4 py-8 max-w-5xl">
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <Link href={`/learn/${lang}/scenes`}>
-          <Button variant="ghost" size="sm" data-testid="button-back-scenes">← Scenes</Button>
+          <Button variant="ghost" size="sm">{t("learn.back_scenes")}</Button>
         </Link>
         <span className="text-2xl">{LANG_FLAGS[lang]}</span>
-        <h1 className="text-2xl font-bold">{LANG_NAMES[lang]} Complex Sentences</h1>
+        <h1 className="text-xl md:text-2xl font-bold">{t(LANG_NAME_KEYS[lang] ?? "learn.complex_sentences")} {t("learn.complex_sentences")}</h1>
       </div>
 
-      <div className="flex gap-2 flex-wrap mb-8 items-center">
-        <span className="text-sm text-muted-foreground">Filter by difficulty:</span>
-        <button
-          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${!difficulty ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
-          onClick={() => setDifficulty(undefined)}
-          data-testid="filter-difficulty-all"
-        >
-          All
-        </button>
-        {DIFFICULTIES.map((d) => (
+      <div className="overflow-x-auto pb-2 mb-8 -mx-4 px-4">
+        <div className="flex gap-2 w-max md:flex-wrap md:w-auto items-center">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">{t("learn.filter_difficulty")}</span>
           <button
-            key={d}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${difficulty === d ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
-            onClick={() => setDifficulty(d)}
-            data-testid={`filter-difficulty-${d}`}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${!difficulty ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+            onClick={() => setDifficulty(undefined)}
           >
-            Level {d}
+            {t("learn.all")}
           </button>
-        ))}
+          {DIFFICULTIES.map((d) => (
+            <button
+              key={d}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${difficulty === d ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+              onClick={() => setDifficulty(d)}
+            >
+              {t("learn.level", { n: d })}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (
@@ -67,21 +119,18 @@ export default function ComplexSentences() {
       ) : sentences.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Brain className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p>No complex sentences found at this difficulty level.</p>
+          <p>{t("learn.no_complex")}</p>
         </div>
       ) : (
         <div className="space-y-4">
           {sentences.map((s: any) => (
-            <Card key={s.id} className="hover:shadow-md transition-all duration-200" data-testid={`card-complex-${s.id}`}>
+            <Card key={s.id} className="hover:shadow-md transition-all duration-200">
               <CardContent className="p-5 space-y-4">
                 <div className="flex items-start justify-between gap-4">
-                  <p className="font-semibold text-lg leading-snug">{s.sentence}</p>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => speak(s.sentence, lang)} data-testid={`button-tts-${s.id}`}>
-                      <Volume2 className="w-4 h-4" />
-                    </Button>
-                    {s.difficulty && <Badge variant="secondary" className="text-xs">Level {s.difficulty}</Badge>}
+                  <div className="flex-1">
+                    <KtvText sentence={s.sentence} lang={lang} />
                   </div>
+                  {s.difficulty && <Badge variant="secondary" className="text-xs flex-shrink-0 mt-1">{t("learn.level", { n: s.difficulty })}</Badge>}
                 </div>
                 {s.pronunciation && <p className="text-sm text-muted-foreground font-mono">{s.pronunciation}</p>}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
@@ -91,13 +140,13 @@ export default function ComplexSentences() {
                 </div>
                 {s.grammarNotes && (
                   <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
-                    <p className="text-xs font-semibold text-primary mb-1">Grammar Notes</p>
+                    <p className="text-xs font-semibold text-primary mb-1">{t("learn.grammar_notes")}</p>
                     <p className="text-sm">{s.grammarNotes}</p>
                   </div>
                 )}
                 {s.context && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Context:</span>
+                    <span className="text-xs text-muted-foreground">{t("learn.context")}:</span>
                     <Badge variant="outline" className="text-xs">{s.context}</Badge>
                   </div>
                 )}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import { Search, Eye, Scale, Globe } from "lucide-react";
 const COUNTRIES = ["越南", "东南亚", "中国"];
 
 export default function LegalBlog() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string | undefined>();
   const [country, setCountry] = useState<string | undefined>();
@@ -39,31 +41,28 @@ export default function LegalBlog() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2" data-testid="text-legal-title">Legal Resources</h1>
-        <p className="text-muted-foreground">Expert legal insights for cross-border life in Southeast Asia</p>
+        <h1 className="text-2xl md:text-3xl font-bold mb-2">{t("legal.title")}</h1>
+        <p className="text-muted-foreground">{t("legal.subtitle")}</p>
       </div>
 
       <div className="flex gap-8">
-        {/* Sidebar */}
+        {/* Desktop Sidebar */}
         <aside className="w-56 flex-shrink-0 hidden md:block">
           <div className="sticky top-24 space-y-6">
-            {/* Category filter */}
             <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Categories</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t("legal.categories")}</p>
               <div className="space-y-1">
                 <button
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex justify-between items-center ${!category ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted"}`}
                   onClick={() => { setCategory(undefined); setPage(1); }}
-                  data-testid="filter-cat-all"
                 >
-                  <span>All Categories</span>
+                  <span>{t("legal.all_categories")}</span>
                 </button>
                 {catList.map((c: any) => (
                   <button
                     key={c.category}
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex justify-between items-center ${category === c.category ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted"}`}
                     onClick={() => { setCategory(c.category); setPage(1); }}
-                    data-testid={`filter-cat-${c.category}`}
                   >
                     <span>{c.category}</span>
                     <span className={`text-xs px-1.5 py-0.5 rounded-full ${category === c.category ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted-foreground/10 text-muted-foreground"}`}>{c.count}</span>
@@ -71,24 +70,20 @@ export default function LegalBlog() {
                 ))}
               </div>
             </div>
-
-            {/* Country filter */}
             <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Country</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t("legal.country")}</p>
               <div className="space-y-1">
                 <button
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${!country ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted"}`}
                   onClick={() => { setCountry(undefined); setPage(1); }}
-                  data-testid="filter-country-all"
                 >
-                  All
+                  {t("legal.all")}
                 </button>
                 {COUNTRIES.map((c) => (
                   <button
                     key={c}
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${country === c ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted"}`}
                     onClick={() => { setCountry(c); setPage(1); }}
-                    data-testid={`filter-country-${c}`}
                   >
                     <Globe className="w-3 h-3" />{c}
                   </button>
@@ -100,14 +95,35 @@ export default function LegalBlog() {
 
         {/* Main content */}
         <div className="flex-1 min-w-0 space-y-6">
+          {/* Mobile filter pills */}
+          <div className="flex md:hidden gap-2 overflow-x-auto -mx-4 px-4 pb-1">
+            <div className="flex gap-2 w-max">
+              <button
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${!category ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+                onClick={() => { setCategory(undefined); setPage(1); }}
+              >
+                {t("legal.all_categories")}
+              </button>
+              {catList.map((c: any) => (
+                <button
+                  key={c.category}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${category === c.category ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+                  onClick={() => { setCategory(c.category); setPage(1); }}
+                >
+                  {c.category}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Featured articles */}
           {featuredList.length > 0 && !search && !category && !country && page === 1 && (
             <div className="space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Featured</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("legal.featured")}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {featuredList.slice(0, 2).map((a: any) => (
                   <Link key={a.id} href={`/legal/${a.slug}`}>
-                    <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 overflow-hidden" data-testid={`card-featured-${a.id}`}>
+                    <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 overflow-hidden">
                       {a.coverImage && <div className="h-40 bg-cover bg-center" style={{ backgroundImage: `url(${a.coverImage})` }} />}
                       <CardContent className="p-4">
                         {a.category && <Badge className="mb-2 text-xs">{a.category}</Badge>}
@@ -124,7 +140,7 @@ export default function LegalBlog() {
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search articles..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} data-testid="input-search-legal" />
+            <Input className="pl-9" placeholder={t("legal.search")} value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
 
           {/* Articles list */}
@@ -133,20 +149,20 @@ export default function LegalBlog() {
           ) : articles.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <Scale className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>No articles found. Try different filters.</p>
+              <p>{t("legal.no_results")}</p>
             </div>
           ) : (
             <div className="space-y-3">
               {articles.map((a: any) => (
                 <Link key={a.id} href={`/legal/${a.slug}`}>
-                  <Card className="cursor-pointer hover:shadow-md transition-all duration-200" data-testid={`card-article-${a.id}`}>
+                  <Card className="cursor-pointer hover:shadow-md transition-all duration-200">
                     <CardContent className="p-4">
                       <div className="flex gap-4">
                         {a.coverImage && (
-                          <div className="w-24 h-16 rounded-lg bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${a.coverImage})` }} />
+                          <div className="w-20 md:w-24 h-16 rounded-lg bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${a.coverImage})` }} />
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             {a.category && <Badge variant="outline" className="text-xs">{a.category}</Badge>}
                             {a.country && <Badge variant="secondary" className="text-xs">{a.country}</Badge>}
                             {a.viewCount > 0 && (
@@ -168,9 +184,9 @@ export default function LegalBlog() {
 
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-center gap-3 pt-4">
-              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)} data-testid="button-prev-page">Previous</Button>
-              <span className="text-sm text-muted-foreground">Page {page} of {pagination.totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page >= pagination.totalPages} onClick={() => setPage(p => p + 1)} data-testid="button-next-page">Next</Button>
+              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>{t("legal.previous")}</Button>
+              <span className="text-sm text-muted-foreground">{t("legal.page_of", { page, total: pagination.totalPages })}</span>
+              <Button variant="outline" size="sm" disabled={page >= pagination.totalPages} onClick={() => setPage(p => p + 1)}>{t("legal.next")}</Button>
             </div>
           )}
         </div>

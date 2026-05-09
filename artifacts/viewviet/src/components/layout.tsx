@@ -77,6 +77,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link href="/admin/words" className={`hover:text-primary ${location === "/admin/words" ? "text-primary" : ""}`}>{t("admin.words")}</Link>
               <Link href="/admin/legal" className={`hover:text-primary ${location === "/admin/legal" ? "text-primary" : ""}`}>{t("admin.legal")}</Link>
               <Link href="/admin/guides" className={`hover:text-primary ${location === "/admin/guides" ? "text-primary" : ""}`}>{t("admin.guides")}</Link>
+              <Link href="/admin/sentences" className={`hover:text-primary ${location === "/admin/sentences" ? "text-primary" : ""}`}>{t("admin.sentences")}</Link>
               <Link href="/admin/lawyers" className={`hover:text-primary ${location === "/admin/lawyers" ? "text-primary" : ""}`}>{t("admin.lawyers")}</Link>
               <Link href="/admin/activities" className={`hover:text-primary ${location === "/admin/activities" ? "text-primary" : ""}`}>{t("admin.activities")}</Link>
             </nav>
@@ -166,6 +167,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   ) : (
                     <>
                       <MobileNavLink href="/admin/words" icon={BookOpen} title={t("admin.words")} />
+                      <MobileNavLink href="/admin/sentences" icon={BookOpen} title={t("admin.sentences")} />
                       <MobileNavLink href="/admin/legal" icon={Scale} title={t("admin.legal")} />
                       <MobileNavLink href="/admin/guides" icon={Compass} title={t("admin.guides")} />
                       <MobileNavLink href="/admin/lawyers" icon={Shield} title={t("admin.lawyers")} />
@@ -268,6 +270,7 @@ function ThemeToggle() {
       size="icon"
       onClick={() => setTheme(theme === "light" ? "dark" : "light")}
       title="Toggle theme"
+      className="text-[#337b80]"
     >
       <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
       <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />

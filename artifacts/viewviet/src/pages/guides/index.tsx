@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,10 +13,12 @@ const CATEGORIES = ["美食", "文化", "户外", "夜生活", "购物", "咖啡
 const COUNTRIES = ["越南", "中国", "东南亚"];
 
 export default function TravelGuides() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string | undefined>();
   const [country, setCountry] = useState<string | undefined>();
   const [page, setPage] = useState(1);
+  const [featuredIdx, setFeaturedIdx] = useState(0);
 
   const { data: featured } = useGetFeaturedTravelGuides({
     query: { queryKey: getGetFeaturedTravelGuidesQueryKey() },
@@ -28,15 +31,13 @@ export default function TravelGuides() {
   const featuredList = (featured as any[]) ?? [];
   const guides = (guidesResp as any)?.data ?? [];
   const pagination = (guidesResp as any)?.pagination;
-
-  const [featuredIdx, setFeaturedIdx] = useState(0);
   const currentFeatured = featuredList[featuredIdx];
 
   return (
     <div className="flex flex-col gap-10 pb-12">
       {/* Featured banner */}
       {featuredList.length > 0 && (
-        <div className="relative h-[420px] overflow-hidden bg-muted" data-testid="banner-featured-guide">
+        <div className="relative h-[300px] md:h-[420px] overflow-hidden bg-muted">
           {currentFeatured?.coverImage && (
             <div
               className="absolute inset-0 bg-cover bg-center transition-all duration-700"
@@ -44,15 +45,15 @@ export default function TravelGuides() {
             />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
+          <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 text-white">
             <div className="flex items-center gap-2 mb-2">
               <MapPin className="w-4 h-4" />
               <span className="text-sm">{currentFeatured?.city}, {currentFeatured?.country}</span>
               {currentFeatured?.category && <Badge className="bg-accent/90 text-white border-0 text-xs">{currentFeatured.category}</Badge>}
             </div>
-            <h2 className="text-2xl md:text-3xl font-bold mb-3 leading-snug">{currentFeatured?.title}</h2>
+            <h2 className="text-xl md:text-3xl font-bold mb-3 leading-snug">{currentFeatured?.title}</h2>
             <Link href={`/guides/${currentFeatured?.id}`}>
-              <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" data-testid="button-view-featured">Read Guide</Button>
+              <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">{t("guides.read_guide")}</Button>
             </Link>
           </div>
           {featuredList.length > 1 && (
@@ -62,7 +63,6 @@ export default function TravelGuides() {
                   key={i}
                   className={`w-2 h-2 rounded-full transition-all ${i === featuredIdx ? "bg-white scale-125" : "bg-white/40"}`}
                   onClick={() => setFeaturedIdx(i)}
-                  data-testid={`button-featured-dot-${i}`}
                 />
               ))}
             </div>
@@ -75,38 +75,37 @@ export default function TravelGuides() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search guides..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} data-testid="input-search-guides" />
+            <Input className="pl-9" placeholder={t("guides.search")} value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
           <select
             className="border rounded-md px-3 py-2 text-sm bg-background"
             value={country ?? ""}
             onChange={(e) => { setCountry(e.target.value || undefined); setPage(1); }}
-            data-testid="select-country"
           >
-            <option value="">All Countries</option>
+            <option value="">{t("guides.all_countries")}</option>
             {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 
-        {/* Category tabs */}
-        <div className="flex gap-2 flex-wrap">
-          <button
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${!category ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
-            onClick={() => { setCategory(undefined); setPage(1); }}
-            data-testid="tab-category-all"
-          >
-            All
-          </button>
-          {CATEGORIES.map((cat) => (
+        {/* Category tabs — scrollable on mobile */}
+        <div className="overflow-x-auto -mx-4 px-4 pb-1">
+          <div className="flex gap-2 w-max md:flex-wrap md:w-auto">
             <button
-              key={cat}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${category === cat ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
-              onClick={() => { setCategory(cat); setPage(1); }}
-              data-testid={`tab-category-${cat}`}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${!category ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+              onClick={() => { setCategory(undefined); setPage(1); }}
             >
-              {cat}
+              {t("guides.all")}
             </button>
-          ))}
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${category === cat ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+                onClick={() => { setCategory(cat); setPage(1); }}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Grid */}
@@ -117,13 +116,13 @@ export default function TravelGuides() {
         ) : guides.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <Compass className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>No guides found. Try different filters.</p>
+            <p>{t("guides.no_results")}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {guides.map((guide: any) => (
               <Link key={guide.id} href={`/guides/${guide.id}`}>
-                <Card className="cursor-pointer overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full" data-testid={`card-guide-${guide.id}`}>
+                <Card className="cursor-pointer overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full">
                   <div
                     className="h-48 bg-muted bg-cover bg-center"
                     style={{ backgroundImage: `url(${guide.coverImage || 'https://images.unsplash.com/photo-1559494007-9f5847c49d94?w=400'})` }}
@@ -149,9 +148,9 @@ export default function TravelGuides() {
 
         {pagination && pagination.totalPages > 1 && (
           <div className="flex items-center justify-center gap-3 pt-4">
-            <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)} data-testid="button-prev-page">Previous</Button>
-            <span className="text-sm text-muted-foreground">Page {page} of {pagination.totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page >= pagination.totalPages} onClick={() => setPage(p => p + 1)} data-testid="button-next-page">Next</Button>
+            <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>{t("guides.previous")}</Button>
+            <span className="text-sm text-muted-foreground">{t("guides.page_of", { page, total: pagination.totalPages })}</span>
+            <Button variant="outline" size="sm" disabled={page >= pagination.totalPages} onClick={() => setPage(p => p + 1)}>{t("guides.next")}</Button>
           </div>
         )}
       </div>

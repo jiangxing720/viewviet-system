@@ -90,4 +90,77 @@ router.post("/admin/complex-sentences", async (req, res): Promise<void> => {
   res.status(201).json(sentence);
 });
 
+router.post("/admin/scene-sentences/bulk", async (req, res): Promise<void> => {
+  const { rows } = req.body as { rows: unknown[] };
+  if (!Array.isArray(rows) || rows.length === 0) {
+    res.status(400).json({ error: "rows array is required" });
+    return;
+  }
+  const valid: any[] = [];
+  const errors: { index: number; error: string }[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] as any;
+    if (!row?.sentence || typeof row.sentence !== "string" || !row.sentence.trim()) {
+      errors.push({ index: i, error: "sentence is required" });
+      continue;
+    }
+    if (!row?.sceneName || typeof row.sceneName !== "string" || !row.sceneName.trim()) {
+      errors.push({ index: i, error: "sceneName is required" });
+      continue;
+    }
+    valid.push({
+      sentence: row.sentence.trim(),
+      languageCode: row.languageCode ?? "vi",
+      sceneName: row.sceneName.trim(),
+      pronunciation: row.pronunciation || null,
+      translationZh: row.translationZh || null,
+      translationEn: row.translationEn || null,
+      translationVi: row.translationVi || null,
+      difficulty: Math.min(5, Math.max(1, Number(row.difficulty) || 1)),
+      isPublished: row.isPublished === true || row.isPublished === "true",
+    });
+  }
+  if (valid.length === 0) {
+    res.status(400).json({ error: "No valid rows", errors });
+    return;
+  }
+  const inserted = await db.insert(sceneSentencesTable).values(valid).returning();
+  res.status(201).json({ inserted: inserted.length, errors });
+});
+
+router.post("/admin/complex-sentences/bulk", async (req, res): Promise<void> => {
+  const { rows } = req.body as { rows: unknown[] };
+  if (!Array.isArray(rows) || rows.length === 0) {
+    res.status(400).json({ error: "rows array is required" });
+    return;
+  }
+  const valid: any[] = [];
+  const errors: { index: number; error: string }[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] as any;
+    if (!row?.sentence || typeof row.sentence !== "string" || !row.sentence.trim()) {
+      errors.push({ index: i, error: "sentence is required" });
+      continue;
+    }
+    valid.push({
+      sentence: row.sentence.trim(),
+      languageCode: row.languageCode ?? "vi",
+      pronunciation: row.pronunciation || null,
+      translationZh: row.translationZh || null,
+      translationEn: row.translationEn || null,
+      translationVi: row.translationVi || null,
+      grammarNotes: row.grammarNotes || null,
+      context: row.context || null,
+      difficulty: Math.min(5, Math.max(1, Number(row.difficulty) || 1)),
+      isPublished: row.isPublished === true || row.isPublished === "true",
+    });
+  }
+  if (valid.length === 0) {
+    res.status(400).json({ error: "No valid rows", errors });
+    return;
+  }
+  const inserted = await db.insert(complexSentencesTable).values(valid).returning();
+  res.status(201).json({ inserted: inserted.length, errors });
+});
+
 export default router;

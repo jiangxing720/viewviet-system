@@ -19,6 +19,7 @@
     "featured_guides": "精选攻略",
     "featured_guides_sub": "为在越华人精心整理的出行指南",
     "view_all": "查看全部",
+    "legal_resources": "法律资讯",
     "legal_insights": "法律资讯",
     "legal_insights_sub": "专业解读越南法律法规",
     "featured_lawyers": "推荐律师",
@@ -27,42 +28,96 @@
     "upcoming_activities_sub": "加入华人社区，共同成长",
     "contact": "联系",
     "join": "报名参加",
-    "spots": "名额"
+    "spots": "名额",
+    "module_vietnamese": "越南语",
+    "module_words": "词汇与短语",
+    "module_travel": "出行攻略",
+    "module_explore": "探索越南",
+    "module_legal": "法律中心",
+    "module_laws": "法规权益",
+    "module_community": "社区",
+    "module_events": "活动与聚会",
+    "no_guides": "暂无攻略",
+    "no_articles": "暂无文章",
+    "no_lawyers": "暂无律师信息",
+    "no_activities": "暂无近期活动",
+    "cta_title": "准备好简化您的跨境生活了吗？",
+    "cta_subtitle": "加入数千位在东南亚生活的华人，共同使用 ViewViet",
+    "cta_button": "立即免费开始"
   },
   "learn": {
     "title": "语言学习中心",
     "subtitle": "掌握越南语、英语、中文和韩语",
+    "lang_vi": "越南语",
+    "lang_vi_desc": "学习当地语言",
+    "lang_en": "英语",
+    "lang_en_desc": "国际通用语言",
+    "lang_zh": "中文",
+    "lang_zh_desc": "连接华人社区",
+    "lang_ko": "韩语",
+    "lang_ko_desc": "商务与文化",
     "start": "开始学习",
     "words": "词汇",
     "scenes": "情景会话",
     "complex": "复杂句型",
     "difficulty": "难度",
     "category": "分类",
+    "categories": "词汇分类",
     "all": "全部",
+    "all_words": "全部词汇",
+    "all_scenes": "全部场景",
+    "search_placeholder": "搜索词汇...",
+    "scenes_btn": "情景会话",
+    "complex_btn": "复杂句型",
+    "filter_difficulty": "按难度筛选：",
+    "level": "第 {{n}} 级",
+    "no_words": "未找到词汇，请尝试不同的分类或关键词",
+    "no_scenes": "该场景暂无句子",
+    "no_complex": "该难度暂无复杂句型",
+    "context": "语境",
+    "sentences_tab": "句子管理",
+    "back_lang": "← 语言",
+    "back_words": "← 词汇",
+    "back_scenes": "← 情景",
     "tts_play": "朗读",
-    "grammar_notes": "语法说明"
+    "grammar_notes": "语法说明",
+    "vocabulary": "词汇",
+    "scene_sentences": "情景句子",
+    "complex_sentences": "复杂句型"
   },
   "guides": {
     "title": "出行攻略",
     "subtitle": "东南亚华人旅行指南",
     "search": "搜索攻略...",
     "all_countries": "所有国家",
+    "all": "全部",
     "read_guide": "阅读攻略",
     "views": "次浏览",
-    "min_read": "分钟阅读"
+    "min_read": "分钟阅读",
+    "no_results": "未找到攻略，请尝试其他筛选",
+    "previous": "上一页",
+    "next": "下一页",
+    "page_of": "第 {{page}} 页，共 {{total}} 页"
   },
   "legal": {
     "title": "法律资讯",
     "subtitle": "专业解读越南及东南亚法律法规",
     "search": "搜索文章...",
+    "categories": "分类",
     "all_categories": "所有分类",
+    "country": "国家",
     "all_countries": "所有国家",
+    "all": "全部",
     "read_more": "阅读更多",
     "find_lawyer": "寻找律师",
     "find_lawyer_desc": "需要专业法律协助？我们的律师团队随时为您服务",
     "related_articles": "相关文章",
     "min_read": "分钟阅读",
-    "featured": "精选"
+    "featured": "精选",
+    "no_results": "未找到文章，请尝试其他筛选",
+    "previous": "上一页",
+    "next": "下一页",
+    "page_of": "第 {{page}} 页，共 {{total}} 页"
   },
   "lawyers": {
     "title": "法律专业人士",
@@ -73,7 +128,8 @@
     "contact": "联系",
     "featured": "推荐",
     "specialties": "专业领域",
-    "languages": "语言"
+    "languages": "语言",
+    "no_results": "未找到律师，请尝试其他筛选"
   },
   "community": {
     "title": "社区活动",
@@ -84,7 +140,9 @@
     "spots_left": "剩余名额",
     "featured": "精选",
     "organizer": "主办方",
-    "all": "全部"
+    "all": "全部",
+    "spots": "个名额",
+    "no_activities": "暂无活动，成为第一个发布的人！"
   },
   "auth": {
     "login": "登录",
@@ -108,6 +166,7 @@
   "admin": {
     "dashboard": "控制台",
     "words": "词汇管理",
+    "sentences": "句子管理",
     "legal": "法律文章",
     "guides": "攻略管理",
     "lawyers": "律师管理",
@@ -128,7 +187,8 @@
     "approve": "通过",
     "reject": "拒绝",
     "bulk_upload": "批量上传",
-    "logout": "退出登录"
+    "logout": "退出登录",
+    "auto_category": "自动识别分类"
   },
   "common": {
     "loading": "加载中...",
@@ -145,7 +205,10 @@
     "actions": "操作",
     "status": "状态",
     "yes": "是",
-    "no": "否"
+    "no": "否",
+    "previous": "上一页",
+    "next": "下一页",
+    "page_of": "第 {{page}} 页，共 {{total}} 页"
   },
   "footer": {
     "tagline": "在越华人的跨境生活伴侣",

@@ -19,6 +19,7 @@
     "featured_guides": "Featured Guides",
     "featured_guides_sub": "Hand-picked travel guides for Chinese expats in Vietnam",
     "view_all": "View All",
+    "legal_resources": "Legal Resources",
     "legal_insights": "Legal Insights",
     "legal_insights_sub": "Expert breakdowns of Vietnam's laws and regulations",
     "featured_lawyers": "Featured Lawyers",
@@ -27,42 +28,96 @@
     "upcoming_activities_sub": "Connect and grow with the Chinese community",
     "contact": "Contact",
     "join": "Join Event",
-    "spots": "spots"
+    "spots": "spots",
+    "module_vietnamese": "Vietnamese",
+    "module_words": "Words & Phrases",
+    "module_travel": "Travel Guides",
+    "module_explore": "Explore Vietnam",
+    "module_legal": "Legal Hub",
+    "module_laws": "Laws & Rights",
+    "module_community": "Community",
+    "module_events": "Events & Activities",
+    "no_guides": "No guides yet.",
+    "no_articles": "No articles yet.",
+    "no_lawyers": "No lawyers listed yet.",
+    "no_activities": "No upcoming activities.",
+    "cta_title": "Ready to simplify your cross-border life?",
+    "cta_subtitle": "Join thousands of Chinese expats and travelers navigating Southeast Asia with ViewViet.",
+    "cta_button": "Get Started — It's Free"
   },
   "learn": {
     "title": "Language Learning Hub",
     "subtitle": "Master Vietnamese, English, Chinese, and Korean",
+    "lang_vi": "Vietnamese",
+    "lang_vi_desc": "Learn the local language",
+    "lang_en": "English",
+    "lang_en_desc": "Global communication",
+    "lang_zh": "Chinese",
+    "lang_zh_desc": "Connect with the expat community",
+    "lang_ko": "Korean",
+    "lang_ko_desc": "For business and culture",
     "start": "Start Learning",
     "words": "Vocabulary",
     "scenes": "Scene Dialogues",
     "complex": "Complex Sentences",
     "difficulty": "Difficulty",
     "category": "Category",
+    "categories": "Categories",
     "all": "All",
+    "all_words": "All Words",
+    "all_scenes": "All Scenes",
+    "search_placeholder": "Search words...",
+    "scenes_btn": "Scenes",
+    "complex_btn": "Complex",
+    "filter_difficulty": "Filter by difficulty:",
+    "level": "Level {{n}}",
+    "no_words": "No words found. Try a different category or search.",
+    "no_scenes": "No sentences found for this scene yet.",
+    "no_complex": "No complex sentences found at this difficulty level.",
+    "context": "Context",
+    "sentences_tab": "Sentences",
+    "back_lang": "← Languages",
+    "back_words": "← Words",
+    "back_scenes": "← Scenes",
     "tts_play": "Play Audio",
-    "grammar_notes": "Grammar Notes"
+    "grammar_notes": "Grammar Notes",
+    "vocabulary": "Vocabulary",
+    "scene_sentences": "Scene Sentences",
+    "complex_sentences": "Complex Sentences"
   },
   "guides": {
     "title": "Travel Guides",
     "subtitle": "Southeast Asia travel guides for Chinese expats",
     "search": "Search guides...",
     "all_countries": "All Countries",
+    "all": "All",
     "read_guide": "Read Guide",
     "views": "views",
-    "min_read": "min read"
+    "min_read": "min read",
+    "no_results": "No guides found. Try different filters.",
+    "previous": "Previous",
+    "next": "Next",
+    "page_of": "Page {{page}} of {{total}}"
   },
   "legal": {
     "title": "Legal Insights",
     "subtitle": "Expert analysis of Vietnam and Southeast Asia law",
     "search": "Search articles...",
+    "categories": "Categories",
     "all_categories": "All Categories",
+    "country": "Country",
     "all_countries": "All Countries",
+    "all": "All",
     "read_more": "Read More",
     "find_lawyer": "Find a Lawyer",
     "find_lawyer_desc": "Need professional legal assistance? Our team is ready to help",
     "related_articles": "Related Articles",
     "min_read": "min read",
-    "featured": "Featured"
+    "featured": "Featured",
+    "no_results": "No articles found. Try different filters.",
+    "previous": "Previous",
+    "next": "Next",
+    "page_of": "Page {{page}} of {{total}}"
   },
   "lawyers": {
     "title": "Legal Professionals",
@@ -73,7 +128,8 @@
     "contact": "Contact",
     "featured": "Featured",
     "specialties": "Specialties",
-    "languages": "Languages"
+    "languages": "Languages",
+    "no_results": "No lawyers found. Try different filters."
   },
   "community": {
     "title": "Community Activities",
@@ -84,7 +140,9 @@
     "spots_left": "spots left",
     "featured": "Featured",
     "organizer": "Organizer",
-    "all": "All"
+    "all": "All",
+    "spots": "spots",
+    "no_activities": "No activities found. Be the first to post one!"
   },
   "auth": {
     "login": "Log In",
@@ -108,6 +166,7 @@
   "admin": {
     "dashboard": "Dashboard",
     "words": "Words",
+    "sentences": "Sentences",
     "legal": "Legal Articles",
     "guides": "Guides",
     "lawyers": "Lawyers",
@@ -128,7 +187,8 @@
     "approve": "Approve",
     "reject": "Reject",
     "bulk_upload": "Bulk Upload",
-    "logout": "Log Out"
+    "logout": "Log Out",
+    "auto_category": "Auto-detect Category"
   },
   "common": {
     "loading": "Loading...",
@@ -145,7 +205,10 @@
     "actions": "Actions",
     "status": "Status",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "previous": "Previous",
+    "next": "Next",
+    "page_of": "Page {{page}} of {{total}}"
   },
   "footer": {
     "tagline": "Your trusted companion for cross-border life in Southeast Asia",

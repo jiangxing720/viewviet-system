@@ -15,7 +15,7 @@ import {
   useDeleteLegalArticle,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, ArrowLeft, Search, Pencil, Eye, X, Globe } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Search, Pencil, Eye, X, Globe, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,28 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 const CATEGORIES = ["劳动法", "公司注册", "知识产权", "税务", "FDI/投资", "房地产", "移民签证", "刑事"];
 const COUNTRIES = ["越南", "泰国", "马来西亚", "新加坡", "印度尼西亚", "柬埔寨", "缅甸", "东南亚"];
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  "劳动法": ["劳动", "劳工", "合同", "工资", "薪资", "员工", "雇佣", "就业", "工伤", "辞退", "解雇", "劳动合同", "社保", "工时"],
+  "公司注册": ["注册", "公司", "企业", "设立", "章程", "营业执照", "股东", "董事", "有限公司", "法人"],
+  "知识产权": ["知识产权", "专利", "商标", "版权", "著作权", "侵权", "知识", "产权", "品牌保护"],
+  "税务": ["税", "纳税", "报税", "增值税", "所得税", "VAT", "税务", "退税", "税率", "税收", "发票"],
+  "FDI/投资": ["投资", "FDI", "外资", "股权", "合资", "外商", "外国投资", "投资许可", "项目"],
+  "房地产": ["房地产", "购房", "租赁", "土地", "产权", "不动产", "房产", "买房", "租房", "物业"],
+  "移民签证": ["签证", "移民", "护照", "居留", "工作许可", "visa", "work permit", "居住证", "入境", "出境", "签注", "落地签"],
+  "刑事": ["刑事", "犯罪", "逮捕", "刑法", "监狱", "拘留", "诈骗", "违法", "刑罚"],
+};
+
+function detectCategory(title: string, content: string): string {
+  const text = (title + " " + content).toLowerCase();
+  let best = "";
+  let bestScore = 0;
+  for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    const score = keywords.reduce((acc, kw) => acc + (text.includes(kw.toLowerCase()) ? 1 : 0), 0);
+    if (score > bestScore) { bestScore = score; best = cat; }
+  }
+  return best;
+}
 
 export default function AdminLegal() {
   const { t } = useTranslation();
@@ -136,12 +158,30 @@ export default function AdminLegal() {
                     <FormItem><FormLabel>Cover Image URL</FormLabel><FormControl><Input {...field} placeholder="https://..." /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="category" render={({ field }) => (
-                    <FormItem><FormLabel>{t("learn.category")}</FormLabel><FormControl>
-                      <select className="w-full border rounded-md px-3 py-2 text-sm bg-background" {...field}>
-                        <option value="">Select category...</option>
-                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>{t("learn.category")}</FormLabel>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-xs gap-1 text-primary px-2"
+                          onClick={() => {
+                            const detected = detectCategory(form.getValues("title"), form.getValues("content") + " " + form.getValues("summary"));
+                            if (detected) { form.setValue("category", detected); toast({ title: `${t("admin.auto_category")}: ${detected}` }); }
+                            else toast({ title: "无法识别分类，请手动选择", variant: "destructive" });
+                          }}
+                        >
+                          <Sparkles className="h-3 w-3" />{t("admin.auto_category")}
+                        </Button>
+                      </div>
+                      <FormControl>
+                        <select className="w-full border rounded-md px-3 py-2 text-sm bg-background" {...field}>
+                          <option value="">Select category...</option>
+                          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </FormControl><FormMessage />
+                    </FormItem>
                   )} />
                   <FormField control={form.control} name="country" render={({ field }) => (
                     <FormItem><FormLabel><Globe className="inline h-3 w-3 mr-1" />Country</FormLabel><FormControl>
