@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 
 export type LangCode = "zh" | "en" | "vi" | "ko";
 export type InterpreterStatus = "idle" | "listening" | "translating" | "speaking";
+export type DirectionMode = "both" | "a-to-b" | "b-to-a";
 
 export interface Exchange {
   id: string;
@@ -40,6 +41,7 @@ interface SpeechRecognitionInstance {
   lang: string;
   continuous: boolean;
   interimResults: boolean;
+  maxAlternatives: number;
   onresult: ((e: SpeechRecognitionEvent) => void) | null;
   onerror: ((e: SpeechRecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
@@ -110,12 +112,16 @@ function speakAsync(text: string, lang: LangCode): Promise<void> {
     utt.onend = done;
     utt.onerror = done;
     window.speechSynthesis.speak(utt);
-    // Fallback timeout: max(chars * 130ms + 2s, 5s)
     setTimeout(done, Math.max(text.length * 130 + 2000, 5000));
   });
 }
 
-export function useInterpreter(langA: LangCode, langB: LangCode) {
+export function useInterpreter(
+  langA: LangCode,
+  langB: LangCode,
+  direction: DirectionMode = "both",
+  pushToTalk = false,
+) {
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState<InterpreterStatus>("idle");
   const [log, setLog] = useState<Exchange[]>([]);
@@ -123,18 +129,21 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
   const [activeSpeaker, setActiveSpeaker] = useState<"A" | "B">("A");
   const [permissionError, setPermissionError] = useState(false);
 
-  // Use refs for values needed inside callbacks to avoid stale closures
   const runRef = useRef(false);
   const busyRef = useRef(false);
   const recRef = useRef<SpeechRecognitionInstance | null>(null);
   const langARef = useRef(langA);
   const langBRef = useRef(langB);
   const nextSpeakerRef = useRef<"A" | "B">("A");
+  const directionRef = useRef(direction);
+  const pushToTalkRef = useRef(pushToTalk);
+  const pendingInterimRef = useRef("");
 
   useEffect(() => { langARef.current = langA; }, [langA]);
   useEffect(() => { langBRef.current = langB; }, [langB]);
+  useEffect(() => { directionRef.current = direction; }, [direction]);
+  useEffect(() => { pushToTalkRef.current = pushToTalk; }, [pushToTalk]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       runRef.current = false;
@@ -148,16 +157,25 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     recRef.current = null;
   }
 
+  function getNextSpeaker(current: "A" | "B"): "A" | "B" {
+    const dir = directionRef.current;
+    if (dir === "a-to-b") return "A";
+    if (dir === "b-to-a") return "B";
+    return current === "A" ? "B" : "A";
+  }
+
   function startListening(speaker: "A" | "B") {
     if (!SR || !runRef.current || busyRef.current) return;
 
     destroyRec();
+    pendingInterimRef.current = "";
 
     const lang = speaker === "A" ? langARef.current : langBRef.current;
     const rec = new SR();
     rec.lang = BCP47[lang];
-    rec.continuous = false;    // single-utterance: cleaner lifecycle
+    rec.continuous = false;
     rec.interimResults = true;
+    rec.maxAlternatives = 1;
 
     rec.onresult = (e: SpeechRecognitionEvent) => {
       let interimText = "";
@@ -168,8 +186,12 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
         if (res.isFinal) finalText += transcript;
         else interimText += transcript;
       }
-      if (interimText) setInterim(interimText);
+      if (interimText) {
+        pendingInterimRef.current = interimText;
+        setInterim(interimText);
+      }
       if (finalText.trim()) {
+        pendingInterimRef.current = "";
         setInterim("");
         void handleSpeak(speaker, finalText.trim());
       }
@@ -181,16 +203,26 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
         stopSession();
         return;
       }
-      // no-speech: recognizer timed out waiting — restart silently
-      if (e.error === "no-speech" && runRef.current && !busyRef.current) {
+      if (e.error === "no-speech" && runRef.current && !busyRef.current && !pushToTalkRef.current) {
         setTimeout(() => startListening(nextSpeakerRef.current), 300);
       }
     };
 
     rec.onend = () => {
-      // Only restart automatically if we're not mid-translation
-      if (runRef.current && !busyRef.current) {
-        setTimeout(() => startListening(nextSpeakerRef.current), 300);
+      if (pushToTalkRef.current) {
+        // PTT: if no final result came, use the last interim (catches abrupt release)
+        const pending = pendingInterimRef.current.trim();
+        if (pending && runRef.current && !busyRef.current) {
+          pendingInterimRef.current = "";
+          setInterim("");
+          void handleSpeak(speaker, pending);
+        } else if (runRef.current && !busyRef.current) {
+          setStatus("idle");
+        }
+      } else {
+        if (runRef.current && !busyRef.current) {
+          setTimeout(() => startListening(nextSpeakerRef.current), 300);
+        }
       }
     };
 
@@ -200,7 +232,6 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
       setActiveSpeaker(speaker);
       setStatus("listening");
     } catch {
-      // start() can throw if called in quick succession
       setTimeout(() => startListening(speaker), 500);
     }
   }
@@ -215,7 +246,7 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
 
     const from = speaker === "A" ? langARef.current : langBRef.current;
     const to   = speaker === "A" ? langBRef.current : langARef.current;
-    const replyFrom: "A" | "B" = speaker === "A" ? "B" : "A";
+    const next = getNextSpeaker(speaker);
 
     setStatus("translating");
     try {
@@ -238,9 +269,12 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     } finally {
       busyRef.current = false;
       if (runRef.current) {
-        // After A speaks, listen for B's reply — and vice versa
-        nextSpeakerRef.current = replyFrom;
-        setTimeout(() => startListening(replyFrom), 400);
+        nextSpeakerRef.current = next;
+        if (!pushToTalkRef.current) {
+          setTimeout(() => startListening(next), 400);
+        } else {
+          setStatus("idle");
+        }
       } else {
         setStatus("idle");
       }
@@ -250,6 +284,7 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
   function stopSession() {
     runRef.current = false;
     busyRef.current = false;
+    pendingInterimRef.current = "";
     setRunning(false);
     setStatus("idle");
     setInterim("");
@@ -262,13 +297,29 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     setPermissionError(false);
     runRef.current = true;
     busyRef.current = false;
-    nextSpeakerRef.current = "A";
+    const initial: "A" | "B" = direction === "b-to-a" ? "B" : "A";
+    nextSpeakerRef.current = initial;
     setRunning(true);
-    startListening("A");
+    if (!pushToTalk) {
+      startListening(initial);
+    } else {
+      setStatus("idle");
+    }
   }
 
   function stop() {
     stopSession();
+  }
+
+  /** PTT: call on pointer-down to begin recording for a specific speaker */
+  function startFor(speaker: "A" | "B") {
+    if (!SR || !runRef.current || busyRef.current) return;
+    startListening(speaker);
+  }
+
+  /** PTT: call on pointer-up/cancel to commit what was recorded */
+  function stopListening() {
+    try { recRef.current?.stop(); } catch {}
   }
 
   function replay(exchange: Exchange) {
@@ -288,6 +339,8 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     permissionError,
     start,
     stop,
+    startFor,
+    stopListening,
     replay,
     clearLog,
     supported: !!SR,

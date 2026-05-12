@@ -34,7 +34,12 @@
     "summarize": "一键总结",
     "summarizing": "总结中...",
     "summary_error": "总结生成失败，请重试",
-    "new_session": "新会话"
+    "new_session": "新会话",
+    "direction_both": "⇄ 双向",
+    "push_to_talk": "按键说话",
+    "hold_to_speak": "按住说话",
+    "release_to_send": "松开发送",
+    "ptt_hint": "按住面板按钮开始说话"
   },
   "home": {
     "hero_title": "越南，一切尽在掌握",

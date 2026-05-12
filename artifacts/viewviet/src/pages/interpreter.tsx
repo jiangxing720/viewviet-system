@@ -1,8 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Volume2, Trash2, AlertCircle, Loader2, ArrowRight, FileText, ChevronLeft } from "lucide-react";
-import { useInterpreter, type LangCode, type Exchange, type InterpreterStatus } from "@/hooks/use-interpreter";
+import {
+  Mic, MicOff, Volume2, Trash2, AlertCircle, Loader2,
+  ArrowRight, FileText, ChevronLeft, Hand,
+} from "lucide-react";
+import {
+  useInterpreter,
+  type LangCode, type Exchange, type InterpreterStatus, type DirectionMode,
+} from "@/hooks/use-interpreter";
 
 const LANGUAGES: { code: LangCode; native: string; full: string }[] = [
   { code: "zh", native: "中文", full: "Chinese" },
@@ -28,46 +34,109 @@ function LangSelect({ value, other, disabled, onChange }: {
   );
 }
 
-function StatusDot({ status, active }: { status: InterpreterStatus; active: boolean }) {
-  if (!active) return null;
-  if (status === "listening") return <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse flex-shrink-0" />;
-  if (status === "translating") return <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin flex-shrink-0" />;
-  if (status === "speaking") return <Volume2 className="w-3.5 h-3.5 text-blue-500 animate-pulse flex-shrink-0" />;
-  return null;
+/** Large push-to-talk hold button */
+function PttButton({ onStart, onEnd, status, isListening }: {
+  onStart: () => void; onEnd: () => void;
+  status: InterpreterStatus; isListening: boolean;
+}) {
+  const { t } = useTranslation();
+  const busy = status === "translating" || status === "speaking";
+
+  return (
+    <button
+      onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); onStart(); }}
+      onPointerUp={onEnd}
+      onPointerCancel={onEnd}
+      disabled={busy}
+      className={`w-24 h-24 rounded-full flex flex-col items-center justify-center gap-1.5 font-bold text-xs shadow-xl transition-all duration-150 touch-none select-none
+        ${isListening
+          ? "bg-green-500 text-white scale-110 shadow-green-300"
+          : busy
+            ? "bg-muted text-muted-foreground cursor-not-allowed opacity-60"
+            : "bg-primary text-primary-foreground active:scale-95"
+        }`}
+    >
+      {busy
+        ? <Loader2 className="w-7 h-7 animate-spin" />
+        : <Mic className={`w-7 h-7 ${isListening ? "animate-pulse" : ""}`} />
+      }
+      <span className="text-[10px] leading-tight text-center px-1">
+        {isListening ? t("interpreter.release_to_send") : busy ? "..." : t("interpreter.hold_to_speak")}
+      </span>
+    </button>
+  );
 }
 
 function PersonPanel({
   speaker, lang, otherLang, disabled, onChangeLang, label,
-  running, status, activeSpeaker, interim, lastReceived, onReplay,
+  running, status, activeSpeaker, interim, lastReceived, lastSent, onReplay,
+  pushToTalk, isPttSpeaker, onPttStart, onPttEnd,
 }: {
   speaker: "A" | "B"; lang: LangCode; otherLang: LangCode;
   disabled: boolean; onChangeLang: (l: LangCode) => void; label: string;
   running: boolean; status: InterpreterStatus; activeSpeaker: "A" | "B";
-  interim: string; lastReceived: Exchange | undefined; onReplay: () => void;
+  interim: string; lastReceived: Exchange | undefined; lastSent: Exchange | undefined;
+  onReplay: () => void;
+  pushToTalk: boolean; isPttSpeaker: boolean;
+  onPttStart: () => void; onPttEnd: () => void;
 }) {
   const { t } = useTranslation();
   const isActive = activeSpeaker === speaker;
+  const isListening = isActive && status === "listening";
   const showInterim = isActive && !!interim;
-  const showTranslation = !showInterim && !!lastReceived;
+
+  // What the center of the panel shows depends on mode
+  const inPttSpeakerMode = running && pushToTalk && isPttSpeaker;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 px-4 pt-3 pb-2 gap-2">
+      {/* Header row */}
       <div className="flex items-center gap-2 flex-shrink-0">
         <LangSelect value={lang} other={otherLang} disabled={disabled} onChange={onChangeLang} />
         <span className="text-sm text-muted-foreground font-medium flex-1">{label}</span>
-        {running && <StatusDot status={status} active={isActive} />}
-        {showTranslation && (
+        {running && !pushToTalk && isActive && (
+          status === "listening" ? <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse flex-shrink-0" /> :
+          status === "translating" ? <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin flex-shrink-0" /> :
+          status === "speaking" ? <Volume2 className="w-3.5 h-3.5 text-blue-500 animate-pulse flex-shrink-0" /> :
+          null
+        )}
+        {lastReceived && (
           <button onClick={onReplay} className="text-muted-foreground hover:text-primary transition-colors p-1 rounded" title={t("interpreter.replay")}>
             <Volume2 className="w-4 h-4" />
           </button>
         )}
       </div>
-      <div className="flex-1 flex items-center justify-center min-h-0">
-        {showInterim ? (
-          <p className="text-xl font-medium text-center leading-relaxed text-muted-foreground italic px-2 line-clamp-5">{interim}</p>
-        ) : showTranslation ? (
-          <p className="text-2xl font-bold text-center leading-relaxed text-foreground px-2 line-clamp-5">{lastReceived!.translated}</p>
-        ) : running && isActive && status === "listening" ? (
+
+      {/* Center content */}
+      <div className="flex-1 flex flex-col items-center justify-center min-h-0 gap-3">
+        {inPttSpeakerMode ? (
+          <>
+            <PttButton
+              onStart={onPttStart}
+              onEnd={onPttEnd}
+              status={status}
+              isListening={isListening}
+            />
+            {showInterim && (
+              <p className="text-sm text-muted-foreground italic text-center px-2 line-clamp-3 max-w-xs">
+                {interim}
+              </p>
+            )}
+            {!showInterim && lastSent && (
+              <p className="text-xs text-muted-foreground/60 text-center px-2 line-clamp-2 max-w-xs">
+                {lastSent.original}
+              </p>
+            )}
+          </>
+        ) : showInterim ? (
+          <p className="text-xl font-medium text-center leading-relaxed text-muted-foreground italic px-2 line-clamp-5">
+            {interim}
+          </p>
+        ) : lastReceived ? (
+          <p className="text-2xl font-bold text-center leading-relaxed text-foreground px-2 line-clamp-5">
+            {lastReceived.translated}
+          </p>
+        ) : running && !pushToTalk && isActive && status === "listening" ? (
           <p className="text-sm text-muted-foreground/60 text-center">{t("interpreter.listening")}</p>
         ) : (
           <p className="text-sm text-muted-foreground/40 text-center">{t("interpreter.no_log")}</p>
@@ -77,7 +146,7 @@ function PersonPanel({
   );
 }
 
-/** Review view shown after session ends — full scrollable history + AI summary */
+/** Review panel shown after session ends */
 function ReviewPanel({
   log, langA, langB, onBack, onReplay, onClear,
 }: {
@@ -119,7 +188,6 @@ function ReviewPanel({
 
   return (
     <div className="flex flex-col h-[calc(100dvh-4rem)] overflow-hidden bg-background">
-      {/* Header */}
       <div className="flex-shrink-0 border-b px-4 py-2.5 flex items-center gap-3 bg-background/95 backdrop-blur">
         <button onClick={onBack} className="text-muted-foreground hover:text-primary transition-colors p-1 rounded">
           <ChevronLeft className="w-5 h-5" />
@@ -131,7 +199,6 @@ function ReviewPanel({
         </button>
       </div>
 
-      {/* Scrollable transcript */}
       <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2 min-h-0">
         {log.map((ex) => {
           const isA = ex.speaker === "A";
@@ -151,8 +218,6 @@ function ReviewPanel({
             </div>
           );
         })}
-
-        {/* Summary block */}
         {summary && (
           <div className="mt-2 px-3 py-3 rounded-2xl border border-primary/20 bg-primary/5 text-sm leading-relaxed whitespace-pre-wrap">
             {summary}
@@ -164,13 +229,8 @@ function ReviewPanel({
         <div ref={logEndRef} />
       </div>
 
-      {/* Summary action */}
       <div className="flex-shrink-0 border-t px-4 py-3 bg-background/95 backdrop-blur flex gap-2">
-        <Button
-          className="flex-1 gap-2 font-semibold"
-          onClick={handleSummary}
-          disabled={summarizing}
-        >
+        <Button className="flex-1 gap-2 font-semibold" onClick={handleSummary} disabled={summarizing}>
           {summarizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
           {summarizing ? t("interpreter.summarizing") : t("interpreter.summarize")}
         </Button>
@@ -183,18 +243,25 @@ function ReviewPanel({
   );
 }
 
+function isSpeakerInDirection(speaker: "A" | "B", dir: DirectionMode): boolean {
+  if (dir === "both") return true;
+  if (dir === "a-to-b") return speaker === "A";
+  return speaker === "B";
+}
+
 export default function InterpreterPage() {
   const { t } = useTranslation();
   const [langA, setLangA] = useState<LangCode>("zh");
   const [langB, setLangB] = useState<LangCode>("vi");
+  const [direction, setDirection] = useState<DirectionMode>("both");
+  const [pushToTalk, setPushToTalk] = useState(false);
   const [reviewing, setReviewing] = useState(false);
 
   const {
     running, status, log, interim, activeSpeaker,
-    permissionError, start, stop, replay, clearLog, supported,
-  } = useInterpreter(langA, langB);
+    permissionError, start, stop, startFor, stopListening, replay, clearLog, supported,
+  } = useInterpreter(langA, langB, direction, pushToTalk);
 
-  // Auto-enter review mode when session stops and there's content
   useEffect(() => {
     if (!running && log.length > 0) setReviewing(true);
   }, [running, log.length]);
@@ -202,15 +269,24 @@ export default function InterpreterPage() {
   const sameLang = langA === langB;
   const canStart = supported && !sameLang;
 
-  const lastForA = [...log].reverse().find((e) => e.speaker === "B");
-  const lastForB = [...log].reverse().find((e) => e.speaker === "A");
+  // What each panel shows as "received" (the translation coming in)
+  const lastForA = [...log].reverse().find((e) => e.speaker === "B"); // B spoke → A receives
+  const lastForB = [...log].reverse().find((e) => e.speaker === "A"); // A spoke → B receives
+
+  // What each speaker panel shows as "sent" (for PTT verification)
+  const lastSentByA = [...log].reverse().find((e) => e.speaker === "A");
+  const lastSentByB = [...log].reverse().find((e) => e.speaker === "B");
+
+  const DIRECTIONS: { value: DirectionMode; label: string }[] = [
+    { value: "both", label: t("interpreter.direction_both") },
+    { value: "a-to-b", label: "A→B" },
+    { value: "b-to-a", label: "B→A" },
+  ];
 
   if (reviewing && log.length > 0) {
     return (
       <ReviewPanel
-        log={log}
-        langA={langA}
-        langB={langB}
+        log={log} langA={langA} langB={langB}
         onBack={() => setReviewing(false)}
         onReplay={replay}
         onClear={() => { clearLog(); setReviewing(false); }}
@@ -221,66 +297,135 @@ export default function InterpreterPage() {
   return (
     <div className="flex flex-col h-[calc(100dvh-4rem)] overflow-hidden select-none bg-background">
 
-      {/* Person A — rotated 180° */}
+      {/* Person A panel — rotated 180° */}
       <div className="rotate-180 flex-1 flex flex-col min-h-0 border-b bg-primary/5">
         <PersonPanel
           speaker="A" lang={langA} otherLang={langB}
           disabled={running} onChangeLang={setLangA}
           label={t("interpreter.person_a")}
           running={running} status={status} activeSpeaker={activeSpeaker}
-          interim={interim} lastReceived={lastForA}
+          interim={interim}
+          lastReceived={lastForA}
+          lastSent={lastSentByA}
           onReplay={() => lastForA && replay(lastForA)}
+          pushToTalk={pushToTalk}
+          isPttSpeaker={isSpeakerInDirection("A", direction)}
+          onPttStart={() => startFor("A")}
+          onPttEnd={stopListening}
         />
       </div>
 
       {/* Control strip */}
-      <div className="flex-shrink-0 border-y bg-background/95 backdrop-blur px-4 py-2 flex items-center justify-between gap-2 z-10">
-        <div className="w-8 flex items-center">
-          {status === "listening" ? <Mic className="w-4 h-4 text-green-500 animate-pulse" /> :
-           status === "translating" ? <Loader2 className="w-4 h-4 text-amber-500 animate-spin" /> :
-           status === "speaking" ? <Volume2 className="w-4 h-4 text-blue-500 animate-pulse" /> :
-           <MicOff className="w-4 h-4 text-muted-foreground/40" />}
-        </div>
-
-        {!supported ? (
-          <div className="flex items-center gap-1.5 text-xs text-destructive font-medium flex-1 justify-center">
-            <AlertCircle className="w-4 h-4" />{t("interpreter.not_supported")}
+      <div className="flex-shrink-0 border-y bg-background/95 backdrop-blur z-10">
+        {/* Settings row — hidden while session is running */}
+        {!running && (
+          <div className="px-3 pt-2 pb-1 flex items-center gap-2 flex-wrap">
+            {/* Direction pills */}
+            <div className="flex gap-1">
+              {DIRECTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setDirection(value)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                    direction === value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex-1" />
+            {/* PTT toggle */}
+            <button
+              onClick={() => setPushToTalk((v) => !v)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                pushToTalk
+                  ? "bg-amber-100 text-amber-800 border border-amber-300"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Hand className="w-3 h-3" />
+              {t("interpreter.push_to_talk")}
+            </button>
           </div>
-        ) : permissionError ? (
-          <div className="flex items-center gap-1.5 text-xs text-destructive font-medium flex-1 justify-center">
-            <AlertCircle className="w-4 h-4" />{t("interpreter.mic_denied")}
-          </div>
-        ) : sameLang ? (
-          <p className="text-xs text-amber-500 text-center font-medium flex-1">{t("interpreter.same_lang_warn")}</p>
-        ) : (
-          <Button
-            size="sm"
-            className={`px-8 font-bold rounded-full transition-all ${running ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground" : "bg-primary hover:bg-primary/90 text-primary-foreground"}`}
-            onClick={running ? stop : start}
-            disabled={!canStart}
-          >
-            {running ? t("interpreter.stop") : t("interpreter.start")}
-          </Button>
         )}
 
-        <div className="w-8 flex justify-end">
-          {log.length > 0 && !running && (
-            <button onClick={() => setReviewing(true)} className="text-muted-foreground/60 hover:text-primary transition-colors p-1 rounded" title={t("interpreter.history")}>
-              <FileText className="w-4 h-4" />
-            </button>
+        {/* Main action row */}
+        <div className="px-4 py-2 flex items-center justify-between gap-2">
+          {/* Left: status indicator */}
+          <div className="w-8 flex items-center">
+            {status === "listening" ? <Mic className="w-4 h-4 text-green-500 animate-pulse" /> :
+             status === "translating" ? <Loader2 className="w-4 h-4 text-amber-500 animate-spin" /> :
+             status === "speaking" ? <Volume2 className="w-4 h-4 text-blue-500 animate-pulse" /> :
+             <MicOff className="w-4 h-4 text-muted-foreground/40" />}
+          </div>
+
+          {/* Center: error / start-stop */}
+          {!supported ? (
+            <div className="flex items-center gap-1.5 text-xs text-destructive font-medium flex-1 justify-center">
+              <AlertCircle className="w-4 h-4" />{t("interpreter.not_supported")}
+            </div>
+          ) : permissionError ? (
+            <div className="flex items-center gap-1.5 text-xs text-destructive font-medium flex-1 justify-center">
+              <AlertCircle className="w-4 h-4" />{t("interpreter.mic_denied")}
+            </div>
+          ) : sameLang ? (
+            <p className="text-xs text-amber-500 text-center font-medium flex-1">{t("interpreter.same_lang_warn")}</p>
+          ) : running && pushToTalk ? (
+            <div className="flex-1 flex flex-col items-center gap-0.5">
+              <p className="text-[11px] text-muted-foreground text-center">
+                {status === "translating" ? t("interpreter.translating") :
+                 status === "speaking" ? t("interpreter.speaking") :
+                 t("interpreter.ptt_hint")}
+              </p>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="px-6 font-bold rounded-full"
+                onClick={stop}
+              >
+                {t("interpreter.stop")}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              className={`px-8 font-bold rounded-full transition-all ${running ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground" : "bg-primary hover:bg-primary/90 text-primary-foreground"}`}
+              onClick={running ? stop : start}
+              disabled={!canStart}
+            >
+              {running ? t("interpreter.stop") : t("interpreter.start")}
+            </Button>
           )}
+
+          {/* Right: history icon */}
+          <div className="w-8 flex justify-end">
+            {log.length > 0 && !running && (
+              <button onClick={() => setReviewing(true)} className="text-muted-foreground/60 hover:text-primary transition-colors p-1 rounded" title={t("interpreter.history")}>
+                <FileText className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Person B — normal */}
+      {/* Person B panel — normal */}
       <div className="flex-1 flex flex-col min-h-0 bg-primary/5">
         <PersonPanel
           speaker="B" lang={langB} otherLang={langA}
           disabled={running} onChangeLang={setLangB}
           label={t("interpreter.person_b")}
           running={running} status={status} activeSpeaker={activeSpeaker}
-          interim={interim} lastReceived={lastForB}
+          interim={interim}
+          lastReceived={lastForB}
+          lastSent={lastSentByB}
           onReplay={() => lastForB && replay(lastForB)}
+          pushToTalk={pushToTalk}
+          isPttSpeaker={isSpeakerInDirection("B", direction)}
+          onPttStart={() => startFor("B")}
+          onPttEnd={stopListening}
         />
       </div>
     </div>

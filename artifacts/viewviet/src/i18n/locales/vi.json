@@ -34,7 +34,12 @@
     "summarize": "Tóm tắt cuộc hội thoại",
     "summarizing": "Đang tóm tắt...",
     "summary_error": "Tóm tắt thất bại. Vui lòng thử lại.",
-    "new_session": "Phiên mới"
+    "new_session": "Phiên mới",
+    "direction_both": "⇄ Hai chiều",
+    "push_to_talk": "Nhấn để nói",
+    "hold_to_speak": "Giữ để nói",
+    "release_to_send": "Thả để gửi",
+    "ptt_hint": "Nhấn giữ nút trên màn hình của bạn để nói"
   },
   "home": {
     "hero_title": "Cuộc sống tại Việt Nam, thật dễ dàng",

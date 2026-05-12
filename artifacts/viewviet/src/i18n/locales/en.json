@@ -34,7 +34,12 @@
     "summarize": "Summarize Session",
     "summarizing": "Summarizing...",
     "summary_error": "Summary failed. Please try again.",
-    "new_session": "New Session"
+    "new_session": "New Session",
+    "direction_both": "⇄ Both",
+    "push_to_talk": "Push to Talk",
+    "hold_to_speak": "Hold to speak",
+    "release_to_send": "Release to send",
+    "ptt_hint": "Press your panel button to speak"
   },
   "home": {
     "hero_title": "Your Life in Vietnam, Simplified",
