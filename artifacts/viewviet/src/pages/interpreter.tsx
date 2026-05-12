@@ -69,14 +69,17 @@ function PttButton({ onStart, onEnd, status, isListening }: {
 
 function PersonPanel({
   speaker, lang, otherLang, disabled, onChangeLang, label,
-  running, status, activeSpeaker, interim, lastReceived, lastSent, onReplay,
+  running, status, activeSpeaker, interim,
+  received, sent, onReplayExchange,
   pushToTalk, isPttSpeaker, onPttStart, onPttEnd,
 }: {
   speaker: "A" | "B"; lang: LangCode; otherLang: LangCode;
   disabled: boolean; onChangeLang: (l: LangCode) => void; label: string;
   running: boolean; status: InterpreterStatus; activeSpeaker: "A" | "B";
-  interim: string; lastReceived: Exchange | undefined; lastSent: Exchange | undefined;
-  onReplay: () => void;
+  interim: string;
+  received: Exchange[];  // translations this person reads (from the other speaker)
+  sent: Exchange[];      // what this person said (for PTT verification)
+  onReplayExchange: (e: Exchange) => void;
   pushToTalk: boolean; isPttSpeaker: boolean;
   onPttStart: () => void; onPttEnd: () => void;
 }) {
@@ -84,64 +87,96 @@ function PersonPanel({
   const isActive = activeSpeaker === speaker;
   const isListening = isActive && status === "listening";
   const showInterim = isActive && !!interim;
-
-  // What the center of the panel shows depends on mode
   const inPttSpeakerMode = running && pushToTalk && isPttSpeaker;
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom whenever new content arrives
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [received.length, sent.length, showInterim]);
+
+  // Items to show in scrollable area
+  const listItems = inPttSpeakerMode ? sent : received;
+
   return (
-    <div className="flex-1 flex flex-col min-h-0 px-4 pt-3 pb-2 gap-2">
+    <div className="flex-1 flex flex-col min-h-0 px-3 pt-2.5 pb-2 gap-1.5">
       {/* Header row */}
       <div className="flex items-center gap-2 flex-shrink-0">
         <LangSelect value={lang} other={otherLang} disabled={disabled} onChange={onChangeLang} />
-        <span className="text-sm text-muted-foreground font-medium flex-1">{label}</span>
+        <span className="text-xs text-muted-foreground font-medium flex-1">{label}</span>
         {running && !pushToTalk && isActive && (
-          status === "listening" ? <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse flex-shrink-0" /> :
-          status === "translating" ? <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin flex-shrink-0" /> :
-          status === "speaking" ? <Volume2 className="w-3.5 h-3.5 text-blue-500 animate-pulse flex-shrink-0" /> :
+          status === "listening" ? <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" /> :
+          status === "translating" ? <Loader2 className="w-3 h-3 text-amber-500 animate-spin flex-shrink-0" /> :
           null
-        )}
-        {lastReceived && (
-          <button onClick={onReplay} className="text-muted-foreground hover:text-primary transition-colors p-1 rounded" title={t("interpreter.replay")}>
-            <Volume2 className="w-4 h-4" />
-          </button>
         )}
       </div>
 
-      {/* Center content */}
-      <div className="flex-1 flex flex-col items-center justify-center min-h-0 gap-3">
-        {inPttSpeakerMode ? (
-          <>
-            <PttButton
-              onStart={onPttStart}
-              onEnd={onPttEnd}
-              status={status}
-              isListening={isListening}
-            />
-            {showInterim && (
-              <p className="text-sm text-muted-foreground italic text-center px-2 line-clamp-3 max-w-xs">
-                {interim}
-              </p>
+      {/* Scrollable history list */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto flex flex-col gap-2 min-h-0 pr-0.5"
+      >
+        {listItems.length === 0 && !showInterim && (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-xs text-muted-foreground/40 text-center px-4">
+              {t("interpreter.no_log")}
+            </p>
+          </div>
+        )}
+
+        {listItems.map((ex) => (
+          <div
+            key={ex.id}
+            className="rounded-xl px-3 py-2 bg-background border border-border/50 shadow-sm flex-shrink-0"
+          >
+            {inPttSpeakerMode ? (
+              /* Speaker's own sent text for verification */
+              <p className="text-sm text-foreground leading-snug">{ex.original}</p>
+            ) : (
+              /* Received translation */
+              <>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-semibold text-foreground leading-snug flex-1">
+                    {ex.translated}
+                  </p>
+                  <button
+                    onClick={() => onReplayExchange(ex)}
+                    className="text-muted-foreground/50 hover:text-primary transition-colors p-0.5 flex-shrink-0 mt-0.5"
+                    title={t("interpreter.replay")}
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted-foreground/60 leading-snug mt-0.5">
+                  {ex.original}
+                </p>
+              </>
             )}
-            {!showInterim && lastSent && (
-              <p className="text-xs text-muted-foreground/60 text-center px-2 line-clamp-2 max-w-xs">
-                {lastSent.original}
-              </p>
-            )}
-          </>
-        ) : showInterim ? (
-          <p className="text-xl font-medium text-center leading-relaxed text-muted-foreground italic px-2 line-clamp-5">
-            {interim}
-          </p>
-        ) : lastReceived ? (
-          <p className="text-2xl font-bold text-center leading-relaxed text-foreground px-2 line-clamp-5">
-            {lastReceived.translated}
-          </p>
-        ) : running && !pushToTalk && isActive && status === "listening" ? (
-          <p className="text-sm text-muted-foreground/60 text-center">{t("interpreter.listening")}</p>
-        ) : (
-          <p className="text-sm text-muted-foreground/40 text-center">{t("interpreter.no_log")}</p>
+          </div>
+        ))}
+
+        {/* Interim text shown as pending item at bottom */}
+        {showInterim && (
+          <div className="rounded-xl px-3 py-2 bg-primary/5 border border-primary/15 flex-shrink-0">
+            <p className="text-sm text-muted-foreground italic leading-snug">{interim}</p>
+          </div>
         )}
       </div>
+
+      {/* PTT button pinned at bottom of speaker panels */}
+      {inPttSpeakerMode && (
+        <div className="flex-shrink-0 flex justify-center py-1">
+          <PttButton
+            onStart={onPttStart}
+            onEnd={onPttEnd}
+            status={status}
+            isListening={isListening}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -270,13 +305,11 @@ export default function InterpreterPage() {
   const sameLang = langA === langB;
   const canStart = supported && !sameLang;
 
-  // What each panel shows as "received" (the translation coming in)
-  const lastForA = [...log].reverse().find((e) => e.speaker === "B"); // B spoke → A receives
-  const lastForB = [...log].reverse().find((e) => e.speaker === "A"); // A spoke → B receives
-
-  // What each speaker panel shows as "sent" (for PTT verification)
-  const lastSentByA = [...log].reverse().find((e) => e.speaker === "A");
-  const lastSentByB = [...log].reverse().find((e) => e.speaker === "B");
+  // Full history for each panel
+  const receivedByA = log.filter((e) => e.speaker === "B"); // B spoke → A reads translated
+  const receivedByB = log.filter((e) => e.speaker === "A"); // A spoke → B reads translated
+  const sentByA     = log.filter((e) => e.speaker === "A"); // A's own originals (PTT verify)
+  const sentByB     = log.filter((e) => e.speaker === "B"); // B's own originals (PTT verify)
 
   const DIRECTIONS: { value: DirectionMode; label: string }[] = [
     { value: "both", label: t("interpreter.direction_both") },
@@ -306,9 +339,9 @@ export default function InterpreterPage() {
           label={t("interpreter.person_a")}
           running={running} status={status} activeSpeaker={activeSpeaker}
           interim={interim}
-          lastReceived={lastForA}
-          lastSent={lastSentByA}
-          onReplay={() => lastForA && replay(lastForA)}
+          received={receivedByA}
+          sent={sentByA}
+          onReplayExchange={replay}
           pushToTalk={pushToTalk}
           isPttSpeaker={isSpeakerInDirection("A", direction)}
           onPttStart={() => startFor("A")}
@@ -431,9 +464,9 @@ export default function InterpreterPage() {
           label={t("interpreter.person_b")}
           running={running} status={status} activeSpeaker={activeSpeaker}
           interim={interim}
-          lastReceived={lastForB}
-          lastSent={lastSentByB}
-          onReplay={() => lastForB && replay(lastForB)}
+          received={receivedByB}
+          sent={sentByB}
+          onReplayExchange={replay}
           pushToTalk={pushToTalk}
           isPttSpeaker={isSpeakerInDirection("B", direction)}
           onPttStart={() => startFor("B")}
