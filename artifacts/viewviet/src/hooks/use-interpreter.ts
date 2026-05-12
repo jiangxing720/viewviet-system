@@ -45,6 +45,7 @@ interface SpeechRecognitionInstance {
   onend: (() => void) | null;
   start(): void;
   abort(): void;
+  stop(): void;
 }
 
 interface SpeechRecognitionConstructor {
@@ -82,7 +83,7 @@ async function interpretTranslate(text: string, from: LangCode, to: LangCode): P
     const lp = `${MM_CODE[from]}|${MM_CODE[to]}`;
     const r = await fetch(
       `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${lp}`,
-      { signal: AbortSignal.timeout(7000) }
+      { signal: AbortSignal.timeout(8000) }
     );
     const d = await r.json() as { responseData?: { translatedText?: string } };
     const v: string = d.responseData?.translatedText ?? text;
@@ -99,7 +100,7 @@ function speakAsync(text: string, lang: LangCode): Promise<void> {
     window.speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(text);
     utt.lang = BCP47[lang];
-    utt.rate = 0.92;
+    utt.rate = 0.9;
     const voices = window.speechSynthesis.getVoices();
     const prefix = BCP47[lang].slice(0, 2).toLowerCase();
     const voice = voices.find((v) => v.lang.toLowerCase().startsWith(prefix));
@@ -109,7 +110,8 @@ function speakAsync(text: string, lang: LangCode): Promise<void> {
     utt.onend = done;
     utt.onerror = done;
     window.speechSynthesis.speak(utt);
-    setTimeout(done, Math.max(text.length * 150 + 2000, 4000));
+    // Fallback timeout: max(chars * 130ms + 2s, 5s)
+    setTimeout(done, Math.max(text.length * 130 + 2000, 5000));
   });
 }
 
@@ -117,92 +119,89 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState<InterpreterStatus>("idle");
   const [log, setLog] = useState<Exchange[]>([]);
-  const [interimA, setInterimA] = useState("");
-  const [interimB, setInterimB] = useState("");
+  const [interim, setInterim] = useState("");
+  const [activeSpeaker, setActiveSpeaker] = useState<"A" | "B">("A");
   const [permissionError, setPermissionError] = useState(false);
 
+  // Use refs for values needed inside callbacks to avoid stale closures
   const runRef = useRef(false);
   const busyRef = useRef(false);
-  const recARef = useRef<SpeechRecognitionInstance | null>(null);
-  const recBRef = useRef<SpeechRecognitionInstance | null>(null);
+  const recRef = useRef<SpeechRecognitionInstance | null>(null);
   const langARef = useRef(langA);
   const langBRef = useRef(langB);
+  const nextSpeakerRef = useRef<"A" | "B">("A");
 
   useEffect(() => { langARef.current = langA; }, [langA]);
   useEffect(() => { langBRef.current = langB; }, [langB]);
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       runRef.current = false;
-      try { recARef.current?.abort(); } catch {}
-      try { recBRef.current?.abort(); } catch {}
+      try { recRef.current?.abort(); } catch {}
       try { window.speechSynthesis?.cancel(); } catch {}
     };
   }, []);
 
-  function clearInterim() {
-    setInterimA("");
-    setInterimB("");
+  function destroyRec() {
+    try { recRef.current?.abort(); } catch {}
+    recRef.current = null;
   }
 
-  function createRec(lang: LangCode, speaker: "A" | "B"): SpeechRecognitionInstance | null {
-    if (!SR) return null;
-    const r = new SR();
-    r.lang = BCP47[lang];
-    r.continuous = true;
-    r.interimResults = true;
+  function startListening(speaker: "A" | "B") {
+    if (!SR || !runRef.current || busyRef.current) return;
 
-    r.onresult = (e: SpeechRecognitionEvent) => {
-      let interim = "";
+    destroyRec();
+
+    const lang = speaker === "A" ? langARef.current : langBRef.current;
+    const rec = new SR();
+    rec.lang = BCP47[lang];
+    rec.continuous = false;    // single-utterance: cleaner lifecycle
+    rec.interimResults = true;
+
+    rec.onresult = (e: SpeechRecognitionEvent) => {
+      let interimText = "";
       let finalText = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const res = e.results[i];
         const transcript = res[0]?.transcript ?? "";
-        if (res.isFinal) {
-          finalText += transcript;
-        } else {
-          interim += transcript;
-        }
+        if (res.isFinal) finalText += transcript;
+        else interimText += transcript;
       }
-      if (interim) {
-        if (speaker === "A") setInterimA(interim);
-        else setInterimB(interim);
-      }
+      if (interimText) setInterim(interimText);
       if (finalText.trim()) {
-        if (speaker === "A") setInterimA("");
-        else setInterimB("");
-        handleSpeak(speaker, finalText.trim());
+        setInterim("");
+        void handleSpeak(speaker, finalText.trim());
       }
     };
 
-    r.onerror = (e: SpeechRecognitionErrorEvent) => {
-      const err = e.error;
-      if (err === "not-allowed" || err === "service-not-allowed") {
+    rec.onerror = (e: SpeechRecognitionErrorEvent) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
         setPermissionError(true);
         stopSession();
         return;
       }
-      if (err !== "aborted" && err !== "no-speech" && runRef.current && !busyRef.current) {
-        setTimeout(() => { try { r.start(); } catch {} }, 600);
+      // no-speech: recognizer timed out waiting — restart silently
+      if (e.error === "no-speech" && runRef.current && !busyRef.current) {
+        setTimeout(() => startListening(nextSpeakerRef.current), 300);
       }
     };
 
-    r.onend = () => {
+    rec.onend = () => {
+      // Only restart automatically if we're not mid-translation
       if (runRef.current && !busyRef.current) {
-        setTimeout(() => { try { r.start(); } catch {} }, 150);
+        setTimeout(() => startListening(nextSpeakerRef.current), 300);
       }
     };
 
-    return r;
-  }
-
-  function rebuildAndStart() {
-    recARef.current = createRec(langARef.current, "A");
-    recBRef.current = createRec(langBRef.current, "B");
-    if (runRef.current && !busyRef.current) {
+    recRef.current = rec;
+    try {
+      rec.start();
+      setActiveSpeaker(speaker);
       setStatus("listening");
-      try { recARef.current?.start(); } catch {}
-      try { recBRef.current?.start(); } catch {}
+    } catch {
+      // start() can throw if called in quick succession
+      setTimeout(() => startListening(speaker), 500);
     }
   }
 
@@ -210,13 +209,13 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     if (!runRef.current || busyRef.current) return;
     busyRef.current = true;
 
-    try { recARef.current?.abort(); } catch {}
-    try { recBRef.current?.abort(); } catch {}
+    destroyRec();
     window.speechSynthesis?.cancel();
-    clearInterim();
+    setInterim("");
 
     const from = speaker === "A" ? langARef.current : langBRef.current;
-    const to = speaker === "A" ? langBRef.current : langARef.current;
+    const to   = speaker === "A" ? langBRef.current : langARef.current;
+    const replyFrom: "A" | "B" = speaker === "A" ? "B" : "A";
 
     setStatus("translating");
     try {
@@ -239,7 +238,9 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     } finally {
       busyRef.current = false;
       if (runRef.current) {
-        rebuildAndStart();
+        // After A speaks, listen for B's reply — and vice versa
+        nextSpeakerRef.current = replyFrom;
+        setTimeout(() => startListening(replyFrom), 400);
       } else {
         setStatus("idle");
       }
@@ -251,9 +252,8 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     busyRef.current = false;
     setRunning(false);
     setStatus("idle");
-    clearInterim();
-    try { recARef.current?.abort(); } catch {}
-    try { recBRef.current?.abort(); } catch {}
+    setInterim("");
+    destroyRec();
     try { window.speechSynthesis?.cancel(); } catch {}
   }
 
@@ -262,8 +262,9 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     setPermissionError(false);
     runRef.current = true;
     busyRef.current = false;
+    nextSpeakerRef.current = "A";
     setRunning(true);
-    rebuildAndStart();
+    startListening("A");
   }
 
   function stop() {
@@ -271,7 +272,7 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
   }
 
   function replay(exchange: Exchange) {
-    speakAsync(exchange.translated, exchange.targetLang);
+    void speakAsync(exchange.translated, exchange.targetLang);
   }
 
   function clearLog() {
@@ -282,8 +283,8 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     running,
     status,
     log,
-    interimA,
-    interimB,
+    interim,
+    activeSpeaker,
     permissionError,
     start,
     stop,
