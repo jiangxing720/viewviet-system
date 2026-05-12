@@ -1,36 +1,36 @@
-modules = ["nodejs-24"]
+modulesModules = [“nodejs-24”， “python-3.11”]["nodejs-24", "python-3.11"]
 
-[deployment]
-router = "application"
-deploymentTarget = "autoscale"
+[部署]    
+routerrouter = “应用程序”"application"
+deploymentTargetdeploymentTarget = “自动缩放”"autoscale"
 
-[deployment.postBuild]
-args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
+[deployment.postBuild]      
+argsargs = [“pnpm”， “store”， “prune”]["pnpm", "store", "prune"]
+envenv = { “CI” = “true” }"CI" = "true" }
 
-[workflows]
-runButton = "Project"
+[工作流程]    
+runButtonrunButton = “项目”"Project"
 
-[agent]
-stack = "PNPM_WORKSPACE"
-expertMode = true
+[特工]    
+stackstack = “PNPM_WORKSPACE”"PNPM_WORKSPACE"
+expertModeexpertMode = 真true
 
-[postMerge]
-path = "scripts/post-merge.sh"
-timeoutMs = 20000
+[合并后]    
+path路径 = “脚本/post-merge.sh”"scripts/post-merge.sh"
+timeoutMs暂停时间 Ms = 2000020000
 
-[[ports]]
-localPort = 8080
-externalPort = 8080
+[[港口]]    
+localPort =   8080    
+externalPort =   8080    
 
-[[ports]]
-localPort = 8081
-externalPort = 8081
+[[港口]]    
+localPort =   8081    
+externalPort =   8081    
 
-[[ports]]
-localPort = 8082
-externalPort = 3000
+[[港口]]    
+localPort =   8082    
+externalPort =   3000    
 
-[[ports]]
-localPort = 20108
-externalPort = 80
+[[港口]]    
+localPort =   20108    
+externalPort =   80    
