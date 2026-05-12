@@ -26,6 +26,7 @@
     "replay": "Phát lại",
     "clear": "Xóa nhật ký",
     "not_supported": "Trình duyệt không hỗ trợ nhận dạng giọng nói. Vui lòng dùng Chrome hoặc Edge.",
+    "mic_denied": "Quyền truy cập microphone bị từ chối. Vui lòng cho phép microphone trong trình duyệt và thử lại.",
     "no_log": "Nhật ký phiên dịch sẽ xuất hiện ở đây",
     "same_lang_warn": "Vui lòng chọn ngôn ngữ khác nhau cho mỗi người"
   },

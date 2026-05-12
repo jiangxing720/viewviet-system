@@ -96,17 +96,49 @@ function ExchangeCard({
   );
 }
 
+function InterimBubble({ text, speaker }: { text: string; speaker: "A" | "B" }) {
+  const isA = speaker === "A";
+  return (
+    <div
+      className={`flex flex-col gap-1 px-3 py-2 rounded-2xl text-sm border border-dashed max-w-[88%] opacity-70 ${
+        isA
+          ? "bg-primary/5 border-primary/30 self-end"
+          : "bg-muted/50 border-border self-start"
+      }`}
+    >
+      <Badge
+        variant={isA ? "default" : "secondary"}
+        className="text-[10px] px-1.5 py-0 w-fit opacity-70"
+      >
+        {speaker}
+      </Badge>
+      <p className="text-xs leading-snug italic text-muted-foreground">{text}</p>
+    </div>
+  );
+}
+
 export default function InterpreterPage() {
   const { t } = useTranslation();
   const [langA, setLangA] = useState<LangCode>("zh");
   const [langB, setLangB] = useState<LangCode>("vi");
-  const { running, status, log, start, stop, replay, clearLog, supported } =
-    useInterpreter(langA, langB);
+  const {
+    running,
+    status,
+    log,
+    interimA,
+    interimB,
+    permissionError,
+    start,
+    stop,
+    replay,
+    clearLog,
+    supported,
+  } = useInterpreter(langA, langB);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [log]);
+  }, [log, interimA, interimB]);
 
   const sameLang = langA === langB;
   const canStart = supported && !sameLang;
@@ -126,7 +158,7 @@ export default function InterpreterPage() {
 
       {/* ── Conversation log ── */}
       <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2">
-        {log.length === 0 ? (
+        {log.length === 0 && !interimA && !interimB ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground gap-3">
             <Mic className="w-10 h-10 opacity-20" />
             <p className="text-sm">{t("interpreter.no_log")}</p>
@@ -136,10 +168,24 @@ export default function InterpreterPage() {
             {log.map((ex) => (
               <ExchangeCard key={ex.id} exchange={ex} onReplay={() => replay(ex)} />
             ))}
+            {interimA && <InterimBubble text={interimA} speaker="A" />}
+            {interimB && <InterimBubble text={interimB} speaker="B" />}
             <div ref={logEndRef} />
           </>
         )}
       </div>
+
+      {/* ── Permission / support errors ── */}
+      {(permissionError || !supported) && (
+        <div className="flex-shrink-0 bg-destructive/10 border-t border-destructive/20 px-4 py-2 flex items-center gap-2 text-xs text-destructive font-medium">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>
+            {permissionError
+              ? t("interpreter.mic_denied")
+              : t("interpreter.not_supported")}
+          </span>
+        </div>
+      )}
 
       {/* ── Control bar ── */}
       <div className="flex-shrink-0 border-y bg-background/90 backdrop-blur px-4 py-2.5 flex items-center justify-between gap-2">
@@ -147,12 +193,7 @@ export default function InterpreterPage() {
           <StatusIndicator status={status} />
         </div>
 
-        {!supported ? (
-          <div className="flex items-center gap-1.5 text-xs text-destructive font-medium">
-            <AlertCircle className="w-4 h-4" />
-            <span>{t("interpreter.not_supported")}</span>
-          </div>
-        ) : sameLang ? (
+        {sameLang ? (
           <p className="text-xs text-amber-500 text-center font-medium">
             {t("interpreter.same_lang_warn")}
           </p>

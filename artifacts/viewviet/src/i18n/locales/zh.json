@@ -26,6 +26,7 @@
     "replay": "重播",
     "clear": "清空记录",
     "not_supported": "您的浏览器不支持语音识别，请使用 Chrome 或 Edge",
+    "mic_denied": "麦克风访问被拒绝，请在浏览器中允许麦克风权限后重试。",
     "no_log": "口译记录将显示在此处",
     "same_lang_warn": "请为双方选择不同的语言"
   },

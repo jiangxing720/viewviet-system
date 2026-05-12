@@ -12,9 +12,14 @@ export interface Exchange {
   timestamp: number;
 }
 
+interface SpeechRecognitionAlternative {
+  readonly transcript: string;
+}
+
 interface SpeechRecognitionResult {
-  readonly 0: { transcript: string };
+  readonly isFinal: boolean;
   readonly length: number;
+  [index: number]: SpeechRecognitionAlternative;
 }
 
 interface SpeechRecognitionResultList {
@@ -24,6 +29,7 @@ interface SpeechRecognitionResultList {
 
 interface SpeechRecognitionEvent {
   readonly results: SpeechRecognitionResultList;
+  readonly resultIndex: number;
 }
 
 interface SpeechRecognitionErrorEvent {
@@ -111,6 +117,9 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState<InterpreterStatus>("idle");
   const [log, setLog] = useState<Exchange[]>([]);
+  const [interimA, setInterimA] = useState("");
+  const [interimB, setInterimB] = useState("");
+  const [permissionError, setPermissionError] = useState(false);
 
   const runRef = useRef(false);
   const busyRef = useRef(false);
@@ -131,29 +140,59 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     };
   }, []);
 
+  function clearInterim() {
+    setInterimA("");
+    setInterimB("");
+  }
+
   function createRec(lang: LangCode, speaker: "A" | "B"): SpeechRecognitionInstance | null {
     if (!SR) return null;
     const r = new SR();
     r.lang = BCP47[lang];
-    r.continuous = false;
-    r.interimResults = false;
+    r.continuous = true;
+    r.interimResults = true;
+
     r.onresult = (e: SpeechRecognitionEvent) => {
-      const text = Array.from({ length: e.results.length }, (_, i) => e.results[i][0]?.transcript ?? "")
-        .join(" ")
-        .trim();
-      if (text) handleSpeak(speaker, text);
+      let interim = "";
+      let finalText = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i];
+        const transcript = res[0]?.transcript ?? "";
+        if (res.isFinal) {
+          finalText += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+      if (interim) {
+        if (speaker === "A") setInterimA(interim);
+        else setInterimB(interim);
+      }
+      if (finalText.trim()) {
+        if (speaker === "A") setInterimA("");
+        else setInterimB("");
+        handleSpeak(speaker, finalText.trim());
+      }
     };
+
     r.onerror = (e: SpeechRecognitionErrorEvent) => {
       const err = e.error;
-      if (err !== "aborted" && err !== "not-allowed" && runRef.current && !busyRef.current) {
+      if (err === "not-allowed" || err === "service-not-allowed") {
+        setPermissionError(true);
+        stopSession();
+        return;
+      }
+      if (err !== "aborted" && err !== "no-speech" && runRef.current && !busyRef.current) {
         setTimeout(() => { try { r.start(); } catch {} }, 600);
       }
     };
+
     r.onend = () => {
       if (runRef.current && !busyRef.current) {
         setTimeout(() => { try { r.start(); } catch {} }, 150);
       }
     };
+
     return r;
   }
 
@@ -174,6 +213,7 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     try { recARef.current?.abort(); } catch {}
     try { recBRef.current?.abort(); } catch {}
     window.speechSynthesis?.cancel();
+    clearInterim();
 
     const from = speaker === "A" ? langARef.current : langBRef.current;
     const to = speaker === "A" ? langBRef.current : langARef.current;
@@ -206,8 +246,20 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     }
   }
 
+  function stopSession() {
+    runRef.current = false;
+    busyRef.current = false;
+    setRunning(false);
+    setStatus("idle");
+    clearInterim();
+    try { recARef.current?.abort(); } catch {}
+    try { recBRef.current?.abort(); } catch {}
+    try { window.speechSynthesis?.cancel(); } catch {}
+  }
+
   function start() {
     if (!SR || runRef.current) return;
+    setPermissionError(false);
     runRef.current = true;
     busyRef.current = false;
     setRunning(true);
@@ -215,13 +267,7 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
   }
 
   function stop() {
-    runRef.current = false;
-    busyRef.current = false;
-    setRunning(false);
-    setStatus("idle");
-    try { recARef.current?.abort(); } catch {}
-    try { recBRef.current?.abort(); } catch {}
-    try { window.speechSynthesis?.cancel(); } catch {}
+    stopSession();
   }
 
   function replay(exchange: Exchange) {
@@ -232,5 +278,17 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     setLog([]);
   }
 
-  return { running, status, log, start, stop, replay, clearLog, supported: !!SR };
+  return {
+    running,
+    status,
+    log,
+    interimA,
+    interimB,
+    permissionError,
+    start,
+    stop,
+    replay,
+    clearLog,
+    supported: !!SR,
+  };
 }
