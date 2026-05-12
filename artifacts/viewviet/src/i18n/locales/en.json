@@ -28,7 +28,13 @@
     "not_supported": "Speech recognition is not supported. Please use Chrome or Edge.",
     "mic_denied": "Microphone access was denied. Please allow microphone access in your browser and try again.",
     "no_log": "Interpretation log will appear here",
-    "same_lang_warn": "Please select different languages for each person"
+    "same_lang_warn": "Please select different languages for each person",
+    "history": "Session History",
+    "exchanges": "exchanges",
+    "summarize": "Summarize Session",
+    "summarizing": "Summarizing...",
+    "summary_error": "Summary failed. Please try again.",
+    "new_session": "New Session"
   },
   "home": {
     "hero_title": "Your Life in Vietnam, Simplified",

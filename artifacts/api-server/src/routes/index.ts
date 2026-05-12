@@ -8,10 +8,12 @@ import lawyersRouter from "./lawyers";
 import activitiesRouter from "./activities";
 import dashboardRouter from "./dashboard";
 import authRouter from "./auth";
+import interpreterRouter from "./interpreter";
 
 const router: IRouter = Router();
 
 router.use("/auth", authRouter);
+router.use(interpreterRouter);
 router.use(healthRouter);
 router.use(wordsRouter);
 router.use(sentencesRouter);
