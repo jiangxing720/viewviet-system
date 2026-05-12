@@ -12,6 +12,45 @@ export interface Exchange {
   timestamp: number;
 }
 
+interface SpeechRecognitionResult {
+  readonly 0: { transcript: string };
+  readonly length: number;
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionEvent {
+  readonly results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent {
+  readonly error: string;
+}
+
+interface SpeechRecognitionInstance {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((e: SpeechRecognitionEvent) => void) | null;
+  onerror: ((e: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  abort(): void;
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionInstance;
+}
+
+const SR: SpeechRecognitionConstructor | undefined =
+  typeof window !== "undefined"
+    ? ((window as Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }).SpeechRecognition ??
+       (window as Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }).webkitSpeechRecognition)
+    : undefined;
+
 const BCP47: Record<LangCode, string> = {
   zh: "zh-CN",
   en: "en-US",
@@ -39,7 +78,7 @@ async function interpretTranslate(text: string, from: LangCode, to: LangCode): P
       `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${lp}`,
       { signal: AbortSignal.timeout(7000) }
     );
-    const d = await r.json();
+    const d = await r.json() as { responseData?: { translatedText?: string } };
     const v: string = d.responseData?.translatedText ?? text;
     try { sessionStorage.setItem(k, v); } catch {}
     return v;
@@ -68,12 +107,6 @@ function speakAsync(text: string, lang: LangCode): Promise<void> {
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const SR: any =
-  typeof window !== "undefined"
-    ? ((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition)
-    : undefined;
-
 export function useInterpreter(langA: LangCode, langB: LangCode) {
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState<InterpreterStatus>("idle");
@@ -81,10 +114,8 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
 
   const runRef = useRef(false);
   const busyRef = useRef(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recARef = useRef<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recBRef = useRef<any>(null);
+  const recARef = useRef<SpeechRecognitionInstance | null>(null);
+  const recBRef = useRef<SpeechRecognitionInstance | null>(null);
   const langARef = useRef(langA);
   const langBRef = useRef(langB);
 
@@ -100,27 +131,20 @@ export function useInterpreter(langA: LangCode, langB: LangCode) {
     };
   }, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function createRec(lang: LangCode, speaker: "A" | "B"): any {
+  function createRec(lang: LangCode, speaker: "A" | "B"): SpeechRecognitionInstance | null {
     if (!SR) return null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r: any = new SR();
+    const r = new SR();
     r.lang = BCP47[lang];
     r.continuous = false;
     r.interimResults = false;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    r.onresult = (e: any) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const text = Array.from(e.results as any[])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((res: any) => res[0]?.transcript ?? "")
+    r.onresult = (e: SpeechRecognitionEvent) => {
+      const text = Array.from({ length: e.results.length }, (_, i) => e.results[i][0]?.transcript ?? "")
         .join(" ")
         .trim();
       if (text) handleSpeak(speaker, text);
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    r.onerror = (e: any) => {
-      const err = e?.error;
+    r.onerror = (e: SpeechRecognitionErrorEvent) => {
+      const err = e.error;
       if (err !== "aborted" && err !== "not-allowed" && runRef.current && !busyRef.current) {
         setTimeout(() => { try { r.start(); } catch {} }, 600);
       }
