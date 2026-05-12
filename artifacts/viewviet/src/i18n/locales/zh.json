@@ -37,6 +37,7 @@
     "new_session": "新会话",
     "direction_both": "⇄ 双向",
     "push_to_talk": "按键说话",
+    "auto_speak": "自动朗读",
     "hold_to_speak": "按住说话",
     "release_to_send": "松开发送",
     "ptt_hint": "按住面板按钮开始说话",

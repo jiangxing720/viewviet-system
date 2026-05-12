@@ -37,6 +37,7 @@
     "new_session": "New Session",
     "direction_both": "⇄ Both",
     "push_to_talk": "Push to Talk",
+    "auto_speak": "Auto Read",
     "hold_to_speak": "Hold to speak",
     "release_to_send": "Release to send",
     "ptt_hint": "Press your panel button to speak",

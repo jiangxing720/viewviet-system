@@ -304,6 +304,7 @@ export default function InterpreterPage() {
   const [pushToTalk, setPushToTalk] = useState(false);
   const [layoutMode, setLayoutMode] = useState<"split" | "same">("split");
   const [reviewing, setReviewing] = useState(false);
+  const [autoSpeak, setAutoSpeak] = useState(false);
 
   const {
     running, status, log, interim, activeSpeaker,
@@ -313,6 +314,16 @@ export default function InterpreterPage() {
   useEffect(() => {
     if (!running && log.length > 0) setReviewing(true);
   }, [running, log.length]);
+
+  // Auto-speak: play the translation of every new exchange when enabled
+  const prevLogLenRef = useRef(0);
+  useEffect(() => {
+    if (autoSpeak && log.length > prevLogLenRef.current) {
+      const latest = log[log.length - 1];
+      if (latest) replay(latest);
+    }
+    prevLogLenRef.current = log.length;
+  }, [log.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sameLang = langA === langB;
   const canStart = supported && !sameLang;
@@ -399,6 +410,18 @@ export default function InterpreterPage() {
             >
               <Hand className="w-3 h-3" />
               {t("interpreter.push_to_talk")}
+            </button>
+            {/* Auto-speak toggle */}
+            <button
+              onClick={() => setAutoSpeak((v) => !v)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                autoSpeak
+                  ? "bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Volume2 className="w-3 h-3" />
+              {t("interpreter.auto_speak")}
             </button>
           </div>
         )}
