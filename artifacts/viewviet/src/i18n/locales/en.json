@@ -42,7 +42,11 @@
     "release_to_send": "Release to send",
     "ptt_hint": "Press your panel button to speak",
     "layout_split": "Face to Face",
-    "layout_same": "Same Direction"
+    "layout_same": "Same Direction",
+    "video_mode": "Video Caption",
+    "video_lang": "Video Language",
+    "caption_lang": "Caption Language",
+    "video_mode_hint": "Listening to video and translating"
   },
   "home": {
     "hero_title": "Your Life in Vietnam, Simplified",

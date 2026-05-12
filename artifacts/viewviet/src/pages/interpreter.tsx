@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   Mic, MicOff, Volume2, Trash2, AlertCircle, Loader2,
-  ArrowRight, FileText, ChevronLeft, Hand,
+  ArrowRight, FileText, ChevronLeft, Hand, Film,
 } from "lucide-react";
 import {
   useInterpreter,
@@ -329,19 +329,28 @@ export default function InterpreterPage() {
   const [layoutMode, setLayoutMode] = useState<"split" | "same">("split");
   const [reviewing, setReviewing] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(false);
+  const [videoMode, setVideoMode] = useState(false);
+
+  // In video mode: single direction A→B, no auto-speak, same-direction layout
+  const effectiveDirection: DirectionMode = videoMode ? "a-to-b" : direction;
+  const effectiveAutoSpeak = videoMode ? false : autoSpeak;
 
   const {
     running, status, log, pendings, interim, activeSpeaker,
     permissionError, start, stop, startFor, stopListening, replay, clearLog, supported,
-  } = useInterpreter(langA, langB, direction, pushToTalk, autoSpeak);
+  } = useInterpreter(langA, langB, effectiveDirection, pushToTalk, effectiveAutoSpeak);
 
   useEffect(() => {
     if (!running && log.length > 0) setReviewing(true);
   }, [running, log.length]);
 
+  // Auto-switch layout to "same" when video mode activates (user reads from one side)
+  useEffect(() => {
+    if (videoMode) setLayoutMode("same");
+  }, [videoMode]);
+
   const sameLang = langA === langB;
   const canStart = supported && !sameLang;
-
 
   const DIRECTIONS: { value: DirectionMode; label: string }[] = [
     { value: "both", label: t("interpreter.direction_both") },
@@ -368,14 +377,14 @@ export default function InterpreterPage() {
         <PersonPanel
           speaker="A" lang={langA} otherLang={langB}
           disabled={running} onChangeLang={setLangA}
-          label={t("interpreter.person_a")}
+          label={videoMode ? t("interpreter.video_lang") : t("interpreter.person_a")}
           running={running} status={status} activeSpeaker={activeSpeaker}
           interim={interim}
           exchanges={log}
           pendings={pendings}
           onReplayExchange={replay}
           pushToTalk={pushToTalk}
-          isPttSpeaker={isSpeakerInDirection("A", direction)}
+          isPttSpeaker={isSpeakerInDirection("A", effectiveDirection)}
           onPttStart={() => startFor("A")}
           onPttEnd={stopListening}
         />
@@ -386,58 +395,90 @@ export default function InterpreterPage() {
         {/* Settings row — hidden while session is running */}
         {!running && (
           <div className="px-3 pt-2 pb-1 flex items-center gap-2 flex-wrap">
-            {/* Direction pills */}
-            <div className="flex gap-1">
-              {DIRECTIONS.map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() => setDirection(value)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
-                    direction === value
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            {/* Video mode button — always visible, first */}
+            <button
+              onClick={() => setVideoMode((v) => !v)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                videoMode
+                  ? "bg-purple-100 text-purple-800 border border-purple-300 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-700"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Film className="w-3 h-3" />
+              {t("interpreter.video_mode")}
+            </button>
+
+            {/* Direction pills — hidden in video mode (locked to A→B) */}
+            {!videoMode && (
+              <div className="flex gap-1">
+                {DIRECTIONS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setDirection(value)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                      direction === value
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="flex-1" />
-            {/* Layout toggle */}
-            <button
-              onClick={() => setLayoutMode((m) => m === "split" ? "same" : "split")}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
-                layoutMode === "same"
-                  ? "bg-primary/20 text-primary border border-primary/30"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {layoutMode === "split" ? t("interpreter.layout_split") : t("interpreter.layout_same")}
-            </button>
-            {/* PTT toggle */}
-            <button
-              onClick={() => setPushToTalk((v) => !v)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
-                pushToTalk
-                  ? "bg-amber-100 text-amber-800 border border-amber-300"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Hand className="w-3 h-3" />
-              {t("interpreter.push_to_talk")}
-            </button>
-            {/* Auto-speak toggle */}
-            <button
-              onClick={() => setAutoSpeak((v) => !v)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
-                autoSpeak
-                  ? "bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Volume2 className="w-3 h-3" />
-              {t("interpreter.auto_speak")}
-            </button>
+
+            {/* Layout toggle — hidden in video mode (locked to same) */}
+            {!videoMode && (
+              <button
+                onClick={() => setLayoutMode((m) => m === "split" ? "same" : "split")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                  layoutMode === "same"
+                    ? "bg-primary/20 text-primary border border-primary/30"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {layoutMode === "split" ? t("interpreter.layout_split") : t("interpreter.layout_same")}
+              </button>
+            )}
+
+            {/* PTT toggle — hidden in video mode */}
+            {!videoMode && (
+              <button
+                onClick={() => setPushToTalk((v) => !v)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                  pushToTalk
+                    ? "bg-amber-100 text-amber-800 border border-amber-300"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Hand className="w-3 h-3" />
+                {t("interpreter.push_to_talk")}
+              </button>
+            )}
+
+            {/* Auto-speak toggle — hidden in video mode (disabled there) */}
+            {!videoMode && (
+              <button
+                onClick={() => setAutoSpeak((v) => !v)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                  autoSpeak
+                    ? "bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Volume2 className="w-3 h-3" />
+                {t("interpreter.auto_speak")}
+              </button>
+            )}
+
+            {/* Video mode hint */}
+            {videoMode && (
+              <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
+                {t("interpreter.video_mode_hint")}
+              </span>
+            )}
           </div>
         )}
 
@@ -505,14 +546,14 @@ export default function InterpreterPage() {
         <PersonPanel
           speaker="B" lang={langB} otherLang={langA}
           disabled={running} onChangeLang={setLangB}
-          label={t("interpreter.person_b")}
+          label={videoMode ? t("interpreter.caption_lang") : t("interpreter.person_b")}
           running={running} status={status} activeSpeaker={activeSpeaker}
           interim={interim}
           exchanges={log}
           pendings={pendings}
           onReplayExchange={replay}
           pushToTalk={pushToTalk}
-          isPttSpeaker={isSpeakerInDirection("B", direction)}
+          isPttSpeaker={isSpeakerInDirection("B", effectiveDirection)}
           onPttStart={() => startFor("B")}
           onPttEnd={stopListening}
         />

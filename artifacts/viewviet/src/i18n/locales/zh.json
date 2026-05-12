@@ -42,7 +42,11 @@
     "release_to_send": "松开发送",
     "ptt_hint": "按住面板按钮开始说话",
     "layout_split": "各看各的",
-    "layout_same": "同向查看"
+    "layout_same": "同向查看",
+    "video_mode": "视频字幕",
+    "video_lang": "视频语言",
+    "caption_lang": "字幕语言",
+    "video_mode_hint": "正在识别视频语音并翻译"
   },
   "home": {
     "hero_title": "越南，一切尽在掌握",

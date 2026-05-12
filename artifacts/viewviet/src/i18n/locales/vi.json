@@ -42,7 +42,11 @@
     "release_to_send": "Thả để gửi",
     "ptt_hint": "Nhấn giữ nút trên màn hình của bạn để nói",
     "layout_split": "Mỗi người một hướng",
-    "layout_same": "Cùng hướng"
+    "layout_same": "Cùng hướng",
+    "video_mode": "Phụ đề video",
+    "video_lang": "Ngôn ngữ video",
+    "caption_lang": "Ngôn ngữ phụ đề",
+    "video_mode_hint": "Đang nhận dạng và dịch âm thanh video"
   },
   "home": {
     "hero_title": "Cuộc sống tại Việt Nam, thật dễ dàng",
