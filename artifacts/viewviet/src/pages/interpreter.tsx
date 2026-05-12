@@ -35,33 +35,35 @@ function LangSelect({ value, other, disabled, onChange }: {
 }
 
 /** Large push-to-talk hold button */
-function PttButton({ onStart, onEnd, status, isListening }: {
+function PttButton({ onStart, onEnd, status, isListening, autoSpeak }: {
   onStart: () => void; onEnd: () => void;
-  status: InterpreterStatus; isListening: boolean;
+  status: InterpreterStatus; isListening: boolean; autoSpeak: boolean;
 }) {
   const { t } = useTranslation();
-  const busy = status === "translating" || status === "speaking";
+  // Only block during TTS playback (when autoSpeak is on) to prevent feedback loop.
+  // Never block during translation — user should be able to speak again immediately.
+  const blocked = autoSpeak && status === "speaking";
 
   return (
     <button
       onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); onStart(); }}
       onPointerUp={onEnd}
       onPointerCancel={onEnd}
-      disabled={busy}
+      disabled={blocked}
       className={`w-24 h-24 rounded-full flex flex-col items-center justify-center gap-1.5 font-bold text-xs shadow-xl transition-all duration-150 touch-none select-none
         ${isListening
           ? "bg-green-500 text-white scale-110 shadow-green-300"
-          : busy
+          : blocked
             ? "bg-muted text-muted-foreground cursor-not-allowed opacity-60"
             : "bg-primary text-primary-foreground active:scale-95"
         }`}
     >
-      {busy
-        ? <Loader2 className="w-7 h-7 animate-spin" />
+      {status === "translating" && !isListening
+        ? <Loader2 className="w-7 h-7 animate-spin opacity-50" />
         : <Mic className={`w-7 h-7 ${isListening ? "animate-pulse" : ""}`} />
       }
       <span className="text-[10px] leading-tight text-center px-1">
-        {isListening ? t("interpreter.release_to_send") : busy ? "..." : t("interpreter.hold_to_speak")}
+        {isListening ? t("interpreter.release_to_send") : t("interpreter.hold_to_speak")}
       </span>
     </button>
   );
@@ -71,7 +73,7 @@ function PersonPanel({
   speaker, lang, otherLang, disabled, onChangeLang, label,
   running, status, activeSpeaker, interim,
   exchanges, pendings, onReplayExchange,
-  pushToTalk, isPttSpeaker, onPttStart, onPttEnd,
+  pushToTalk, autoSpeak, isPttSpeaker, onPttStart, onPttEnd,
   captionMode,
 }: {
   speaker: "A" | "B"; lang: LangCode; otherLang: LangCode;
@@ -81,7 +83,7 @@ function PersonPanel({
   exchanges: Exchange[];
   pendings: PendingExchange[];
   onReplayExchange: (e: Exchange) => void;
-  pushToTalk: boolean; isPttSpeaker: boolean;
+  pushToTalk: boolean; autoSpeak: boolean; isPttSpeaker: boolean;
   onPttStart: () => void; onPttEnd: () => void;
   captionMode?: boolean;
 }) {
@@ -102,7 +104,7 @@ function PersonPanel({
   // Caption mode (Panel B in video mode): show translated text prominently
   if (captionMode) {
     return (
-      <div className="flex-1 flex flex-col min-h-0 px-3 pt-2.5 pb-2 gap-1.5">
+      <div className="flex-1 flex flex-col overflow-hidden px-3 pt-2.5 pb-2 gap-1.5">
         <div className="flex items-center gap-2 flex-shrink-0">
           <LangSelect value={lang} other={otherLang} disabled={disabled} onChange={onChangeLang} />
           <span className="text-xs text-muted-foreground font-medium flex-1">{label}</span>
@@ -112,7 +114,7 @@ function PersonPanel({
             null
           )}
         </div>
-        <div ref={scrollRef} className="flex-1 overflow-y-auto flex flex-col gap-1.5 min-h-0">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto flex flex-col gap-1.5">
           {exchanges.length === 0 && pendings.length === 0 && (
             <div className="flex-1 flex items-center justify-center">
               <p className="text-xs text-muted-foreground/40 text-center px-4">{t("interpreter.no_log")}</p>
@@ -144,7 +146,7 @@ function PersonPanel({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 px-3 pt-2.5 pb-2 gap-1.5">
+    <div className="flex-1 flex flex-col overflow-hidden px-3 pt-2.5 pb-2 gap-1.5">
       {/* Header row */}
       <div className="flex items-center gap-2 flex-shrink-0">
         <LangSelect value={lang} other={otherLang} disabled={disabled} onChange={onChangeLang} />
@@ -159,7 +161,7 @@ function PersonPanel({
       {/* Scrollable bilingual history */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto flex flex-col gap-2 min-h-0 pr-0.5"
+        className="flex-1 overflow-y-auto flex flex-col gap-2 pr-0.5"
       >
         {exchanges.length === 0 && !showInterim && (
           <div className="flex-1 flex items-center justify-center">
@@ -256,6 +258,7 @@ function PersonPanel({
             onEnd={onPttEnd}
             status={status}
             isListening={isListening}
+            autoSpeak={autoSpeak}
           />
         </div>
       )}
@@ -419,7 +422,7 @@ export default function InterpreterPage() {
     <div className="flex flex-col h-[calc(100dvh-4rem)] overflow-hidden select-none bg-background">
 
       {/* Person A panel — rotated 180° in split mode, normal in same-direction mode */}
-      <div className={`${layoutMode === "split" ? "rotate-180" : ""} flex-1 flex flex-col min-h-0 border-b bg-primary/5`}>
+      <div className={`${layoutMode === "split" ? "rotate-180" : ""} flex-1 flex flex-col overflow-hidden border-b bg-primary/5`}>
         <PersonPanel
           speaker="A" lang={langA} otherLang={langB}
           disabled={running} onChangeLang={setLangA}
@@ -430,6 +433,7 @@ export default function InterpreterPage() {
           pendings={pendings}
           onReplayExchange={replay}
           pushToTalk={pushToTalk}
+          autoSpeak={effectiveAutoSpeak}
           isPttSpeaker={isSpeakerInDirection("A", effectiveDirection)}
           onPttStart={() => startFor("A")}
           onPttEnd={stopListening}
@@ -595,7 +599,7 @@ export default function InterpreterPage() {
       </div>
 
       {/* Person B panel — normal */}
-      <div className="flex-1 flex flex-col min-h-0 bg-primary/5">
+      <div className="flex-1 flex flex-col overflow-hidden bg-primary/5">
         <PersonPanel
           speaker="B" lang={langB} otherLang={langA}
           disabled={running} onChangeLang={setLangB}
@@ -606,6 +610,7 @@ export default function InterpreterPage() {
           pendings={pendings}
           onReplayExchange={replay}
           pushToTalk={pushToTalk}
+          autoSpeak={effectiveAutoSpeak}
           isPttSpeaker={isSpeakerInDirection("B", effectiveDirection)}
           onPttStart={() => startFor("B")}
           onPttEnd={stopListening}
