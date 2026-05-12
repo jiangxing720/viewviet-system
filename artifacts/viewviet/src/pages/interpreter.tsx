@@ -85,7 +85,8 @@ function PersonPanel({
   const { t } = useTranslation();
   const isActive = activeSpeaker === speaker;
   const isListening = isActive && status === "listening";
-  const showInterim = isActive && !!interim;
+  // Show interim on BOTH panels — both people see live captions as they form
+  const showInterim = !!interim;
   const inPttSpeakerMode = running && pushToTalk && isPttSpeaker;
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -94,7 +95,7 @@ function PersonPanel({
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [exchanges.length, showInterim]);
+  }, [exchanges.length, showInterim, interim]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 px-3 pt-2.5 pb-2 gap-1.5">
@@ -160,9 +161,18 @@ function PersonPanel({
           );
         })}
 
-        {/* Interim: live caption while recognizing */}
+        {/* Interim: live caption on both panels simultaneously */}
         {showInterim && (
-          <div className="rounded-xl px-3 py-2 bg-primary/5 border border-primary/15 flex-shrink-0">
+          <div className={`rounded-xl px-3 py-2 border flex-shrink-0 ${
+            isActive
+              ? "bg-green-500/8 border-green-500/20"   // speaking panel — green tint
+              : "bg-primary/5 border-primary/15"        // receiving panel — neutral tint
+          }`}>
+            {!isActive && (
+              <span className="text-[10px] font-bold text-primary/50 uppercase tracking-wide block mb-0.5">
+                {activeSpeaker}
+              </span>
+            )}
             <p className="text-sm text-muted-foreground italic leading-snug">{interim}</p>
           </div>
         )}
