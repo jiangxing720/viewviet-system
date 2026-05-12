@@ -1,20 +1,20 @@
-modules = ["nodejs-24", "python-3.11"]
+Modules = [“nodejs-24”， “python-3.11”]  
 
-[deployment]
-router = "application"
-deploymentTarget = "autoscale"
+[部署]  
+router = “应用程序”  
+deploymentTarget = “自动缩放”  
 
-[deployment.postBuild]
-args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
+[deployment.postBuild]  
+args = [“pnpm”， “store”， “prune”]  
+env = { “CI” = “true” }
 
-[workflows]
-runButton = "Project"
+[工作流程]  
+runButton = “项目”  
 
-[agent]
-stack = "PNPM_WORKSPACE"
-expertMode = true
+[特工]  
+stack = “PNPM_WORKSPACE”  
+expertMode =  真  
 
-[postMerge]
-path = "scripts/post-merge.sh"
-timeoutMs = 20000
+[合并后]  
+路径  = “脚本/post-merge.sh”  
+暂停时间 Ms = 20000  
