@@ -123,6 +123,11 @@ export function useInterpreter(
   const audioCtxRef = useRef<AnyAudioContext | null>(null);
   const isSpeakingTTSRef = useRef(false);
   const autoSpeakRef = useRef(autoSpeak);
+  // Silence-based commit timer — fires after COMMIT_SILENCE_MS of no new speech,
+  // forcing the pending interim text to be committed as a final result.
+  // This makes non-Chinese languages (vi, en, ko) as responsive as zh.
+  const commitTimerARef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const commitTimerBRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { langARef.current = langA; }, [langA]);
   useEffect(() => { langBRef.current = langB; }, [langB]);
@@ -133,6 +138,8 @@ export function useInterpreter(
   useEffect(() => {
     return () => {
       runRef.current = false;
+      if (commitTimerARef.current) { clearTimeout(commitTimerARef.current); commitTimerARef.current = null; }
+      if (commitTimerBRef.current) { clearTimeout(commitTimerBRef.current); commitTimerBRef.current = null; }
       try { recARef.current?.abort(); } catch {}
       try { recBRef.current?.abort(); } catch {}
       try { window.speechSynthesis?.cancel(); } catch {}
@@ -158,7 +165,18 @@ export function useInterpreter(
     } catch {}
   }
 
+  // How long to wait after the last interim result before force-committing.
+  // Chinese fires isFinal quickly so the timer rarely triggers for zh.
+  // For vi/en/ko the timer is the primary commit path.
+  const COMMIT_SILENCE_MS = 1400;
+
+  function clearCommitTimer(speaker: "A" | "B") {
+    const ref = speaker === "A" ? commitTimerARef : commitTimerBRef;
+    if (ref.current !== null) { clearTimeout(ref.current); ref.current = null; }
+  }
+
   function abortRec(speaker: "A" | "B") {
+    clearCommitTimer(speaker);
     const ref = speaker === "A" ? recARef : recBRef;
     try { ref.current?.abort(); } catch {}
     ref.current = null;
@@ -190,6 +208,19 @@ export function useInterpreter(
 
     const thisRef = speaker === "A" ? recARef : recBRef;
 
+    const commitTimerRef = speaker === "A" ? commitTimerARef : commitTimerBRef;
+
+    // Force-commit helper: treats the current interim text as a final result.
+    // Used by the silence timer when the browser hasn't fired isFinal=true.
+    function forceCommit(text: string) {
+      if (!runRef.current || !text.trim()) return;
+      clearCommitTimer(speaker);
+      pendingInterimRef.current = "";
+      setInterim("");
+      if (directionRef.current === "both") abortRec(speaker === "A" ? "B" : "A");
+      void handleSpeak(speaker, text.trim());
+    }
+
     rec.onresult = (e: SpeechRecognitionEvent) => {
       if (isSpeakingTTSRef.current) return;
       let interimText = "";
@@ -204,8 +235,21 @@ export function useInterpreter(
         pendingInterimRef.current = interimText;
         setActiveSpeaker(speaker);
         setInterim(interimText);
+
+        // Silence-commit timer: if COMMIT_SILENCE_MS passes with no new speech,
+        // treat the accumulated interim as final. This makes vi/en/ko as fast as zh.
+        // PTT mode uses button-release for commits, not silence detection.
+        if (!pushToTalkRef.current) {
+          if (commitTimerRef.current !== null) clearTimeout(commitTimerRef.current);
+          commitTimerRef.current = setTimeout(() => {
+            commitTimerRef.current = null;
+            forceCommit(pendingInterimRef.current);
+          }, COMMIT_SILENCE_MS);
+        }
       }
       if (finalText.trim()) {
+        // Natural isFinal — cancel the silence timer (not needed)
+        clearCommitTimer(speaker);
         pendingInterimRef.current = "";
         setInterim("");
         // In "both" mode: abort the OTHER listener to stop it processing the same audio.
