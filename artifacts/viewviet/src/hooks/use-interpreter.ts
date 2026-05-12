@@ -116,6 +116,28 @@ function speakAsync(text: string, lang: LangCode): Promise<void> {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Silent AudioContext — holds the iOS/Android audio session open so the OS
+// does not play its recognition-start/end chime on each SpeechRecognition
+// start() call.  One persistent context per interpreter session.
+// ---------------------------------------------------------------------------
+type AnyAudioContext = AudioContext & { state: string };
+
+function createSilentLoop(ctx: AnyAudioContext) {
+  try {
+    const buf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate); // 1 s silence
+    function scheduleNext() {
+      if ((ctx as AnyAudioContext).state === "closed") return;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.onended = scheduleNext;
+      src.start();
+    }
+    scheduleNext();
+  } catch {}
+}
+
 export function useInterpreter(
   langA: LangCode,
   langB: LangCode,
@@ -138,6 +160,7 @@ export function useInterpreter(
   const directionRef = useRef(direction);
   const pushToTalkRef = useRef(pushToTalk);
   const pendingInterimRef = useRef("");
+  const audioCtxRef = useRef<AnyAudioContext | null>(null);
 
   useEffect(() => { langARef.current = langA; }, [langA]);
   useEffect(() => { langBRef.current = langB; }, [langB]);
@@ -149,8 +172,30 @@ export function useInterpreter(
       runRef.current = false;
       try { recRef.current?.abort(); } catch {}
       try { window.speechSynthesis?.cancel(); } catch {}
+      try { audioCtxRef.current?.close(); } catch {}
+      audioCtxRef.current = null;
     };
   }, []);
+
+  // Start (or resume) the silent AudioContext loop — call on first user gesture
+  function ensureSilentAudio() {
+    try {
+      type AC = typeof AudioContext;
+      const AudioContextCtor = (
+        (window as unknown as { AudioContext?: AC; webkitAudioContext?: AC }).AudioContext ??
+        (window as unknown as { AudioContext?: AC; webkitAudioContext?: AC }).webkitAudioContext
+      );
+      if (!AudioContextCtor) return;
+      if (!audioCtxRef.current || (audioCtxRef.current as AnyAudioContext).state === "closed") {
+        audioCtxRef.current = new AudioContextCtor() as AnyAudioContext;
+        createSilentLoop(audioCtxRef.current);
+      } else if ((audioCtxRef.current as AnyAudioContext).state === "suspended") {
+        void audioCtxRef.current.resume().then(() => {
+          createSilentLoop(audioCtxRef.current!);
+        });
+      }
+    } catch {}
+  }
 
   function destroyRec() {
     try { recRef.current?.abort(); } catch {}
@@ -204,13 +249,12 @@ export function useInterpreter(
         return;
       }
       if (e.error === "no-speech" && runRef.current && !busyRef.current && !pushToTalkRef.current) {
-        setTimeout(() => startListening(nextSpeakerRef.current), 300);
+        setTimeout(() => startListening(nextSpeakerRef.current), 100);
       }
     };
 
     rec.onend = () => {
       if (pushToTalkRef.current) {
-        // PTT: if no final result came, use the last interim (catches abrupt release)
         const pending = pendingInterimRef.current.trim();
         if (pending && runRef.current && !busyRef.current) {
           pendingInterimRef.current = "";
@@ -221,7 +265,7 @@ export function useInterpreter(
         }
       } else {
         if (runRef.current && !busyRef.current) {
-          setTimeout(() => startListening(nextSpeakerRef.current), 300);
+          setTimeout(() => startListening(nextSpeakerRef.current), 100);
         }
       }
     };
@@ -232,7 +276,7 @@ export function useInterpreter(
       setActiveSpeaker(speaker);
       setStatus("listening");
     } catch {
-      setTimeout(() => startListening(speaker), 500);
+      setTimeout(() => startListening(speaker), 200);
     }
   }
 
@@ -266,7 +310,7 @@ export function useInterpreter(
       if (runRef.current) {
         nextSpeakerRef.current = next;
         if (!pushToTalkRef.current) {
-          setTimeout(() => startListening(next), 400);
+          setTimeout(() => startListening(next), 150);
         } else {
           setStatus("idle");
         }
@@ -285,11 +329,14 @@ export function useInterpreter(
     setInterim("");
     destroyRec();
     try { window.speechSynthesis?.cancel(); } catch {}
+    try { audioCtxRef.current?.close(); } catch {}
+    audioCtxRef.current = null;
   }
 
   function start() {
     if (!SR || runRef.current) return;
     setPermissionError(false);
+    ensureSilentAudio();
     runRef.current = true;
     busyRef.current = false;
     const initial: "A" | "B" = direction === "b-to-a" ? "B" : "A";
