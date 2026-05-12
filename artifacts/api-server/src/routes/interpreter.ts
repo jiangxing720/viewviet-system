@@ -11,6 +11,44 @@ interface Exchange {
   timestamp: number;
 }
 
+router.post("/interpreter/translate", async (req, res): Promise<void> => {
+  const { text, from, to } = req.body as { text: string; from: string; to: string };
+
+  if (!text?.trim() || !from || !to) {
+    res.status(400).json({ error: "Missing text, from, or to" });
+    return;
+  }
+
+  if (from === to) {
+    res.json({ translated: text });
+    return;
+  }
+
+  const LANG_NAMES: Record<string, string> = {
+    zh: "Chinese (Simplified)", en: "English", vi: "Vietnamese", ko: "Korean",
+  };
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      max_completion_tokens: 512,
+      messages: [
+        {
+          role: "system",
+          content: `You are a professional interpreter. Translate the following text from ${LANG_NAMES[from] ?? from} to ${LANG_NAMES[to] ?? to}. Return ONLY the translation with no extra commentary, punctuation changes, or quotation marks.`,
+        },
+        { role: "user", content: text },
+      ],
+    });
+
+    const translated = response.choices[0]?.message?.content?.trim() ?? text;
+    res.json({ translated });
+  } catch (err) {
+    req.log.error({ err }, "OpenAI translate failed");
+    res.status(500).json({ error: "Translation failed" });
+  }
+});
+
 router.post("/interpreter/summary", async (req, res): Promise<void> => {
   const { exchanges, langA, langB } = req.body as {
     exchanges: Exchange[];

@@ -48,20 +48,19 @@ const SR: SpeechRecognitionConstructor | undefined =
     : undefined;
 
 const BCP47: Record<LangCode, string> = { zh: "zh-CN", en: "en-US", vi: "vi-VN", ko: "ko-KR" };
-const MM_CODE: Record<LangCode, string> = { zh: "zh-CN", en: "en-GB", vi: "vi-VN", ko: "ko-KR" };
-
 async function interpretTranslate(text: string, from: LangCode, to: LangCode): Promise<string> {
   if (!text.trim() || from === to) return text;
   const k = `vv-interp:${from}>${to}:${text.slice(0, 80)}`;
   try { const c = sessionStorage.getItem(k); if (c) return c; } catch {}
   try {
-    const lp = `${MM_CODE[from]}|${MM_CODE[to]}`;
-    const r = await fetch(
-      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${lp}`,
-      { signal: AbortSignal.timeout(8000) }
-    );
-    const d = await r.json() as { responseData?: { translatedText?: string } };
-    const v: string = d.responseData?.translatedText ?? text;
+    const r = await fetch("/api/interpreter/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, from, to }),
+      signal: AbortSignal.timeout(10000),
+    });
+    const d = await r.json() as { translated?: string };
+    const v: string = d.translated ?? text;
     try { sessionStorage.setItem(k, v); } catch {}
     return v;
   } catch { return text; }
