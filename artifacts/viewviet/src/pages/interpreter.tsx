@@ -333,25 +333,11 @@ export default function InterpreterPage() {
   const {
     running, status, log, pendings, interim, activeSpeaker,
     permissionError, start, stop, startFor, stopListening, replay, clearLog, supported,
-  } = useInterpreter(langA, langB, direction, pushToTalk);
+  } = useInterpreter(langA, langB, direction, pushToTalk, autoSpeak);
 
   useEffect(() => {
     if (!running && log.length > 0) setReviewing(true);
   }, [running, log.length]);
-
-  // Keep a ref so the log-change effect always sees the latest autoSpeak value
-  const autoSpeakRef = useRef(autoSpeak);
-  useEffect(() => { autoSpeakRef.current = autoSpeak; }, [autoSpeak]);
-
-  // Auto-speak: play the translation of every new exchange when enabled
-  const prevLogLenRef = useRef(0);
-  useEffect(() => {
-    if (autoSpeakRef.current && log.length > prevLogLenRef.current) {
-      const latest = log[log.length - 1];
-      if (latest) replay(latest);
-    }
-    prevLogLenRef.current = log.length;
-  }, [log.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sameLang = langA === langB;
   const canStart = supported && !sameLang;

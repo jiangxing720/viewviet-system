@@ -102,7 +102,7 @@ function createSilentLoop(ctx: AnyAudioContext) {
 
 export function useInterpreter(
   langA: LangCode, langB: LangCode,
-  direction: DirectionMode = "both", pushToTalk = false,
+  direction: DirectionMode = "both", pushToTalk = false, autoSpeak = false,
 ) {
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState<InterpreterStatus>("idle");
@@ -123,11 +123,13 @@ export function useInterpreter(
   const pendingInterimRef = useRef("");
   const audioCtxRef = useRef<AnyAudioContext | null>(null);
   const isSpeakingTTSRef = useRef(false);
+  const autoSpeakRef = useRef(autoSpeak);
 
   useEffect(() => { langARef.current = langA; }, [langA]);
   useEffect(() => { langBRef.current = langB; }, [langB]);
   useEffect(() => { directionRef.current = direction; }, [direction]);
   useEffect(() => { pushToTalkRef.current = pushToTalk; }, [pushToTalk]);
+  useEffect(() => { autoSpeakRef.current = autoSpeak; }, [autoSpeak]);
 
   useEffect(() => {
     return () => {
@@ -280,7 +282,13 @@ export function useInterpreter(
   }
 
   // -----------------------------------------------------------------
-  // handleSpeak — shows pending card, restarts listening, translates.
+  // handleSpeak — two paths depending on autoSpeak mode:
+  //
+  // autoSpeak=OFF (default): restart mic immediately so next speaker
+  //   can talk while translation runs in background (low latency).
+  //
+  // autoSpeak=ON: hold mic closed → translate → TTS reads aloud →
+  //   only THEN restart mic. Prevents TTS from being re-recognised.
   // -----------------------------------------------------------------
   async function handleSpeak(speaker: "A" | "B", original: string) {
     if (!runRef.current) return;
@@ -292,20 +300,48 @@ export function useInterpreter(
     setActiveSpeaker(speaker);
     setPendings((prev) => [...prev, { id, speaker, original }]);
 
-    // Restart listener(s) immediately — don't wait for translation
-    if (!pushToTalkRef.current) {
-      setTimeout(() => startListening(), 80);
-    } else {
-      setStatus("idle");
-    }
+    if (autoSpeakRef.current) {
+      // ── Auto-speak path ────────────────────────────────────────────
+      // Keep mic CLOSED while TTS plays. Sequence: translate → TTS → mic.
+      setStatus("translating");
+      try {
+        const translated = await interpretTranslate(original, from, to);
+        if (!runRef.current) return;
+        const exchange: Exchange = { id, speaker, original, translated, targetLang: to, timestamp: Date.now() };
+        setLog((prev) => [...prev, exchange]);
+        setPendings((prev) => prev.filter((p) => p.id !== id));
 
-    try {
-      const translated = await interpretTranslate(original, from, to);
-      if (!runRef.current) return;
-      const exchange: Exchange = { id, speaker, original, translated, targetLang: to, timestamp: Date.now() };
-      setLog((prev) => [...prev, exchange]);
-    } finally {
-      setPendings((prev) => prev.filter((p) => p.id !== id));
+        // Play TTS — mic is still closed
+        isSpeakingTTSRef.current = true;
+        setStatus("speaking");
+        await speakAsync(translated, to);
+        isSpeakingTTSRef.current = false;
+      } finally {
+        setPendings((prev) => prev.filter((p) => p.id !== id));
+        isSpeakingTTSRef.current = false;
+      }
+      // Restart mic only after TTS is fully done
+      if (runRef.current && !pushToTalkRef.current) {
+        setTimeout(() => startListening(), 80);
+      } else if (runRef.current) {
+        setStatus("idle");
+      }
+    } else {
+      // ── Normal path ────────────────────────────────────────────────
+      // Restart mic immediately; translation runs concurrently.
+      if (!pushToTalkRef.current) {
+        setTimeout(() => startListening(), 80);
+      } else {
+        setStatus("idle");
+      }
+      try {
+        const translated = await interpretTranslate(original, from, to);
+        if (!runRef.current) return;
+        const exchange: Exchange = { id, speaker, original, translated, targetLang: to, timestamp: Date.now() };
+        setLog((prev) => [...prev, exchange]);
+      } finally {
+        setPendings((prev) => prev.filter((p) => p.id !== id));
+      }
     }
   }
 
