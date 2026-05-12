@@ -48,6 +48,11 @@ const SR: SpeechRecognitionConstructor | undefined =
 
 const BCP47: Record<LangCode, string> = { zh: "zh-CN", en: "en-US", vi: "vi-VN", ko: "ko-KR" };
 
+// How long to wait after the last interim result before force-committing.
+// Chinese fires isFinal quickly so the timer rarely triggers for zh.
+// For vi/en/ko the silence timer is the primary commit path.
+const COMMIT_SILENCE_MS = 1400;
+
 async function interpretTranslate(text: string, from: LangCode, to: LangCode): Promise<string> {
   if (!text.trim() || from === to) return text;
   const k = `vv-interp:${from}>${to}:${text.slice(0, 80)}`;
@@ -113,19 +118,24 @@ export function useInterpreter(
   const [permissionError, setPermissionError] = useState(false);
 
   const runRef = useRef(false);
+  // One recognizer per speaker (in "both" mode only ONE is running at a time — ping-pong)
   const recARef = useRef<SpeechRecognitionInstance | null>(null);
   const recBRef = useRef<SpeechRecognitionInstance | null>(null);
+
   const langARef = useRef(langA);
   const langBRef = useRef(langB);
   const directionRef = useRef(direction);
   const pushToTalkRef = useRef(pushToTalk);
-  const pendingInterimRef = useRef("");
+  const autoSpeakRef = useRef(autoSpeak);
+
+  // Per-speaker pending interim — separate refs prevent cross-speaker clobbering
+  const pendingInterimARef = useRef("");
+  const pendingInterimBRef = useRef("");
+
   const audioCtxRef = useRef<AnyAudioContext | null>(null);
   const isSpeakingTTSRef = useRef(false);
-  const autoSpeakRef = useRef(autoSpeak);
-  // Silence-based commit timer — fires after COMMIT_SILENCE_MS of no new speech,
-  // forcing the pending interim text to be committed as a final result.
-  // This makes non-Chinese languages (vi, en, ko) as responsive as zh.
+
+  // Per-speaker silence-commit timers
   const commitTimerARef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const commitTimerBRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -138,8 +148,8 @@ export function useInterpreter(
   useEffect(() => {
     return () => {
       runRef.current = false;
-      if (commitTimerARef.current) { clearTimeout(commitTimerARef.current); commitTimerARef.current = null; }
-      if (commitTimerBRef.current) { clearTimeout(commitTimerBRef.current); commitTimerBRef.current = null; }
+      clearTimerRef(commitTimerARef);
+      clearTimerRef(commitTimerBRef);
       try { recARef.current?.abort(); } catch {}
       try { recBRef.current?.abort(); } catch {}
       try { window.speechSynthesis?.cancel(); } catch {}
@@ -147,6 +157,29 @@ export function useInterpreter(
       audioCtxRef.current = null;
     };
   }, []);
+
+  // ----------------------------------------------------------------- helpers
+
+  function clearTimerRef(ref: React.MutableRefObject<ReturnType<typeof setTimeout> | null>) {
+    if (ref.current !== null) { clearTimeout(ref.current); ref.current = null; }
+  }
+
+  function clearCommitTimer(speaker: "A" | "B") {
+    clearTimerRef(speaker === "A" ? commitTimerARef : commitTimerBRef);
+  }
+
+  /** Abort a speaker's recognizer and null its ref. Does NOT restart. */
+  function abortRec(speaker: "A" | "B") {
+    clearCommitTimer(speaker);
+    const ref = speaker === "A" ? recARef : recBRef;
+    try { ref.current?.abort(); } catch {}
+    ref.current = null;
+  }
+
+  function destroyAllRec() {
+    abortRec("A");
+    abortRec("B");
+  }
 
   function ensureSilentAudio() {
     try {
@@ -165,39 +198,56 @@ export function useInterpreter(
     } catch {}
   }
 
-  // How long to wait after the last interim result before force-committing.
-  // Chinese fires isFinal quickly so the timer rarely triggers for zh.
-  // For vi/en/ko the timer is the primary commit path.
-  const COMMIT_SILENCE_MS = 1400;
+  // -----------------------------------------------------------------
+  // commitSpeech — finalises one utterance and manages listener state.
+  //
+  // "both" mode (non-PTT): ping-pong — abort the speaker who just spoke,
+  //   start the other speaker so ONLY ONE recognizer runs at a time.
+  //   This prevents the dual-mic audio-capture error loop on mobile.
+  //
+  // Single-direction: the continuous recognizer keeps running — no restarts.
+  //
+  // PTT: listener lifecycle is managed by startFor/stopListening.
+  // -----------------------------------------------------------------
+  function commitSpeech(speaker: "A" | "B", text: string) {
+    if (!runRef.current || !text.trim()) return;
 
-  function clearCommitTimer(speaker: "A" | "B") {
-    const ref = speaker === "A" ? commitTimerARef : commitTimerBRef;
-    if (ref.current !== null) { clearTimeout(ref.current); ref.current = null; }
-  }
-
-  function abortRec(speaker: "A" | "B") {
     clearCommitTimer(speaker);
-    const ref = speaker === "A" ? recARef : recBRef;
-    try { ref.current?.abort(); } catch {}
-    ref.current = null;
-  }
 
-  function destroyAllRec() {
-    abortRec("A");
-    abortRec("B");
+    const pendingRef = speaker === "A" ? pendingInterimARef : pendingInterimBRef;
+    pendingRef.current = "";
+    setInterim("");
+
+    if (!pushToTalkRef.current && directionRef.current === "both") {
+      // Ping-pong: stop the speaker who just spoke, start the other
+      abortRec(speaker);
+      const other = speaker === "A" ? "B" : "A";
+      setTimeout(() => { if (runRef.current) launchListener(other); }, 150);
+    }
+    // Single direction: continuous recognizer stays running — nothing to do.
+    // PTT: handled by startFor / stopListening.
+
+    void handleSpeak(speaker, text);
   }
 
   // -----------------------------------------------------------------
   // launchListener — creates and starts ONE new recognizer for a speaker.
-  // Call this only when the current recognizer has ended or was aborted.
-  // Do NOT call this while the recognizer is already running — the
-  // continuous=true instance handles multiple utterances on its own.
+  //
+  // In "both" mode, only ONE listener runs at a time (ping-pong).
+  // In single-direction mode, the continuous recognizer handles all utterances.
   // -----------------------------------------------------------------
   function launchListener(speaker: "A" | "B") {
     if (!SR || !runRef.current) return;
 
-    abortRec(speaker);
-    pendingInterimRef.current = "";
+    const recRef = speaker === "A" ? recARef : recBRef;
+    const commitTimerRef = speaker === "A" ? commitTimerARef : commitTimerBRef;
+    const pendingRef = speaker === "A" ? pendingInterimARef : pendingInterimBRef;
+
+    // Abort any existing recognizer for this speaker
+    clearTimerRef(commitTimerRef);
+    try { recRef.current?.abort(); } catch {}
+    recRef.current = null;
+    pendingRef.current = "";
 
     const lang = speaker === "A" ? langARef.current : langBRef.current;
     const rec = new SR();
@@ -206,23 +256,15 @@ export function useInterpreter(
     rec.interimResults = true;
     rec.maxAlternatives = 1;
 
-    const thisRef = speaker === "A" ? recARef : recBRef;
+    recRef.current = rec;
+    setActiveSpeaker(speaker);
+    setStatus("listening");
 
-    const commitTimerRef = speaker === "A" ? commitTimerARef : commitTimerBRef;
-
-    // Force-commit helper: treats the current interim text as a final result.
-    // Used by the silence timer when the browser hasn't fired isFinal=true.
-    function forceCommit(text: string) {
-      if (!runRef.current || !text.trim()) return;
-      clearCommitTimer(speaker);
-      pendingInterimRef.current = "";
-      setInterim("");
-      if (directionRef.current === "both") abortRec(speaker === "A" ? "B" : "A");
-      void handleSpeak(speaker, text.trim());
-    }
-
+    // ------ onresult ------
     rec.onresult = (e: SpeechRecognitionEvent) => {
+      // Block processing during TTS to prevent speaker's audio being re-recognised
       if (isSpeakingTTSRef.current) return;
+
       let interimText = "";
       let finalText = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -231,117 +273,118 @@ export function useInterpreter(
         if (res.isFinal) finalText += t;
         else interimText += t;
       }
+
       if (interimText) {
-        pendingInterimRef.current = interimText;
+        pendingRef.current = interimText;
         setActiveSpeaker(speaker);
         setInterim(interimText);
 
-        // Silence-commit timer: if COMMIT_SILENCE_MS passes with no new speech,
-        // treat the accumulated interim as final. This makes vi/en/ko as fast as zh.
-        // PTT mode uses button-release for commits, not silence detection.
+        // Silence-commit timer: fire after COMMIT_SILENCE_MS of no new speech.
+        // This makes vi/en/ko as responsive as zh (which fires isFinal naturally).
+        // PTT mode commits on button release — silence timer not needed there.
         if (!pushToTalkRef.current) {
-          if (commitTimerRef.current !== null) clearTimeout(commitTimerRef.current);
+          clearTimerRef(commitTimerRef);
           commitTimerRef.current = setTimeout(() => {
             commitTimerRef.current = null;
-            forceCommit(pendingInterimRef.current);
+            // Guard: skip if TTS is playing or session stopped
+            if (!runRef.current || isSpeakingTTSRef.current) return;
+            const pending = pendingRef.current;
+            if (pending.trim()) commitSpeech(speaker, pending);
           }, COMMIT_SILENCE_MS);
         }
       }
+
       if (finalText.trim()) {
-        // Natural isFinal — cancel the silence timer (not needed)
-        clearCommitTimer(speaker);
-        pendingInterimRef.current = "";
-        setInterim("");
-        // In "both" mode: abort the OTHER listener to stop it processing the same audio.
-        // The current speaker's recognizer (continuous=true) keeps running for the next utterance.
-        if (directionRef.current === "both") {
-          abortRec(speaker === "A" ? "B" : "A");
-        }
-        void handleSpeak(speaker, finalText.trim());
+        // Natural isFinal — cancel silence timer, commit immediately
+        clearTimerRef(commitTimerRef);
+        commitSpeech(speaker, finalText.trim());
       }
     };
 
+    // ------ onerror ------
     rec.onerror = (e: SpeechRecognitionErrorEvent) => {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
         setPermissionError(true);
         stopSession();
         return;
       }
-      // On transient errors, restart this listener after a short delay
-      if (runRef.current && thisRef.current === rec) {
+      // "aborted" is expected when we call abort() — ignore, no restart
+      if (e.error === "aborted") return;
+
+      // Transient errors (no-speech, network): restart after a delay
+      if (runRef.current && recRef.current === rec) {
         setTimeout(() => {
-          if (runRef.current && thisRef.current === rec) launchListener(speaker);
-        }, 300);
+          if (runRef.current && recRef.current === rec) launchListener(speaker);
+        }, 500);
       }
     };
 
+    // ------ onend ------
     rec.onend = () => {
-      // Guard: ignore stale onend from a replaced recognizer
-      if (thisRef.current !== rec) return;
+      // Stale recognizer (replaced by a newer one) — ignore
+      if (recRef.current !== rec) return;
+
       if (pushToTalkRef.current) {
-        const pending = pendingInterimRef.current.trim();
+        // PTT: commit pending interim when button is released and recognizer stops
+        const pending = pendingRef.current.trim();
         if (pending && runRef.current) {
-          pendingInterimRef.current = "";
+          pendingRef.current = "";
           setInterim("");
           void handleSpeak(speaker, pending);
         } else if (runRef.current) {
           setStatus("idle");
         }
       } else {
-        // Natural end (silence timeout / browser limit) — restart this listener.
-        // We use a short delay to let any in-flight translation settle.
+        // Natural browser end (silence timeout / quota) — restart the same listener.
+        // Short delay lets any in-flight translation settle.
         if (runRef.current) {
           setTimeout(() => {
-            if (runRef.current && thisRef.current === rec) launchListener(speaker);
+            if (runRef.current && recRef.current === rec) launchListener(speaker);
           }, 80);
         }
       }
     };
 
-    thisRef.current = rec;
     try {
       rec.start();
-      setStatus("listening");
     } catch {
-      // start() can throw if another instance is starting — retry
-      setTimeout(() => launchListener(speaker), 300);
+      // start() can throw if the browser is busy — retry after short delay
+      recRef.current = null;
+      setTimeout(() => { if (runRef.current) launchListener(speaker); }, 400);
     }
   }
 
   // -----------------------------------------------------------------
-  // startListening — launches the right set of listeners based on mode.
-  // Only call this at session start or after a full stop (not between utterances).
+  // startListening — launches the initial listener(s) at session start.
+  //
+  // "both" mode: start A only. The ping-pong switches to B after A speaks.
+  //   Starting both simultaneously causes audio-capture errors on mobile.
+  //
+  // Single direction: start only the relevant speaker.
   // -----------------------------------------------------------------
   function startListening(forceSpeaker?: "A" | "B") {
     if (!SR || !runRef.current) return;
-    const dir = directionRef.current;
 
     if (forceSpeaker) {
       launchListener(forceSpeaker);
       return;
     }
 
-    if (dir === "a-to-b") {
-      launchListener("A");
-    } else if (dir === "b-to-a") {
+    const dir = directionRef.current;
+    if (dir === "b-to-a") {
       launchListener("B");
     } else {
-      // Both — launch A immediately, B after short delay to avoid mic-start collision
+      // "a-to-b" and "both" both start with A
       launchListener("A");
-      setTimeout(() => { if (runRef.current) launchListener("B"); }, 150);
     }
   }
 
   // -----------------------------------------------------------------
-  // handleSpeak — two paths depending on autoSpeak mode:
+  // handleSpeak — translates original text, logs the exchange, optionally
+  // reads the translation aloud via TTS.
   //
-  // autoSpeak=OFF (default): The continuous recognizer keeps running.
-  //   Only restart the OTHER aborted listener (in "both" mode).
-  //   Translation runs concurrently without interrupting listening.
-  //
-  // autoSpeak=ON: Block onresult processing during TTS via isSpeakingTTSRef.
-  //   Sequence: translate → TTS reads aloud → then restart the other listener.
-  //   The current speaker's continuous recognizer stays running (results ignored during TTS).
+  // Listener management is NOT done here — commitSpeech handles it.
+  // This function only handles translation, logging, and TTS.
   // -----------------------------------------------------------------
   async function handleSpeak(speaker: "A" | "B", original: string) {
     if (!runRef.current) return;
@@ -354,9 +397,7 @@ export function useInterpreter(
     setPendings((prev) => [...prev, { id, speaker, original }]);
 
     if (autoSpeakRef.current) {
-      // ── Auto-speak path ────────────────────────────────────────────
-      // Block onresult processing so TTS audio isn't re-recognised.
-      // The current speaker's recognizer keeps running but results are ignored.
+      // Auto-speak path: translate → TTS. Block onresult during TTS via flag.
       isSpeakingTTSRef.current = true;
       setStatus("translating");
       try {
@@ -371,34 +412,16 @@ export function useInterpreter(
       } finally {
         setPendings((prev) => prev.filter((p) => p.id !== id));
         isSpeakingTTSRef.current = false;
+        if (runRef.current) setStatus("listening");
       }
-
-      // After TTS: re-enable listening.
-      // Current speaker's continuous recognizer is still running (or will restart via onend).
-      // In "both" mode, also restart the OTHER listener that was aborted.
-      if (runRef.current && !pushToTalkRef.current) {
-        setStatus("listening");
-        if (directionRef.current === "both") {
-          const other = speaker === "A" ? "B" : "A";
-          setTimeout(() => { if (runRef.current) launchListener(other); }, 100);
-        }
-      } else if (runRef.current) {
-        setStatus("idle");
-      }
+      // Listeners: in "both" ping-pong mode, the other speaker's listener was
+      // already started by commitSpeech. During TTS it was blocked by the flag;
+      // now the flag is cleared so it can process speech normally.
+      // In single-direction mode, the continuous listener is still running.
     } else {
-      // ── Normal path ────────────────────────────────────────────────
-      // The current speaker's continuous recognizer is still running — don't touch it.
-      // In "both" mode, restart ONLY the aborted OTHER listener.
-      // Translation runs concurrently without interrupting listening.
-      if (!pushToTalkRef.current) {
-        setStatus("listening");
-        if (directionRef.current === "both") {
-          const other = speaker === "A" ? "B" : "A";
-          setTimeout(() => { if (runRef.current) launchListener(other); }, 200);
-        }
-      } else {
-        setStatus("idle");
-      }
+      // Non-autoSpeak path: translate concurrently, no TTS.
+      // Listeners are already managed by commitSpeech — nothing to do here.
+      if (runRef.current) setStatus("listening");
       try {
         const translated = await interpretTranslate(original, from, to);
         if (!runRef.current) return;
@@ -416,6 +439,8 @@ export function useInterpreter(
     setRunning(false);
     setStatus("idle");
     setInterim("");
+    pendingInterimARef.current = "";
+    pendingInterimBRef.current = "";
     destroyAllRec();
     try { window.speechSynthesis?.cancel(); } catch {}
     try { audioCtxRef.current?.close(); } catch {}
@@ -437,12 +462,14 @@ export function useInterpreter(
 
   function stop() { stopSession(); }
 
+  /** PTT: start listening for a specific speaker (destroys any active listener). */
   function startFor(speaker: "A" | "B") {
     if (!SR || !runRef.current) return;
     destroyAllRec();
     launchListener(speaker);
   }
 
+  /** PTT: gracefully stop the active listener so it fires onend with pending results. */
   function stopListening() {
     try { recARef.current?.stop(); } catch {}
     try { recBRef.current?.stop(); } catch {}
