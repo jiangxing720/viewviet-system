@@ -315,10 +315,14 @@ export default function InterpreterPage() {
     if (!running && log.length > 0) setReviewing(true);
   }, [running, log.length]);
 
+  // Keep a ref so the log-change effect always sees the latest autoSpeak value
+  const autoSpeakRef = useRef(autoSpeak);
+  useEffect(() => { autoSpeakRef.current = autoSpeak; }, [autoSpeak]);
+
   // Auto-speak: play the translation of every new exchange when enabled
   const prevLogLenRef = useRef(0);
   useEffect(() => {
-    if (autoSpeak && log.length > prevLogLenRef.current) {
+    if (autoSpeakRef.current && log.length > prevLogLenRef.current) {
       const latest = log[log.length - 1];
       if (latest) replay(latest);
     }
