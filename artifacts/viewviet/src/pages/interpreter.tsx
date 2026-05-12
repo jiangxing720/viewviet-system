@@ -62,6 +62,7 @@ function ExchangeCard({
   exchange: Exchange;
   onReplay: () => void;
 }) {
+  const { t } = useTranslation();
   const isA = exchange.speaker === "A";
   return (
     <div
@@ -81,7 +82,7 @@ function ExchangeCard({
         <button
           onClick={onReplay}
           className="text-muted-foreground hover:text-primary transition-colors rounded p-0.5"
-          title="Replay"
+          title={t("interpreter.replay")}
         >
           <Volume2 className="w-3.5 h-3.5" />
         </button>
