@@ -1,0 +1,632 @@
+以下是为您撰写的**可直接交付AI开发的完整网站开发说明书**。采用模块化架构，涵盖从需求分析到数据库设计的全部细节，任何AI开发工具（Cursor、Claude、GPT-4等）均可基于本文档直接生成前后端代码。
+
+---
+
+# 智能文档翻译与自动排版生成系统 — 开发说明书（V1.0）
+
+**项目代号**：DocuFlow  
+**目标平台**：Web应用（桌面端优先，适配平板）  
+**交付形式**：单页应用（SPA）+ Node.js后端API + 异步任务队列  
+
+---
+
+## 一、产品定位与核心目标
+
+| 维度 | 定义 |
+|-----|------|
+| **核心用户** | 跨境法律/商务服务机构、外贸企业、翻译公司、律所 |
+| **核心痛点** | ① 大体积文档（1000页+）翻译易崩溃/丢格式；② 报价函/合同排版耗时且格式不统一；③ 多语言版本（单/双/三语）制作重复劳动多 |
+| **产品价值** | 上传文档→自动翻译→保持原格式→下载；输入商务信息→自动排版页眉页脚→生成专业报价函/合同（Word/PDF）→支持多语言混排 |
+| **差异化** | 不限制页数（流式处理）、版式自动还原（非纯文本翻译）、商务文档模板化生成、多语言同页混排 |
+
+---
+
+## 二、功能架构总览（五大模块）
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        前端应用层 (React/Vue)                 │
+├──────────────┬──────────────┬──────────────┬─────────────────┤
+│  模块A:文档翻译 │ 模块B:版式排版 │ 模块C:商务生成 │  模块D:语言管理  │
+│   (PDF/Word/  │  (Logo/页眉   │  (报价函/合同/ │  (单/双/三语    │
+│    PPT/网页)  │   页脚/配色)  │   确认函)     │   切换)         │
+├──────────────┴──────────────┴──────────────┴─────────────────┤
+│                    后端API服务层 (Node.js/Python)            │
+├──────────────┬──────────────┬──────────────┬─────────────────┤
+│  文档解析引擎  │  翻译引擎     │  模板渲染引擎 │   任务队列      │
+│(LibreOffice/  │(AI API聚合   │(docx-pdf    │  (Bull/Redis)   │
+│  Mammoth/     │  + 术语库)   │   生成)      │                 │
+│  pdf-parse)   │              │              │                 │
+├──────────────┴──────────────┴──────────────┴─────────────────┤
+│                    数据持久层 (PostgreSQL + S3/本地存储)        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 三、模块A：智能文档翻译系统（核心功能1）
+
+### 3.1 功能描述
+支持用户上传 PDF、Word（.doc/.docx）、PPT（.ppt/.pptx）及网页URL，自动翻译为指定语言，保持原有排版格式（字体、段落、表格、图片相对位置），支持1000页以上超大文档。
+
+### 3.2 技术实现方案
+
+#### 3.2.1 文档解析流水线（流式处理）
+
+| 文件类型 | 解析工具 | 处理策略 |
+|---------|---------|---------|
+| **Word (.docx)** | `mammoth.js` / `python-docx` | 提取XML结构（`document.xml`），保留样式标签，段落级拆分 |
+| **PDF** | `pdf-parse` + `pdf-lib` / `PyMuPDF` | 逐页提取文本块（保留坐标），双层PDF优先提取文字层，扫描件触发OCR |
+| **PPT** | `python-pptx` | 按幻灯片拆分，提取文本框、备注页 |
+| **网页** | `puppeteer` / `cheerio` | 抓取DOM，提取文本节点，过滤脚本样式 |
+
+**超大文档处理策略（1000页+）**：
+- **分片上传**：前端切片上传（每片5MB），后端合并
+- **段落级任务拆分**：将文档按段落/页拆分为独立翻译任务，进入Redis队列
+- **流式写入**：翻译完成后不等待全文档完成，逐段写入新文档流，避免内存溢出
+- **进度实时推送**：WebSocket 返回 `processedPages / totalPages`
+
+#### 3.2.2 翻译引擎架构
+
+采用**多引擎聚合 + 术语库干预**模式：
+
+```
+用户选择目标语言 → 术语库预匹配（法律/商务术语）→ 段落级翻译
+                                                        ↓
+                                    ┌──────────────────┼──────────────────┐
+                                    ↓                  ↓                  ↓
+                              [OpenAI API]      [DeepL API]       [Google Translate]
+                              (复杂句式/长句)    (通用文本/欧洲语)   (小语种/备用)
+                                    └──────────────────┼──────────────────┘
+                                                       ↓
+                                              质量评分 + 后处理（格式还原）
+                                                       ↓
+                                              写入目标文档结构
+```
+
+**术语库系统**：
+- 用户可上传自定义术语表（CSV/Excel）：`原文,译文,领域标签`
+- 翻译前先做术语替换（保护术语不被翻译引擎改动）
+- 支持法律、商务、工程领域预设术语包
+
+#### 3.2.3 格式保持机制
+
+| 元素 | 保持策略 |
+|-----|---------|
+| **字体与字号** | 原文档样式映射表 → 目标语言字体回退（如中文宋体→英文Times New Roman） |
+| **段落对齐** | 提取`w:jc`（Word）或PDF文本块坐标，翻译后还原 |
+| **表格** | 保留行列结构，单元格内文本单独翻译 |
+| **图片/图表** | 原样复制，仅翻译图片内嵌文本（如需要则OCR后叠加） |
+| **页眉页脚** | 单独提取翻译，保持位置 |
+| **批注/修订** | Word文档保留批注框，内容翻译后插入 |
+
+### 3.3 API接口设计
+
+#### 接口1：文档上传与任务创建
+```http
+POST /api/translation/jobs
+Content-Type: multipart/form-data
+
+Request:
+{
+  "file": <File>,           // 支持 pdf, docx, doc, pptx, ppt
+  "sourceLang": "auto",     // auto 或 ISO 639-1 代码
+  "targetLang": "zh-CN",    // 目标语言
+  "engine": "auto",         // auto | openai | deepl | google
+  "preserveLayout": true,   // 是否保持原排版
+  "glossaryId": "uuid",     // 可选：术语库ID
+  "outputFormat": "original" // original(保持原格式) | plainText(纯文本)
+}
+
+Response: 201 Created
+{
+  "jobId": "uuid",
+  "status": "queued",
+  "totalPages": 1250,       // 预估页数
+  "estimatedTime": "45m",
+  "wsEndpoint": "/ws/jobs/uuid"
+}
+```
+
+#### 接口2：任务进度查询（WebSocket + REST 双通道）
+```http
+GET /api/translation/jobs/:jobId
+Response:
+{
+  "jobId": "uuid",
+  "status": "processing",   // queued | processing | completed | failed
+  "progress": {
+    "totalPages": 1250,
+    "processedPages": 480,
+    "percentage": 38.4
+  },
+  "downloadUrl": null,      // 完成后填充
+  "expiresAt": "2026-05-13T10:00:00Z"
+}
+```
+
+#### 接口3：下载翻译后文档
+```http
+GET /api/translation/jobs/:jobId/download
+Response: File Stream (Content-Disposition: attachment)
+```
+
+### 3.4 数据库表结构
+
+```sql
+-- 翻译任务表
+CREATE TABLE translation_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    original_filename VARCHAR(255) NOT NULL,
+    file_size BIGINT,
+    file_path VARCHAR(500),           -- S3/本地存储路径
+    source_lang VARCHAR(10),
+    target_lang VARCHAR(10) NOT NULL,
+    engine VARCHAR(20) DEFAULT 'auto',
+    status VARCHAR(20) DEFAULT 'queued', -- queued, processing, completed, failed
+    total_pages INTEGER,
+    processed_pages INTEGER DEFAULT 0,
+    output_format VARCHAR(20),
+    output_file_path VARCHAR(500),
+    glossary_id UUID,
+    created_at TIMESTAMP DEFAULT NOW(),
+    completed_at TIMESTAMP,
+    error_message TEXT
+);
+
+-- 术语库表
+CREATE TABLE glossaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    name VARCHAR(100) NOT NULL,
+    source_lang VARCHAR(10),
+    target_lang VARCHAR(10),
+    is_preset BOOLEAN DEFAULT false,   -- 是否为系统预设术语包
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 术语条目表
+CREATE TABLE glossary_terms (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    glossary_id UUID REFERENCES glossaries(id) ON DELETE CASCADE,
+    source_term VARCHAR(500) NOT NULL,
+    target_term VARCHAR(500) NOT NULL,
+    domain_tag VARCHAR(50),           -- legal, business, engineering
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+---
+
+## 四、模块B：智能版式排版系统（核心功能2）
+
+### 4.1 功能描述
+用户上传Logo（图片）或输入文字Logo，选择主色调（页眉页脚配色），输入企业信息（名称、地址、联系方式、税号等），系统自动将以上元素排版到Word/PDF文档的页眉页脚区域，并支持实时预览。
+
+### 4.2 功能拆解
+
+| 子功能 | 说明 |
+|-------|------|
+| **Logo上传** | 支持PNG/JPG/SVG，自动压缩至300dpi打印标准，支持文字Logo（输入企业名自动生成艺术字/标准字） |
+| **配色系统** | 用户选择主色（如企业绿 #2E7D32），系统自动生成页眉页脚配色方案（主色+辅色+文字色） |
+| **信息字段** | 企业名称、地址、电话、邮箱、税号、网址、银行信息 —— 用户勾选显示哪些 |
+| **版式模板** | 提供6种预设页眉页脚版式（左对齐/居中/双栏/带分隔线/现代极简/传统正式） |
+| **实时预览** | 前端Canvas/HTML渲染预览，所见即所得 |
+| **应用范围** | 可选择：仅首页、仅奇数页、全部页面、首页不同 |
+
+### 4.3 技术实现
+
+#### 4.3.1 Word页眉页脚生成（docx格式）
+
+使用 `docx-templates` 或 `python-docx` 操作 `header.xml` / `footer.xml`：
+
+```javascript
+// 伪代码：Node.js生成带页眉页脚的docx
+const { Document, Packer, Header, Footer, TextRun, ImageRun, AlignmentType, BorderStyle } = require('docx');
+
+const header = new Header({
+  children: [
+    new Table({          // 使用表格实现左右对齐布局
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [new ImageRun({ data: logoBuffer, transformation: { width: 100, height: 50 } })],
+              width: { size: 50, type: WidthType.PERCENTAGE }
+            }),
+            new TableCell({
+              children: [
+                new TextRun({ text: "公司地址：河内市...", size: 18, color: "2E7D32" }),
+                new TextRun({ text: "电话：+84...", size: 18, color: "666666" })
+              ],
+              alignment: AlignmentType.RIGHT,
+              width: { size: 50, type: WidthType.PERCENTAGE }
+            })
+          ]
+        })
+      ],
+      borders: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "2E7D32" } } // 主色下划线
+    })
+  ]
+});
+```
+
+#### 4.3.2 文字Logo自动生成
+
+若用户无图片Logo，输入企业名称后：
+- 调用前端Canvas绘制：选择字体（Montserrat/Noto Sans/思源黑体等）、字重、字间距
+- 生成PNG图片 → 后端接收后嵌入页眉
+- 提供10种预设字体风格（现代/传统/科技/律所等）
+
+#### 4.3.3 配色引擎
+
+用户选择主色后，系统自动计算：
+- **页眉背景**：主色 10% 透明度 或 主色纯色（可选）
+- **页眉文字**：主色 100% 或 自动对比色（黑/白）
+- **页脚分隔线**：主色
+- **页码颜色**：辅色（主色的对比色）
+
+### 4.4 API接口
+
+```http
+POST /api/branding/preview
+Content-Type: multipart/form-data
+
+Request:
+{
+  "logo": <File|null>,           // 图片Logo，null则使用textLogo
+  "textLogo": "ABC LAW FIRM",    // 文字Logo内容
+  "textLogoStyle": "modern",    // modern | classic | tech | minimal
+  "primaryColor": "#2E7D32",    // 主色
+  "layoutTemplate": "dual",     // left | center | dual | minimal | formal | line
+  "companyInfo": {
+    "name": "ABC Law Firm",
+    "address": "123 Street, Hanoi",
+    "phone": "+84 123 456 789",
+    "email": "contact@abc.com",
+    "taxId": "0101234567",
+    "website": "www.abc.com"
+  },
+  "showFields": ["name", "address", "phone", "email"], // 勾选显示
+  "pageScope": "all"            // all | firstOnly | oddOnly | firstDifferent
+}
+
+Response:
+{
+  "previewHtml": "<div>...</div>",  // 前端直接渲染的HTML预览
+  "previewImageUrl": "/temp/preview_123.png" // 可选：图片预览
+}
+```
+
+---
+
+## 五、模块C：商务文档自动生成系统（核心功能3）
+
+### 5.1 功能描述
+用户输入报价内容、适用法律、争议解决条款、报价明细、合同细则、确认函要素，系统自动生成排版精美的 Word 或 PDF 文档。支持单语、双语（对照）、三语（三栏）模式。
+
+### 5.2 文档类型与模板
+
+| 文档类型 | 预设模板 | 字段 |
+|---------|---------|------|
+| **报价函（Quotation）** | 律所正式 / 商务简洁 / 表格明细 | 服务项、单价、数量、小计、总价、有效期、付款方式 |
+| **服务合同（Service Agreement）** | 中文优先 / 中越双语 / 国际通用 | 当事方、服务范围、期限、费用、适用法律、争议解决、保密条款 |
+| **确认函（Confirmation Letter）** | 简洁确认 / 详细确认 | 确认事项、双方签章位置、日期 |
+| **法律意见书（Legal Opinion）** | 标准格式 | 事实背景、法律分析、结论建议 |
+
+### 5.3 多语言排版模式
+
+这是本系统的核心差异化功能：
+
+#### 模式1：单语模式
+- 标准单栏排版，一种语言贯穿全文
+
+#### 模式2：双语对照模式
+- **左右分栏**：左侧原文，右侧译文（适合Word）
+- **上下对照**：上原文，下译文（适合段落较短内容）
+- **表格对照**：两列表格，左原文右译文（适合条款类）
+
+#### 模式3：三语模式
+- **三栏表格**：语言A | 语言B | 语言C
+- **适用场景**：中越英三语合同、东盟多国语言文件
+
+### 5.4 字段输入界面设计
+
+前端表单按步骤引导：
+
+**Step 1：基础信息**
+- 文档类型（下拉选择）
+- 语言模式（单语/双语/三语）→ 选择后显示对应语言选择器
+- 语言选择（源语言 → 目标语言1 → 目标语言2）
+
+**Step 2：内容输入**
+动态表单根据文档类型变化：
+
+```json
+// 报价函字段示例
+{
+  "documentType": "quotation",
+  "fields": {
+    "clientName": "客户名称",
+    "projectName": "项目名称",
+    "validityDays": 30,
+    "currency": "USD",
+    "items": [
+      { "service": "法律尽职调查", "description": "...", "quantity": 1, "unitPrice": 5000 }
+    ],
+    "applicableLaw": "越南社会主义共和国法律",
+    "disputeResolution": "新加坡国际仲裁中心（SIAC）仲裁",
+    "paymentTerms": "签约付50%，交付付50%",
+    "additionalTerms": "..."
+  }
+}
+```
+
+**Step 3：版式确认**
+- 自动带入模块B设置的页眉页脚
+- 选择正文字体、字号、行距
+- 实时预览
+
+**Step 4：生成与下载**
+- 生成Word（.docx）或 PDF
+- 生成后自动保存到用户文档库
+
+### 5.5 模板引擎技术方案
+
+使用 **docx-templates**（Node.js）或 **python-docx** + **Jinja2** 模板：
+
+```
+templates/
+├── quotation/
+│   ├── single_lang.docx
+│   ├── bilingual_side_by_side.docx
+│   └── trilingual_table.docx
+├── contract/
+│   ├── single_lang.docx
+│   └── bilingual_interleaved.docx
+└── confirmation/
+    └── ...
+```
+
+**双语/三语生成逻辑**：
+1. 用户输入源语言内容
+2. 调用翻译API将内容翻译为目标语言
+3. 根据模板类型，将原文和译文插入对应位置标记（`{original}` / `{translation}` / `{lang3}`）
+4. 渲染输出
+
+### 5.6 API接口
+
+```http
+POST /api/documents/generate
+Content-Type: application/json
+
+Request:
+{
+  "templateId": "quotation_bilingual",
+  "languages": {
+    "primary": "zh-CN",
+    "secondary": "vi-VN",
+    "tertiary": null
+  },
+  "brandingId": "uuid",        // 关联模块B的版式配置
+  "formData": { ... },         // 各文档类型的字段数据
+  "outputFormat": "docx",     // docx | pdf
+  "translateContent": true     // 是否自动翻译字段内容
+}
+
+Response: 202 Accepted
+{
+  "jobId": "uuid",
+  "status": "processing",
+  "downloadUrl": null
+}
+```
+
+---
+
+## 六、模块D：语言与翻译管理
+
+### 6.1 支持语言列表
+
+| 语言 | 代码 | 优先级 |
+|-----|------|-------|
+| 中文（简体） | zh-CN | P0 |
+| 中文（繁体） | zh-TW | P1 |
+| 英语 | en-US | P0 |
+| 越南语 | vi-VN | P0 |
+| 日语 | ja-JP | P1 |
+| 韩语 | ko-KR | P1 |
+| 法语 | fr-FR | P2 |
+| 德语 | de-DE | P2 |
+| 西班牙语 | es-ES | P2 |
+| 印尼语 | id-ID | P1 |
+| 泰语 | th-TH | P2 |
+| 阿拉伯语 | ar-SA | P2 |
+
+### 6.2 RTL（从右到左）支持
+阿拉伯语、希伯来语等RTL语言：
+- 前端UI自动切换RTL布局
+- 文档生成时段落方向标记（`w:bidi`）自动插入
+
+---
+
+## 七、系统架构与技术栈
+
+### 7.1 推荐技术栈
+
+| 层级 | 技术选型 | 说明 |
+|-----|---------|------|
+| **前端** | React 18 + TypeScript + Tailwind CSS + shadcn/ui | 单页应用，文件上传用 Uppy，预览用 React-PDF / Mammoth.js |
+| **后端API** | Node.js + Express + TypeScript | 主服务，处理业务逻辑 |
+| **文档处理** | Python 微服务（FastAPI） | 复杂文档解析/生成任务，通过HTTP与Node通信 |
+| **数据库** | PostgreSQL 15 | 主数据库 |
+| **缓存/队列** | Redis | 翻译任务队列（BullMQ）、会话缓存 |
+| **文件存储** | AWS S3 / MinIO（本地） | 上传的原文、生成的译文、Logo文件 |
+| **翻译引擎** | OpenAI GPT-4o / DeepL API / Google Cloud Translation | 聚合调用， failover 机制 |
+| **文档生成** | docx-templates (Node) / python-docx | Word生成；PDF用 LibreOffice Headless / Playwright |
+| **部署** | Docker + Docker Compose | 开发/生产一致化 |
+
+### 7.2 微服务拆分建议
+
+如果文档处理压力大，建议拆分为：
+
+```
+┌──────────────┐      ┌──────────────────┐      ┌──────────────┐
+│   Web App    │──────│   API Gateway    │──────│  Node.js主服务│
+│  (React SPA) │      │   (Nginx/Caddy)  │      │  (业务/用户)  │
+└──────────────┘      └──────────────────┘      └──────┬───────┘
+                                                       │
+                              ┌────────────────────────┼────────────────────────┐
+                              ↓                        ↓                        ↓
+                        ┌─────────┐              ┌──────────┐              ┌──────────┐
+                        │文档解析服务│              │翻译队列服务│              │模板渲染服务│
+                        │(Python)  │              │(Node+Redis)│              │(Node/Python)│
+                        └─────────┘              └──────────┘              └──────────┘
+```
+
+---
+
+## 八、数据库完整Schema
+
+```sql
+-- 用户表
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100),
+    company_name VARCHAR(200),
+    role VARCHAR(20) DEFAULT 'user', -- admin, user
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 用户品牌配置（模块B）
+CREATE TABLE brand_configs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL, -- 配置名称，如"ABC律所正式版"
+    logo_url VARCHAR(500),
+    text_logo VARCHAR(200),
+    text_logo_style VARCHAR(20),
+    primary_color VARCHAR(7) DEFAULT '#1a1a1a',
+    secondary_color VARCHAR(7) DEFAULT '#666666',
+    layout_template VARCHAR(20) DEFAULT 'dual',
+    company_info JSONB NOT NULL, -- {name, address, phone, email, taxId, website}
+    show_fields JSONB DEFAULT '["name","address","phone","email"]',
+    page_scope VARCHAR(20) DEFAULT 'all',
+    is_default BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 文档模板表（模块C）
+CREATE TABLE document_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) UNIQUE NOT NULL, -- quotation_single, contract_bilingual
+    name VARCHAR(100) NOT NULL,
+    category VARCHAR(30) NOT NULL, -- quotation, contract, confirmation, opinion
+    language_mode VARCHAR(20) NOT NULL, -- single, bilingual, trilingual
+    file_path VARCHAR(500) NOT NULL, -- .docx模板文件路径
+    description TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 文档生成任务表（模块C）
+CREATE TABLE document_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    template_id UUID REFERENCES document_templates(id),
+    brand_config_id UUID REFERENCES brand_configs(id),
+    title VARCHAR(255),
+    languages JSONB NOT NULL, -- {primary: "zh-CN", secondary: "vi-VN", tertiary: null}
+    form_data JSONB NOT NULL, -- 用户填写的表单数据
+    status VARCHAR(20) DEFAULT 'queued',
+    output_format VARCHAR(10) NOT NULL, -- docx, pdf
+    output_url VARCHAR(500),
+    translate_content BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT NOW(),
+    completed_at TIMESTAMP
+);
+
+-- 翻译任务表（同3.4，略）
+-- 术语库表（同3.4，略）
+
+-- 文件存储记录表
+CREATE TABLE file_assets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    original_name VARCHAR(255),
+    storage_path VARCHAR(500) NOT NULL,
+    file_type VARCHAR(50), -- document, logo, generated_doc
+    mime_type VARCHAR(100),
+    size_bytes BIGINT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+---
+
+## 九、前端页面结构与路由
+
+| 路由 | 页面 | 功能 |
+|-----|------|------|
+| `/` | 首页/仪表盘 | 最近任务、快捷入口、使用统计 |
+| `/translate` | 文档翻译 | 上传区、语言选择、引擎选择、进度条、下载 |
+| `/branding` | 品牌版式设置 | Logo上传/文字Logo、配色、信息填写、版式预览 |
+| `/generate` | 文档生成 | 选择模板→填写表单→关联品牌→预览→生成 |
+| `/templates` | 模板库 | 浏览所有预设模板，查看预览图 |
+| `/glossaries` | 术语库管理 | 创建术语表、导入CSV、编辑条目 |
+| `/history` | 任务历史 | 翻译记录、生成记录、重新下载 |
+| `/settings` | 账户设置 | API密钥（如有）、语言偏好、通知 |
+
+---
+
+## 十、非功能性需求
+
+| 类别 | 要求 |
+|-----|------|
+| **性能** | 100页文档翻译<3分钟；1000页文档翻译<30分钟；前端首屏加载<2秒 |
+| **并发** | 支持50个翻译任务同时排队，单节点处理；支持水平扩展 |
+| **安全** | 文件上传限制类型+大小；用户数据隔离；API鉴权（JWT）；传输HTTPS |
+| **稳定性** | 翻译任务失败自动重试3次；任务状态持久化；断点续传 |
+| **兼容性** | 支持Chrome/Firefox/Safari/Edge最新两版；Word 2016+ 兼容 |
+| **存储** | 用户文件保留30天后自动清理（可配置）；重要文档永久保存 |
+
+---
+
+## 十一、开发里程碑（MVP → 完整版）
+
+| 阶段 | 周期 | 交付内容 |
+|-----|------|---------|
+| **MVP v0.1** | 2周 | 单语Word翻译（保持格式）、基础品牌页眉页脚、单语报价函生成 |
+| **v0.2** | 1周 | PDF翻译支持、PPT翻译支持、双语对照模式 |
+| **v0.3** | 1周 | 术语库系统、文字Logo生成、三语模式 |
+| **v0.4** | 1周 | 网页翻译、合同/确认函模板、任务队列优化 |
+| **v1.0** | 1周 | UI打磨、性能优化、测试修复、部署文档 |
+
+---
+
+## 十二、给AI开发的特别指令（Prompt增强段）
+
+如果你将这份说明书交给AI（如Cursor/Copilot/Claude）开发，请在开头附加以下指令：
+
+```
+你是一个全栈开发工程师。基于以下《DocuFlow开发说明书》，请：
+1. 使用 React + TypeScript + Tailwind CSS 构建前端，shadcn/ui 作为组件库
+2. 使用 Node.js + Express + TypeScript 构建后端API
+3. 使用 PostgreSQL + Redis 作为数据层
+4. 使用 python-docx / docx-templates 处理Word文档生成
+5. 使用 mammoth.js / pdf-parse 处理文档解析
+6. 使用 BullMQ + Redis 处理异步翻译队列
+7. 所有API返回标准REST格式 {success: boolean, data: any, message: string}
+8. 前端文件上传使用分片上传（Uppy/Tus），支持断点续传
+9. 代码结构遵循：/frontend, /backend, /worker, /shared-types 分离
+10. 先实现MVP功能（单语翻译+单语报价函生成），再逐步扩展
+```
+
+---
+
+如需我进一步细化某个模块（如把**数据库Schema写成Prisma模型**、或把**API接口写成OpenAPI 3.0规范**、或输出**前端组件清单**），请告诉我。
