@@ -13,7 +13,6 @@ export interface Exchange {
   timestamp: number;
 }
 
-/** Recognised text that is currently being translated (shown immediately as a pending card) */
 export interface PendingExchange {
   id: string;
   speaker: "A" | "B";
@@ -48,6 +47,7 @@ const SR: SpeechRecognitionConstructor | undefined =
     : undefined;
 
 const BCP47: Record<LangCode, string> = { zh: "zh-CN", en: "en-US", vi: "vi-VN", ko: "ko-KR" };
+
 async function interpretTranslate(text: string, from: LangCode, to: LangCode): Promise<string> {
   if (!text.trim() || from === to) return text;
   const k = `vv-interp:${from}>${to}:${text.slice(0, 80)}`;
@@ -113,14 +113,16 @@ export function useInterpreter(
   const [permissionError, setPermissionError] = useState(false);
 
   const runRef = useRef(false);
-  const recRef = useRef<SpeechRecognitionInstance | null>(null);
+  // Dual listeners — one per language for auto-detection in "both" mode
+  const recARef = useRef<SpeechRecognitionInstance | null>(null);
+  const recBRef = useRef<SpeechRecognitionInstance | null>(null);
   const langARef = useRef(langA);
   const langBRef = useRef(langB);
-  const nextSpeakerRef = useRef<"A" | "B">("A");
   const directionRef = useRef(direction);
   const pushToTalkRef = useRef(pushToTalk);
   const pendingInterimRef = useRef("");
   const audioCtxRef = useRef<AnyAudioContext | null>(null);
+  const isSpeakingTTSRef = useRef(false);
 
   useEffect(() => { langARef.current = langA; }, [langA]);
   useEffect(() => { langBRef.current = langB; }, [langB]);
@@ -130,7 +132,8 @@ export function useInterpreter(
   useEffect(() => {
     return () => {
       runRef.current = false;
-      try { recRef.current?.abort(); } catch {}
+      try { recARef.current?.abort(); } catch {}
+      try { recBRef.current?.abort(); } catch {}
       try { window.speechSynthesis?.cancel(); } catch {}
       try { audioCtxRef.current?.close(); } catch {}
       audioCtxRef.current = null;
@@ -154,22 +157,25 @@ export function useInterpreter(
     } catch {}
   }
 
-  function destroyRec() {
-    try { recRef.current?.abort(); } catch {}
-    recRef.current = null;
+  function abortRec(speaker: "A" | "B") {
+    const ref = speaker === "A" ? recARef : recBRef;
+    try { ref.current?.abort(); } catch {}
+    ref.current = null;
   }
 
-  function getNextSpeaker(current: "A" | "B"): "A" | "B" {
-    const dir = directionRef.current;
-    if (dir === "a-to-b") return "A";
-    if (dir === "b-to-a") return "B";
-    return current === "A" ? "B" : "A";
+  function destroyAllRec() {
+    abortRec("A");
+    abortRec("B");
   }
 
-  function startListening(speaker: "A" | "B") {
+  // -----------------------------------------------------------------
+  // launchListener — creates and starts ONE recognizer for a speaker.
+  // In "both" mode two of these run concurrently (one per language).
+  // -----------------------------------------------------------------
+  function launchListener(speaker: "A" | "B") {
     if (!SR || !runRef.current) return;
 
-    destroyRec();
+    abortRec(speaker);
     pendingInterimRef.current = "";
 
     const lang = speaker === "A" ? langARef.current : langBRef.current;
@@ -179,23 +185,28 @@ export function useInterpreter(
     rec.interimResults = true;
     rec.maxAlternatives = 1;
 
+    const thisRef = speaker === "A" ? recARef : recBRef;
+
     rec.onresult = (e: SpeechRecognitionEvent) => {
+      if (isSpeakingTTSRef.current) return;
       let interimText = "";
       let finalText = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const res = e.results[i];
-        const transcript = res[0]?.transcript ?? "";
-        if (res.isFinal) finalText += transcript;
-        else interimText += transcript;
+        const t = res[0]?.transcript ?? "";
+        if (res.isFinal) finalText += t;
+        else interimText += t;
       }
       if (interimText) {
         pendingInterimRef.current = interimText;
+        setActiveSpeaker(speaker);
         setInterim(interimText);
       }
       if (finalText.trim()) {
         pendingInterimRef.current = "";
         setInterim("");
-        // Fire-and-forget: translation runs async while recognition restarts immediately
+        // Abort the OTHER listener immediately to stop it processing the same audio
+        abortRec(speaker === "A" ? "B" : "A");
         void handleSpeak(speaker, finalText.trim());
       }
     };
@@ -206,20 +217,15 @@ export function useInterpreter(
         stopSession();
         return;
       }
-      // no-speech: only restart if this rec is still the active one
-      if (e.error === "no-speech" && runRef.current && recRef.current === rec) {
+      if (runRef.current && thisRef.current === rec) {
         setTimeout(() => {
-          if (runRef.current && recRef.current === rec) {
-            startListening(nextSpeakerRef.current);
-          }
-        }, 100);
+          if (runRef.current && thisRef.current === rec) launchListener(speaker);
+        }, 150);
       }
     };
 
     rec.onend = () => {
-      // If a newer recognition is already running, do nothing — prevents double-start
-      if (recRef.current !== rec) return;
-
+      if (thisRef.current !== rec) return;
       if (pushToTalkRef.current) {
         const pending = pendingInterimRef.current.trim();
         if (pending && runRef.current) {
@@ -232,56 +238,73 @@ export function useInterpreter(
       } else {
         if (runRef.current) {
           setTimeout(() => {
-            if (runRef.current && recRef.current === rec) {
-              startListening(nextSpeakerRef.current);
-            }
+            if (runRef.current && thisRef.current === rec) launchListener(speaker);
           }, 100);
         }
       }
     };
 
-    recRef.current = rec;
+    thisRef.current = rec;
     try {
       rec.start();
-      setActiveSpeaker(speaker);
       setStatus("listening");
     } catch {
-      setTimeout(() => startListening(speaker), 200);
+      setTimeout(() => launchListener(speaker), 200);
     }
   }
 
-  // -----------------------------------------------------------------------
-  // handleSpeak — decoupled from recognition restart.
-  // Recognition for the next speaker starts IMMEDIATELY; translation runs
-  // async in the background and adds to log when done.
-  // -----------------------------------------------------------------------
+  // -----------------------------------------------------------------
+  // startListening — launches the right set of listeners based on mode
+  // "both": two simultaneous listeners (auto language detection)
+  // "a-to-b": only speaker A listens
+  // "b-to-a": only speaker B listens
+  // -----------------------------------------------------------------
+  function startListening(forceSpeaker?: "A" | "B") {
+    if (!SR || !runRef.current) return;
+    const dir = directionRef.current;
+
+    if (forceSpeaker) {
+      launchListener(forceSpeaker);
+      return;
+    }
+
+    if (dir === "a-to-b") {
+      launchListener("A");
+    } else if (dir === "b-to-a") {
+      launchListener("B");
+    } else {
+      // Both — launch A immediately, B after short delay to avoid mic-start collision
+      launchListener("A");
+      setTimeout(() => { if (runRef.current) launchListener("B"); }, 150);
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // handleSpeak — shows pending card, restarts listening, translates.
+  // -----------------------------------------------------------------
   async function handleSpeak(speaker: "A" | "B", original: string) {
     if (!runRef.current) return;
 
     const from = speaker === "A" ? langARef.current : langBRef.current;
     const to   = speaker === "A" ? langBRef.current : langARef.current;
-    const next = getNextSpeaker(speaker);
     const id   = crypto.randomUUID();
 
-    // 1. Show original text immediately as a pending card (visible on both panels)
+    setActiveSpeaker(speaker);
     setPendings((prev) => [...prev, { id, speaker, original }]);
 
-    // 2. Restart recognition for the next speaker RIGHT NOW — don't wait for translation
+    // Restart listener(s) immediately — don't wait for translation
     if (!pushToTalkRef.current) {
-      nextSpeakerRef.current = next;
-      setTimeout(() => startListening(next), 50);
+      setTimeout(() => startListening(), 80);
     } else {
       setStatus("idle");
     }
 
-    // 3. Translate in background
     try {
       const translated = await interpretTranslate(original, from, to);
-      if (!runRef.current && pendings.length === 0) return; // session cleared
+      if (!runRef.current) return;
       const exchange: Exchange = { id, speaker, original, translated, targetLang: to, timestamp: Date.now() };
       setLog((prev) => [...prev, exchange]);
     } finally {
-      // Remove from pendings whether translation succeeded or failed
       setPendings((prev) => prev.filter((p) => p.id !== id));
     }
   }
@@ -292,7 +315,7 @@ export function useInterpreter(
     setRunning(false);
     setStatus("idle");
     setInterim("");
-    destroyRec();
+    destroyAllRec();
     try { window.speechSynthesis?.cancel(); } catch {}
     try { audioCtxRef.current?.close(); } catch {}
     audioCtxRef.current = null;
@@ -303,11 +326,9 @@ export function useInterpreter(
     setPermissionError(false);
     ensureSilentAudio();
     runRef.current = true;
-    const initial: "A" | "B" = direction === "b-to-a" ? "B" : "A";
-    nextSpeakerRef.current = initial;
     setRunning(true);
     if (!pushToTalk) {
-      startListening(initial);
+      startListening();
     } else {
       setStatus("idle");
     }
@@ -315,17 +336,23 @@ export function useInterpreter(
 
   function stop() { stopSession(); }
 
+  // startFor is used by PTT buttons — forces a specific speaker
   function startFor(speaker: "A" | "B") {
     if (!SR || !runRef.current) return;
-    startListening(speaker);
+    destroyAllRec();
+    launchListener(speaker);
   }
 
   function stopListening() {
-    try { recRef.current?.stop(); } catch {}
+    try { recARef.current?.stop(); } catch {}
+    try { recBRef.current?.stop(); } catch {}
   }
 
   function replay(exchange: Exchange) {
-    void speakAsync(exchange.translated, exchange.targetLang);
+    isSpeakingTTSRef.current = true;
+    void speakAsync(exchange.translated, exchange.targetLang).then(() => {
+      isSpeakingTTSRef.current = false;
+    });
   }
 
   function clearLog() {

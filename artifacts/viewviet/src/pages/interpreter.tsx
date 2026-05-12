@@ -78,7 +78,7 @@ function PersonPanel({
   running: boolean; status: InterpreterStatus; activeSpeaker: "A" | "B";
   interim: string;
   exchanges: Exchange[];
-  pendings: PendingExchange[];  // being translated right now — show immediately
+  pendings: PendingExchange[];
   onReplayExchange: (e: Exchange) => void;
   pushToTalk: boolean; isPttSpeaker: boolean;
   onPttStart: () => void; onPttEnd: () => void;
@@ -86,7 +86,6 @@ function PersonPanel({
   const { t } = useTranslation();
   const isActive = activeSpeaker === speaker;
   const isListening = isActive && status === "listening";
-  // Show interim on BOTH panels — both people see live captions as they form
   const showInterim = !!interim;
   const inPttSpeakerMode = running && pushToTalk && isPttSpeaker;
 
