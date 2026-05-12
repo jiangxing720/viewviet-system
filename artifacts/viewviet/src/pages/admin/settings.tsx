@@ -26,8 +26,8 @@ interface SiteSettings {
 const DEFAULTS: SiteSettings = {
   primaryHsl: "182 80% 26%",
   accentHsl: "42 100% 47%",
-  heroTitleZh: "探索越南，连接东南亚",
-  heroSubtitleZh: "您的跨境内容平台——越南语学习、旅行攻略、法律资讯，一站搞定",
+  heroTitleZh: "探索越南,连接东南亚",
+  heroSubtitleZh: "您的跨境内容平台----越南语学习、旅行攻略、法律资讯,一站搞定",
   heroTitleEn: "Explore Vietnam, Connect Southeast Asia",
   heroSubtitleEn: "Your cross-border content hub for language, travel, legal and community",
   heroTitleVi: "Khám phá Việt Nam, Kết nối Đông Nam Á",
@@ -84,14 +84,14 @@ export default function AdminSettings() {
   const handleSave = () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     applyColorsToRoot(settings);
-    toast({ title: "设置已保存", description: "页面样式已更新" });
+    toast({ title: "set已保存", description: "页面样式已更新" });
   };
 
   const handleReset = () => {
     setSettings({ ...DEFAULTS });
     localStorage.removeItem(SETTINGS_KEY);
     applyColorsToRoot(DEFAULTS);
-    toast({ title: "已恢复默认设置" });
+    toast({ title: "已恢复defaultset" });
   };
 
   const SECTIONS = [
@@ -107,13 +107,13 @@ export default function AdminSettings() {
         <Link href="/admin">
           <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4 mr-1" />控制台</Button>
         </Link>
-        <h1 className="text-2xl font-bold">站点设置</h1>
+        <h1 className="text-2xl font-bold">站点set</h1>
         <div className="ml-auto flex gap-2">
           <Button variant="outline" size="sm" onClick={handleReset}>
-            <RotateCcw className="w-4 h-4 mr-1" />恢复默认
+            <RotateCcw className="w-4 h-4 mr-1" />恢复default
           </Button>
           <Button size="sm" onClick={handleSave}>
-            <Save className="w-4 h-4 mr-1" />保存设置
+            <Save className="w-4 h-4 mr-1" />保存set
           </Button>
         </div>
       </div>
@@ -163,7 +163,7 @@ export default function AdminSettings() {
                   <Palette className="w-4 h-4" />主题配色
                 </CardTitle>
                 <CardDescription>
-                  调整主品牌色和强调色。使用 HSL 格式，例如 <code className="bg-muted px-1 rounded text-xs">182 80% 26%</code>
+                  调整主品牌色和强调色。使用 HSL 格式,例如 <code className="bg-muted px-1 rounded text-xs">182 80% 26%</code>
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -181,7 +181,7 @@ export default function AdminSettings() {
                     <ColorPreview hsl={settings.primaryHsl} label={`hsl(${settings.primaryHsl})`} />
                     <div className="flex gap-2 flex-wrap mt-2">
                       {[
-                        { label: "默认青色", val: "182 80% 26%" },
+                        { label: "default青色", val: "182 80% 26%" },
                         { label: "深绿", val: "160 70% 25%" },
                         { label: "靛蓝", val: "220 70% 40%" },
                         { label: "紫色", val: "270 60% 45%" },
@@ -211,7 +211,7 @@ export default function AdminSettings() {
                     <ColorPreview hsl={settings.accentHsl} label={`hsl(${settings.accentHsl})`} />
                     <div className="flex gap-2 flex-wrap mt-2">
                       {[
-                        { label: "默认金色", val: "42 100% 47%" },
+                        { label: "default金色", val: "42 100% 47%" },
                         { label: "橙色", val: "25 90% 50%" },
                         { label: "红色", val: "0 85% 55%" },
                         { label: "粉色", val: "330 80% 60%" },
@@ -255,19 +255,19 @@ export default function AdminSettings() {
                 <CardTitle className="text-base flex items-center gap-2">
                   <FileText className="w-4 h-4" />首页内容
                 </CardTitle>
-                <CardDescription>设置首页 Hero 区域的标题和副标题（中文）</CardDescription>
+                <CardDescription>set首页 Hero 区域的标题和副标题(中文)</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label>首页主标题（中文）</Label>
+                  <Label>首页主标题(中文)</Label>
                   <Input
                     value={settings.heroTitleZh}
                     onChange={(e) => update("heroTitleZh", e.target.value)}
-                    placeholder="探索越南，连接东南亚"
+                    placeholder="探索越南,连接东南亚"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>首页副标题（中文）</Label>
+                  <Label>首页副标题(中文)</Label>
                   <Textarea
                     rows={2}
                     value={settings.heroSubtitleZh}
@@ -275,14 +275,14 @@ export default function AdminSettings() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>页脚标语（中文）</Label>
+                  <Label>页脚标语(中文)</Label>
                   <Input
                     value={settings.footerTaglineZh}
                     onChange={(e) => update("footerTaglineZh", e.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>页脚标语（英文）</Label>
+                  <Label>页脚标语(英文)</Label>
                   <Input
                     value={settings.footerTaglineEn}
                     onChange={(e) => update("footerTaglineEn", e.target.value)}
@@ -299,7 +299,7 @@ export default function AdminSettings() {
                 <CardTitle className="text-base flex items-center gap-2">
                   <Languages className="w-4 h-4" />多语言文案
                 </CardTitle>
-                <CardDescription>为英文和越文版本设置 Hero 区域的标题文案</CardDescription>
+                <CardDescription>为英文和越文版本set Hero 区域的标题文案</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="space-y-3">
@@ -330,10 +330,10 @@ export default function AdminSettings() {
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={handleReset}>
-              <RotateCcw className="w-4 h-4 mr-1" />恢复默认
+              <RotateCcw className="w-4 h-4 mr-1" />恢复default
             </Button>
             <Button onClick={handleSave}>
-              <Save className="w-4 h-4 mr-1" />保存所有设置
+              <Save className="w-4 h-4 mr-1" />保存所有set
             </Button>
           </div>
         </div>

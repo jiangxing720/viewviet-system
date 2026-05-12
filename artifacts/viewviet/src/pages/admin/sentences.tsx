@@ -12,19 +12,19 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const SCENE_HEADERS = ["sentence", "languageCode", "sceneName", "pronunciation", "translationZh", "translationEn", "translationVi", "difficulty", "isPublished"];
 const SCENE_EXAMPLE = `sentence,languageCode,sceneName,pronunciation,translationZh,translationEn,translationVi,difficulty,isPublished
-Xin chào! Tôi muốn đặt bàn.,vi,餐厅,sin chào tôi muốn đặt bàn,你好！我想预定一张桌子。,Hello! I'd like to make a reservation.,Xin chào! Tôi muốn đặt bàn.,1,true
-Bay đến Hà Nội mất bao lâu?,vi,机场,bay đến hà nội mất bao lâu,飞往河内需要多长时间？,How long does it take to fly to Hanoi?,Bay đến Hà Nội mất bao lâu?,2,true`;
+Xin chào! Tôi muốn đặt bàn.,vi,餐厅,sin chào tôi muốn đặt bàn,你好!我想预定一张桌子。,Hello! I'd like to make a reservation.,Xin chào! Tôi muốn đặt bàn.,1,true
+Bay đến Hà Nội mất bao lâu?,vi,机场,bay đến hà nội mất bao lâu,飞往河内需要多长时间?,How long does it take to fly to Hanoi?,Bay đến Hà Nội mất bao lâu?,2,true`;
 
 const COMPLEX_HEADERS = ["sentence", "languageCode", "pronunciation", "translationZh", "translationEn", "translationVi", "grammarNotes", "context", "difficulty", "isPublished"];
 const COMPLEX_EXAMPLE = `sentence,languageCode,pronunciation,translationZh,translationEn,translationVi,grammarNotes,context,difficulty,isPublished
-Nếu tôi có thể nói tiếng Việt thì tôi đã không cần phiên dịch.,vi,,如果我会说越南语，我就不需要翻译了。,If I could speak Vietnamese I wouldn't need a translator.,Nếu tôi có thể nói tiếng Việt...,条件句 nếu...thì,商务,4,true`;
+Nếu tôi có thể nói tiếng Việt thì tôi đã không cần phiên dịch.,vi,,if我会说越南语,我就不需要翻译了。,If I could speak Vietnamese I wouldn't need a translator.,Nếu tôi có thể nói tiếng Việt...,条件句 nếu...thì,商务,4,true`;
 
 function parseCsv(text: string, requiredFields: string[]) {
   const lines = text.trim().split("\n").filter(l => l.trim());
   if (lines.length < 2) return { rows: [], errors: ["至少需要标题行和一行数据"] };
   const headers = lines[0].split(",").map(h => h.trim());
   const missing = requiredFields.filter(f => !headers.includes(f));
-  if (missing.length > 0) return { rows: [], errors: [`缺少必要列：${missing.join(", ")}`] };
+  if (missing.length > 0) return { rows: [], errors: [`缺少必要列:${missing.join(", ")}`] };
   const rows: any[] = [];
   const errors: string[] = [];
   lines.slice(1).forEach((line, i) => {
@@ -34,7 +34,7 @@ function parseCsv(text: string, requiredFields: string[]) {
     headers.forEach((h, j) => { row[h] = vals[j] ?? ""; });
     if (row.difficulty) row.difficulty = Number(row.difficulty) || 1;
     if (row.isPublished !== undefined) row.isPublished = row.isPublished === "true";
-    if (!row.sentence) { errors.push(`第 ${i + 2} 行：sentence 为空`); return; }
+    if (!row.sentence) { errors.push(`第 ${i + 2} 行:sentence 为null`); return; }
     rows.push(row);
   });
   return { rows, errors };
@@ -68,7 +68,7 @@ export default function AdminSentences() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setSceneResult(data);
-      toast({ title: `成功导入 ${data.inserted} 条情景句子` });
+      toast({ title: `成功import ${data.inserted} 条情景句子` });
     } catch (e: any) {
       toast({ title: e.message || "上传失败", variant: "destructive" });
     } finally {
@@ -91,7 +91,7 @@ export default function AdminSentences() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setComplexResult(data);
-      toast({ title: `成功导入 ${data.inserted} 条复杂句型` });
+      toast({ title: `成功import ${data.inserted} 条复杂句型` });
     } catch (e: any) {
       toast({ title: e.message || "上传失败", variant: "destructive" });
     } finally {
@@ -124,11 +124,11 @@ export default function AdminSentences() {
       {tab === "scene" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{t("learn.scene_sentences")} — CSV {t("admin.bulk_upload")}</CardTitle>
+            <CardTitle className="text-base">{t("learn.scene_sentences")} -- CSV {t("admin.bulk_upload")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-xs font-semibold text-muted-foreground mb-2">必要列：sentence, sceneName（其余可选）</p>
+              <p className="text-xs font-semibold text-muted-foreground mb-2">必要列:sentence, sceneName(其余可选)</p>
               <div className="bg-muted/60 rounded-lg p-3 text-xs font-mono text-muted-foreground whitespace-pre overflow-x-auto">
                 {SCENE_EXAMPLE}
               </div>
@@ -152,18 +152,18 @@ export default function AdminSentences() {
                 <div className="flex items-center gap-2 text-sm">
                   <CheckCircle2 className="w-4 h-4 text-green-500" />
                   <span>成功 {sceneResult.inserted} 条</span>
-                  {sceneResult.errors.length > 0 && (
-                    <Badge variant="destructive" className="text-xs">{sceneResult.errors.length} 错误</Badge>
+                  {(sceneResult?.errors?.length ?? 0) > 0 && (
+                    <Badge variant="destructive" className="text-xs">{sceneResult?.errors?.length} 错误</Badge>
                   )}
                 </div>
               )}
             </div>
-            {sceneResult?.errors?.length > 0 && (
+            {(sceneResult?.errors?.length ?? 0) > 0 && (
               <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-1">
-                {sceneResult.errors.map((e, i) => (
+                {sceneResult?.errors?.map((e, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs text-destructive">
                     <AlertCircle className="w-3 h-3 flex-shrink-0" />
-                    <span>行 {e.index + 1}：{e.error}</span>
+                    <span>行 {e.index + 1}:{e.error}</span>
                   </div>
                 ))}
               </div>
@@ -175,11 +175,11 @@ export default function AdminSentences() {
       {tab === "complex" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{t("learn.complex_sentences")} — CSV {t("admin.bulk_upload")}</CardTitle>
+            <CardTitle className="text-base">{t("learn.complex_sentences")} -- CSV {t("admin.bulk_upload")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-xs font-semibold text-muted-foreground mb-2">必要列：sentence（其余可选）</p>
+              <p className="text-xs font-semibold text-muted-foreground mb-2">必要列:sentence(其余可选)</p>
               <div className="bg-muted/60 rounded-lg p-3 text-xs font-mono text-muted-foreground whitespace-pre overflow-x-auto">
                 {COMPLEX_EXAMPLE}
               </div>
@@ -203,18 +203,18 @@ export default function AdminSentences() {
                 <div className="flex items-center gap-2 text-sm">
                   <CheckCircle2 className="w-4 h-4 text-green-500" />
                   <span>成功 {complexResult.inserted} 条</span>
-                  {complexResult.errors.length > 0 && (
-                    <Badge variant="destructive" className="text-xs">{complexResult.errors.length} 错误</Badge>
+                  {(complexResult?.errors?.length ?? 0) > 0 && (
+                    <Badge variant="destructive" className="text-xs">{complexResult?.errors?.length} 错误</Badge>
                   )}
                 </div>
               )}
             </div>
-            {complexResult?.errors?.length > 0 && (
+            {(complexResult?.errors?.length ?? 0) > 0 && (
               <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-1">
-                {complexResult.errors.map((e, i) => (
+                {complexResult?.errors?.map((e, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs text-destructive">
                     <AlertCircle className="w-3 h-3 flex-shrink-0" />
-                    <span>行 {e.index + 1}：{e.error}</span>
+                    <span>行 {e.index + 1}:{e.error}</span>
                   </div>
                 ))}
               </div>

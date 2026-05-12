@@ -24,6 +24,7 @@ import ArticleDetail from "@/pages/legal/detail";
 import Lawyers from "@/pages/lawyers";
 import Community from "@/pages/community";
 import ActivityDetail from "@/pages/community/detail";
+import InterpreterPage from "@/pages/interpreter";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
 import AdminLoginPage from "@/pages/admin/login";
@@ -84,6 +85,9 @@ function Router() {
         {/* Community */}
         <Route path="/community" component={Community} />
         <Route path="/community/:id" component={ActivityDetail} />
+
+        {/* Interpreter */}
+        <Route path="/interpreter" component={InterpreterPage} />
 
         {/* Admin — protected */}
         <Route path="/admin">

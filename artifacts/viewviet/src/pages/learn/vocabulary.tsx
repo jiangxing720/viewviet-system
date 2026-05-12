@@ -94,8 +94,7 @@ export default function Vocabulary() {
     { query: { queryKey: getGetWordsQueryKey({ language_code: lang, category, search: search || undefined, page, limit: 20 }) } },
   );
   const { data: categories } = useGetWordCategories(
-    { language_code: lang },
-    { query: { queryKey: getGetWordCategoriesQueryKey({ language_code: lang }) } },
+    { query: { queryKey: getGetWordCategoriesQueryKey() } },
   );
 
   const words = (wordsResp as any)?.data ?? [];

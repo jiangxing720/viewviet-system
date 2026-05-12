@@ -98,7 +98,7 @@ export default function AdminLanguages() {
 
   const handleSave = () => {
     saveLangs(langs);
-    toast({ title: "语言设置已保存" });
+    toast({ title: "语言set已保存" });
   };
 
   const handleToggle = (i: number) => {
@@ -106,7 +106,7 @@ export default function AdminLanguages() {
   };
 
   const handleDelete = (i: number) => {
-    if (!confirm(`确认删除「${langs[i].label}」？`)) return;
+    if (!confirm(`确认delete「${langs[i].label}」?`)) return;
     setLangs((prev) => prev.filter((_, idx) => idx !== i));
   };
 
@@ -116,7 +116,7 @@ export default function AdminLanguages() {
 
   const handleAddLang = () => {
     if (!newLang.code || !newLang.label) {
-      toast({ title: "语言代码和名称不能为空", variant: "destructive" });
+      toast({ title: "语言代码和名称不能为null", variant: "destructive" });
       return;
     }
     setLangs((prev) => [...prev, { ...newLang }]);
@@ -126,10 +126,10 @@ export default function AdminLanguages() {
   };
 
   const handleReset = () => {
-    if (!confirm("重置为默认语言列表？")) return;
+    if (!confirm("重置为default语言列表?")) return;
     setLangs(DEFAULT_LANGS);
     saveLangs(DEFAULT_LANGS);
-    toast({ title: "已重置为默认设置" });
+    toast({ title: "已重置为defaultset" });
   };
 
   return (
@@ -140,12 +140,12 @@ export default function AdminLanguages() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold">语言学习管理</h1>
-          <p className="text-sm text-muted-foreground">配置学习中心显示的语言/国家，修改封面图和外观</p>
+          <p className="text-sm text-muted-foreground">配置学习中心显示的语言/国家,修改封面图和外观</p>
         </div>
         <div className="ml-auto flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleReset}>重置默认</Button>
+          <Button variant="outline" size="sm" onClick={handleReset}>重置default</Button>
           <Button size="sm" onClick={handleSave}>
-            <Save className="w-4 h-4 mr-1" />保存设置
+            <Save className="w-4 h-4 mr-1" />保存set
           </Button>
         </div>
       </div>
@@ -155,7 +155,7 @@ export default function AdminLanguages() {
         <CardContent className="p-4 flex items-center gap-3">
           <Globe className="w-5 h-5 text-primary flex-shrink-0" />
           <p className="text-sm">
-            修改保存后，前往 <Link href="/learn" className="text-primary font-medium underline underline-offset-2">学习中心</Link> 查看效果。每次保存后刷新页面即生效。
+            修改保存后,前往 <Link href="/learn" className="text-primary font-medium underline underline-offset-2">学习中心</Link> 查看效果。每次保存后刷新页面即生效。
           </p>
         </CardContent>
       </Card>
@@ -181,7 +181,7 @@ export default function AdminLanguages() {
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <Label className="text-xs">语言代码（URL用）</Label>
+                          <Label className="text-xs">语言代码(URL用)</Label>
                           <Input value={lang.code} onChange={(e) => handleFieldChange(i, "code", e.target.value)} placeholder="vi / en / zh / ko" className="h-8 text-sm" />
                         </div>
                         <div className="space-y-1">
@@ -216,7 +216,7 @@ export default function AdminLanguages() {
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">封面图 URL（建议 Unsplash 或自己上传的图片链接）</Label>
+                        <Label className="text-xs">封面图 URL(建议 Unsplash 或自己上传的图片链接)</Label>
                         <Input value={lang.photo} onChange={(e) => handleFieldChange(i, "photo", e.target.value)} placeholder="https://images.unsplash.com/..." className="h-8 text-sm" />
                       </div>
                       <Button size="sm" variant="outline" onClick={() => setEditIndex(null)}>完成编辑</Button>
@@ -230,7 +230,7 @@ export default function AdminLanguages() {
                         {!lang.enabled && <Badge variant="secondary" className="text-xs">已隐藏</Badge>}
                         <div className="w-4 h-4 rounded-full flex-shrink-0 ml-1" style={{ background: lang.accent }} />
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1 truncate">{lang.photo || "（无封面图）"}</p>
+                      <p className="text-xs text-muted-foreground mt-1 truncate">{lang.photo || "(无封面图)"}</p>
                     </div>
                   )}
                 </div>
@@ -243,7 +243,7 @@ export default function AdminLanguages() {
                   <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => handleToggle(i)} title={lang.enabled ? "隐藏" : "显示"}>
                     {lang.enabled ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                   </Button>
-                  <Button variant="ghost" size="icon" className="w-7 h-7 text-destructive hover:text-destructive" onClick={() => handleDelete(i)} title="删除">
+                  <Button variant="ghost" size="icon" className="w-7 h-7 text-destructive hover:text-destructive" onClick={() => handleDelete(i)} title="delete">
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
@@ -258,14 +258,14 @@ export default function AdminLanguages() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">添加新语言/国家</CardTitle>
-            <CardDescription>添加后，系统将在学习中心显示该语言，学员可点击进入词汇学习页</CardDescription>
+            <CardDescription>添加后,系统将in学习中心显示该语言,学员可点击进入词汇学习页</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">语言代码 *</Label>
-                <Input value={newLang.code} onChange={(e) => setNewLang(p => ({ ...p, code: e.target.value }))} placeholder="例：th / ja / fr" className="h-8 text-sm" />
-                <p className="text-xs text-muted-foreground">用于 URL（/learn/th/words）</p>
+                <Input value={newLang.code} onChange={(e) => setNewLang(p => ({ ...p, code: e.target.value }))} placeholder="例:th / ja / fr" className="h-8 text-sm" />
+                <p className="text-xs text-muted-foreground">用于 URL(/learn/th/words)</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">中文名称 *</Label>
@@ -293,7 +293,7 @@ export default function AdminLanguages() {
             <div className="space-y-1">
               <Label className="text-xs">封面图 URL</Label>
               <Input value={newLang.photo} onChange={(e) => setNewLang(p => ({ ...p, photo: e.target.value }))} placeholder="https://images.unsplash.com/photo-..." className="h-8 text-sm" />
-              <p className="text-xs text-muted-foreground">建议使用 Unsplash 高清风景照，宽高比约 4:3</p>
+              <p className="text-xs text-muted-foreground">建议使用 Unsplash 高清风景照,宽高比约 4:3</p>
             </div>
             {newLang.photo && (
               <div className="w-full h-32 rounded-xl overflow-hidden bg-muted" style={{ backgroundImage: `url(${newLang.photo})`, backgroundSize: "cover", backgroundPosition: "center" }} />
@@ -314,7 +314,7 @@ export default function AdminLanguages() {
       <div className="pt-2 flex justify-end">
         <Button onClick={handleSave} size="lg">
           <Save className="w-4 h-4 mr-2" />
-          保存所有设置
+          保存所有set
         </Button>
       </div>
     </div>

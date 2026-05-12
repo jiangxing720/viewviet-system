@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useTheme } from "./theme-provider";
-import { Moon, Sun, Menu, Globe, BookOpen, Compass, Scale, Users, Shield, LogIn, LogOut, UserCircle, ChevronDown } from "lucide-react";
+import { Moon, Sun, Menu, Globe, BookOpen, Compass, Scale, Users, Shield, LogIn, LogOut, UserCircle, ChevronDown, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -21,7 +21,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, logout } = useAuth();
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
+    const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -69,6 +69,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link href="/community" className={`hover:text-primary transition-colors ${location.startsWith("/community") ? "text-primary" : ""}`}>
                 {t("nav.community")}
               </Link>
+              <Link href="/interpreter" className={`hover:text-primary transition-colors flex items-center gap-1 ${location.startsWith("/interpreter") ? "text-primary" : ""}`}>
+                <Languages className="h-3.5 w-3.5" />
+                {t("nav.interpreter")}
+              </Link>
             </nav>
           )}
 
@@ -80,7 +84,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link href="/admin/sentences" className={`hover:text-primary ${location === "/admin/sentences" ? "text-primary" : ""}`}>{t("admin.sentences")}</Link>
               <Link href="/admin/lawyers" className={`hover:text-primary ${location === "/admin/lawyers" ? "text-primary" : ""}`}>{t("admin.lawyers")}</Link>
               <Link href="/admin/activities" className={`hover:text-primary ${location === "/admin/activities" ? "text-primary" : ""}`}>{t("admin.activities")}</Link>
-              <Link href="/admin/settings" className={`hover:text-primary ${location === "/admin/settings" ? "text-primary" : ""}`}>站点设置</Link>
             </nav>
           )}
 
@@ -164,6 +167,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       <MobileNavLink href="/legal" icon={Scale} title={t("nav.legal")} />
                       <MobileNavLink href="/lawyers" icon={Shield} title={t("nav.lawyers")} />
                       <MobileNavLink href="/community" icon={Users} title={t("nav.community")} />
+                      <MobileNavLink href="/interpreter" icon={Languages} title={t("nav.interpreter")} />
                     </>
                   ) : (
                     <>
@@ -219,7 +223,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <li><Link href="/learn/vi/words" className="hover:text-primary">越南语 / Vietnamese</Link></li>
                 <li><Link href="/learn/zh/words" className="hover:text-primary">中文 / Chinese</Link></li>
                 <li><Link href="/learn/en/words" className="hover:text-primary">English</Link></li>
-                <li><Link href="/learn/ko/words" className="hover:text-primary">한국어 / Korean</Link></li>
+                <li><Link href="/learn/ko/words" className="hover:text-primary">韩国语 / Korean</Link></li>
               </ul>
             </div>
             <div>
@@ -229,6 +233,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <li><Link href="/legal" className="hover:text-primary">{t("nav.legal")}</Link></li>
                 <li><Link href="/lawyers" className="hover:text-primary">{t("nav.lawyers")}</Link></li>
                 <li><Link href="/community" className="hover:text-primary">{t("nav.community")}</Link></li>
+                <li><Link href="/interpreter" className="hover:text-primary">{t("nav.interpreter")}</Link></li>
               </ul>
             </div>
             <div>
