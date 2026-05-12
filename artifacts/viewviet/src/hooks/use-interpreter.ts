@@ -173,7 +173,7 @@ export function useInterpreter(
     const lang = speaker === "A" ? langARef.current : langBRef.current;
     const rec = new SR();
     rec.lang = BCP47[lang];
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
 
