@@ -32,19 +32,19 @@ export default function ActivityDetail() {
     try {
       const res = await fetch(`/api/activities/${activityId}/join`, { method: "POST" });
       if (res.status === 409) {
-        toast({ title: "名额已满,无法报名", variant: "destructive" });
+        toast({ title: "名额已满，无法报名", variant: "destructive" });
         return;
       }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        toast({ title: data.error ?? "报名失败,请稍后再试", variant: "destructive" });
+        toast({ title: data.error ?? "报名失败，请稍后再试", variant: "destructive" });
         return;
       }
       setJoined(true);
-      toast({ title: "报名成功!期待你的参与" });
+      toast({ title: "报名成功！期待你的参与" });
       queryClient.invalidateQueries({ queryKey: getGetActivityQueryKey(activityId) });
     } catch {
-      toast({ title: "网络错误,请重试", variant: "destructive" });
+      toast({ title: "网络错误，请重试", variant: "destructive" });
     } finally {
       setJoining(false);
     }
@@ -65,8 +65,8 @@ export default function ActivityDetail() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center text-muted-foreground">
         <Users className="w-12 h-12 mx-auto mb-4 opacity-30" />
-        <p className="text-lg">活动不存in</p>
-        <Link href="/community"><Button variant="ghost" className="mt-4">← return社区</Button></Link>
+        <p className="text-lg">活动不存在</p>
+        <Link href="/community"><Button variant="ghost" className="mt-4">← 返回社区</Button></Link>
       </div>
     );
   }
@@ -79,7 +79,7 @@ export default function ActivityDetail() {
       <div className="flex items-center gap-2">
         <Link href="/community">
           <Button variant="ghost" size="sm" data-testid="button-back-community">
-            <ArrowLeft className="w-4 h-4 mr-1" />return社区
+            <ArrowLeft className="w-4 h-4 mr-1" />返回社区
           </Button>
         </Link>
         <Button

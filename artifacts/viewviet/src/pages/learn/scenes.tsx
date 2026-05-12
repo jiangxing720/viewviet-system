@@ -141,11 +141,12 @@ export default function SceneSentences() {
   const { makeUtterance } = useTtsVoice(lang);
 
   const { data: scenes } = useGetSceneNames(
-    { query: { queryKey: getGetSceneNamesQueryKey() } },
+    { language_code: lang },
+    { query: { queryKey: getGetSceneNamesQueryKey({ language_code: lang }) } },
   );
   const { data: sentencesResp, isLoading } = useGetSceneSentences(
     { language_code: lang, scene_name: scene, limit: 50 },
-    { query: { queryKey: getGetSceneSentencesQueryKey() } },
+    { query: { queryKey: getGetSceneSentencesQueryKey({ language_code: lang, scene_name: scene ?? undefined, limit: 50 }) } },
   );
 
   const sentences = (sentencesResp as any)?.data ?? [];

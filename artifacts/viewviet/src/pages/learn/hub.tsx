@@ -146,7 +146,7 @@ export default function LearnHub() {
           </div>
 
           <p className="text-xs text-muted-foreground text-center md:text-left">
-            {t("learn.pick_hint", { defaultValue: "选择一门语言,开始你的学习之旅" })}
+            {t("learn.pick_hint", { defaultValue: "选择一门语言，开始你的学习之旅" })}
           </p>
         </div>
       </div>

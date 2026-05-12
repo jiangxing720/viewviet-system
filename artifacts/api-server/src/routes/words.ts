@@ -39,11 +39,16 @@ router.get("/words", async (req, res): Promise<void> => {
   });
 });
 
-router.get("/words/categories", async (_req, res): Promise<void> => {
+router.get("/words/categories", async (req, res): Promise<void> => {
+  const { language_code } = req.query as { language_code?: string };
+  const baseWhere = and(eq(wordsTable.isPublished, true), sql`${wordsTable.category} IS NOT NULL`);
+  const where = language_code
+    ? and(baseWhere, eq(wordsTable.languageCode, language_code))
+    : baseWhere;
   const result = await db
     .selectDistinct({ category: wordsTable.category })
     .from(wordsTable)
-    .where(and(eq(wordsTable.isPublished, true), sql`${wordsTable.category} IS NOT NULL`));
+    .where(where);
   res.json(result.map((r) => r.category).filter(Boolean));
 });
 

@@ -25,7 +25,7 @@ function VoiceSelector({ lang }: { lang: string }) {
         onChange={(e) => selectVoice(e.target.value)}
         title="选择朗读音色"
       >
-        <option value="">default音色</option>
+        <option value="">默认音色</option>
         {voices.map((v) => (
           <option key={v.name} value={v.name}>{v.name}</option>
         ))}
@@ -169,9 +169,9 @@ export default function ComplexSentences() {
                 </div>
                 {s.pronunciation && <p className="text-xs text-muted-foreground font-mono">{s.pronunciation}</p>}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 text-sm">
-                  {s.translationZh && <p className="leading-snug"><span className="text-muted-foreground text-xs">中:</span>{s.translationZh}</p>}
-                  {s.translationEn && <p className="leading-snug"><span className="text-muted-foreground text-xs">EN:</span>{s.translationEn}</p>}
-                  {s.translationVi && <p className="leading-snug"><span className="text-muted-foreground text-xs">VI:</span>{s.translationVi}</p>}
+                  {s.translationZh && <p className="leading-snug"><span className="text-muted-foreground text-xs">中：</span>{s.translationZh}</p>}
+                  {s.translationEn && <p className="leading-snug"><span className="text-muted-foreground text-xs">EN：</span>{s.translationEn}</p>}
+                  {s.translationVi && <p className="leading-snug"><span className="text-muted-foreground text-xs">VI：</span>{s.translationVi}</p>}
                 </div>
                 {s.grammarNotes && (
                   <div className="bg-primary/5 border border-primary/20 rounded-lg p-2.5">

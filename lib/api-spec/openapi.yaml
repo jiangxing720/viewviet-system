@@ -99,6 +99,10 @@ paths:
       operationId: getWordCategories
       tags: [words]
       summary: Get all word categories
+      parameters:
+        - in: query
+          name: language_code
+          schema: { type: string }
       responses:
         "200":
           description: Category list
@@ -176,6 +180,10 @@ paths:
       operationId: getSceneNames
       tags: [sceneSentences]
       summary: Get all unique scene names
+      parameters:
+        - in: query
+          name: language_code
+          schema: { type: string }
       responses:
         "200":
           description: Scene names

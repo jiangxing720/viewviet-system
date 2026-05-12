@@ -103,10 +103,10 @@ export default function AdminGuides() {
   };
 
   const handleDelete = (id: number) => {
-    if (!confirm("确认delete?")) return;
+    if (!confirm("确认删除？")) return;
     deleteGuide.mutate({ id }, {
-      onSuccess: () => { toast({ title: "已delete" }); queryClient.invalidateQueries({ queryKey: getGetTravelGuidesQueryKey({}) }); },
-      onError: () => toast({ title: "delete失败", variant: "destructive" }),
+      onSuccess: () => { toast({ title: "已删除" }); queryClient.invalidateQueries({ queryKey: getGetTravelGuidesQueryKey({}) }); },
+      onError: () => toast({ title: "删除失败", variant: "destructive" }),
     });
   };
 
@@ -116,14 +116,14 @@ export default function AdminGuides() {
         <Link href="/admin"><Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4 mr-1" />控制台</Button></Link>
         <h1 className="text-2xl font-bold">旅游攻略</h1>
         <Button size="sm" onClick={() => { closeForm(); setShowForm(true); }} className="ml-auto" data-testid="button-add-guide">
-          <Plus className="w-4 h-4 mr-1" />new攻略
+          <Plus className="w-4 h-4 mr-1" />新建攻略
         </Button>
       </div>
 
       {showForm && (
         <Card data-testid="form-guide">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-base">{editId ? "编辑攻略" : "new攻略"}</CardTitle>
+            <CardTitle className="text-base">{editId ? "编辑攻略" : "新建攻略"}</CardTitle>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -131,10 +131,10 @@ export default function AdminGuides() {
                 {/* Basic info grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField control={form.control} name="title" render={({ field }) => (
-                    <FormItem className="sm:col-span-2"><FormLabel>标题(中文)*</FormLabel><FormControl><Input {...field} placeholder="例:河内老城区深度游" data-testid="input-title" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="sm:col-span-2"><FormLabel>标题（中文）*</FormLabel><FormControl><Input {...field} placeholder="例：河内老城区深度游" data-testid="input-title" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="titleEn" render={({ field }) => (
-                    <FormItem className="sm:col-span-2"><FormLabel>标题(英文)</FormLabel><FormControl><Input {...field} placeholder="Hanoi Old Quarter Guide" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="sm:col-span-2"><FormLabel>标题（英文）</FormLabel><FormControl><Input {...field} placeholder="Hanoi Old Quarter Guide" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="country" render={({ field }) => (
                     <FormItem><FormLabel>国家</FormLabel><FormControl><Input {...field} data-testid="input-country" /></FormControl><FormMessage /></FormItem>
@@ -143,10 +143,10 @@ export default function AdminGuides() {
                     <FormItem><FormLabel>城市</FormLabel><FormControl><Input {...field} data-testid="input-city" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="category" render={({ field }) => (
-                    <FormItem><FormLabel>分class</FormLabel><FormControl><Input {...field} placeholder="例:美食 / 购物 / 景点" data-testid="input-category" /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>分类</FormLabel><FormControl><Input {...field} placeholder="例：美食 / 购物 / 景点" data-testid="input-category" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="budgetRange" render={({ field }) => (
-                    <FormItem><FormLabel>预算参考</FormLabel><FormControl><Input {...field} placeholder="例:200-500元/天" data-testid="input-budget" /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>预算参考</FormLabel><FormControl><Input {...field} placeholder="例：200-500元/天" data-testid="input-budget" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="coverImage" render={({ field }) => (
                     <FormItem className="sm:col-span-2"><FormLabel>封面图 URL</FormLabel><FormControl><Input {...field} placeholder="https://..." data-testid="input-cover" /></FormControl><FormMessage /></FormItem>
@@ -156,7 +156,7 @@ export default function AdminGuides() {
                 {/* Summary */}
                 <FormField control={form.control} name="summary" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>摘要(显示in列表页)</FormLabel>
+                    <FormLabel>摘要（显示在列表页）</FormLabel>
                     <FormControl>
                       <Textarea {...field} rows={2} placeholder="一两句话描述这篇攻略的亮点…" />
                     </FormControl>
@@ -167,17 +167,17 @@ export default function AdminGuides() {
                 {/* Content body */}
                 <FormField control={form.control} name="content" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>正文内容(支持 Markdown 格式)</FormLabel>
+                    <FormLabel>正文内容（支持 Markdown 格式）</FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
                         rows={12}
-                        placeholder={`## 景点介绍\n\n河内老城区是....\n\n## 交通方式\n\n- 出租车:约30元\n- 步行:15分钟\n\n## 小贴士\n\n**注意**:营业时间为 8:00-22:00`}
+                        placeholder={`## 景点介绍\n\n河内老城区是....\n\n## 交通方式\n\n- 出租车：约30元\n- 步行：15分钟\n\n## 小贴士\n\n**注意**：营业时间为 8:00–22:00`}
                         className="font-mono text-sm"
                       />
                     </FormControl>
                     <p className="text-xs text-muted-foreground mt-1">
-                      支持 Markdown:**粗体**、## 标题、- 列表、[链接](url)
+                      支持 Markdown：**粗体**、## 标题、- 列表、[链接](url)
                     </p>
                     <FormMessage />
                   </FormItem>
@@ -190,13 +190,13 @@ export default function AdminGuides() {
                   onClick={() => setShowAdvanced(v => !v)}
                 >
                   {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                  高级选项(地图嵌入)
+                  高级选项（地图嵌入）
                 </button>
 
                 {showAdvanced && (
                   <FormField control={form.control} name="mapEmbed" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>地图嵌入代码(Google Maps iframe)</FormLabel>
+                      <FormLabel>地图嵌入代码（Google Maps iframe）</FormLabel>
                       <FormControl>
                         <Textarea {...field} rows={3} placeholder='<iframe src="https://www.google.com/maps/embed?..." />' className="font-mono text-xs" />
                       </FormControl>
@@ -244,7 +244,7 @@ export default function AdminGuides() {
                   <tr className="border-b bg-muted/50">
                     <th className="text-left px-4 py-3 font-medium">标题</th>
                     <th className="text-left px-4 py-3 font-medium">城市</th>
-                    <th className="text-left px-4 py-3 font-medium">分class</th>
+                    <th className="text-left px-4 py-3 font-medium">分类</th>
                     <th className="text-left px-4 py-3 font-medium">正文</th>
                     <th className="text-left px-4 py-3 font-medium">浏览</th>
                     <th className="text-left px-4 py-3 font-medium">状态</th>
@@ -258,7 +258,7 @@ export default function AdminGuides() {
                     <tr key={g.id} className="border-b hover:bg-muted/30" data-testid={`row-guide-${g.id}`}>
                       <td className="px-4 py-3 font-medium max-w-xs"><p className="line-clamp-1">{g.title}</p></td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">{g.city}</td>
-                      <td className="px-4 py-3">{g.category ? <Badge variant="outline" className="text-xs">{g.category}</Badge> : "--"}</td>
+                      <td className="px-4 py-3">{g.category ? <Badge variant="outline" className="text-xs">{g.category}</Badge> : "—"}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {g.content ? <span className="text-green-600 font-medium">有正文</span> : <span className="text-orange-500">无正文</span>}
                       </td>

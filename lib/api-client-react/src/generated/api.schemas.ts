@@ -454,12 +454,20 @@ export type GetWordsParams = {
   limit?: number;
 };
 
+export type GetWordCategoriesParams = {
+  language_code?: string;
+};
+
 export type GetSceneSentencesParams = {
   language_code?: string;
   scene_name?: string;
   difficulty?: number;
   page?: number;
   limit?: number;
+};
+
+export type GetSceneNamesParams = {
+  language_code?: string;
 };
 
 export type GetComplexSentencesParams = {

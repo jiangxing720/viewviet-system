@@ -33,8 +33,10 @@ import type {
   GetComplexSentencesParams,
   GetLawyersParams,
   GetLegalArticlesParams,
+  GetSceneNamesParams,
   GetSceneSentencesParams,
   GetTravelGuidesParams,
+  GetWordCategoriesParams,
   GetWordsParams,
   HealthStatus,
   Lawyer,
@@ -306,41 +308,60 @@ export function useGetWord<
 /**
  * @summary Get all word categories
  */
-export const getGetWordCategoriesUrl = () => {
-  return `/api/words/categories`;
+export const getGetWordCategoriesUrl = (params?: GetWordCategoriesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/words/categories?${stringifiedParams}`
+    : `/api/words/categories`;
 };
 
 export const getWordCategories = async (
+  params?: GetWordCategoriesParams,
   options?: RequestInit,
 ): Promise<string[]> => {
-  return customFetch<string[]>(getGetWordCategoriesUrl(), {
+  return customFetch<string[]>(getGetWordCategoriesUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetWordCategoriesQueryKey = () => {
-  return [`/api/words/categories`] as const;
+export const getGetWordCategoriesQueryKey = (
+  params?: GetWordCategoriesParams,
+) => {
+  return [`/api/words/categories`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetWordCategoriesQueryOptions = <
   TData = Awaited<ReturnType<typeof getWordCategories>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getWordCategories>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetWordCategoriesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWordCategories>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetWordCategoriesQueryKey();
+  const queryKey =
+    queryOptions?.queryKey ?? getGetWordCategoriesQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getWordCategories>>
-  > = ({ signal }) => getWordCategories({ signal, ...requestOptions });
+  > = ({ signal }) => getWordCategories(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getWordCategories>>,
@@ -361,15 +382,18 @@ export type GetWordCategoriesQueryError = ErrorType<unknown>;
 export function useGetWordCategories<
   TData = Awaited<ReturnType<typeof getWordCategories>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getWordCategories>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetWordCategoriesQueryOptions(options);
+>(
+  params?: GetWordCategoriesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWordCategories>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWordCategoriesQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -651,41 +675,57 @@ export function useGetSceneSentences<
 /**
  * @summary Get all unique scene names
  */
-export const getGetSceneNamesUrl = () => {
-  return `/api/scene-sentences/scenes`;
+export const getGetSceneNamesUrl = (params?: GetSceneNamesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/scene-sentences/scenes?${stringifiedParams}`
+    : `/api/scene-sentences/scenes`;
 };
 
 export const getSceneNames = async (
+  params?: GetSceneNamesParams,
   options?: RequestInit,
 ): Promise<string[]> => {
-  return customFetch<string[]>(getGetSceneNamesUrl(), {
+  return customFetch<string[]>(getGetSceneNamesUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetSceneNamesQueryKey = () => {
-  return [`/api/scene-sentences/scenes`] as const;
+export const getGetSceneNamesQueryKey = (params?: GetSceneNamesParams) => {
+  return [`/api/scene-sentences/scenes`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetSceneNamesQueryOptions = <
   TData = Awaited<ReturnType<typeof getSceneNames>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getSceneNames>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetSceneNamesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSceneNames>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetSceneNamesQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getGetSceneNamesQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getSceneNames>>> = ({
     signal,
-  }) => getSceneNames({ signal, ...requestOptions });
+  }) => getSceneNames(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getSceneNames>>,
@@ -706,15 +746,18 @@ export type GetSceneNamesQueryError = ErrorType<unknown>;
 export function useGetSceneNames<
   TData = Awaited<ReturnType<typeof getSceneNames>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getSceneNames>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetSceneNamesQueryOptions(options);
+>(
+  params?: GetSceneNamesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSceneNames>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSceneNamesQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

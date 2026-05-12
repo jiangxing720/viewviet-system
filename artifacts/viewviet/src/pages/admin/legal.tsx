@@ -169,7 +169,7 @@ export default function AdminLegal() {
                           onClick={() => {
                             const detected = detectCategory(form.getValues("title"), form.getValues("content") + " " + form.getValues("summary"));
                             if (detected) { form.setValue("category", detected); toast({ title: `${t("admin.auto_category")}: ${detected}` }); }
-                            else toast({ title: "无法识别分class,请手动选择", variant: "destructive" });
+                            else toast({ title: "无法识别分类，请手动选择", variant: "destructive" });
                           }}
                         >
                           <Sparkles className="h-3 w-3" />{t("admin.auto_category")}
@@ -280,8 +280,8 @@ export default function AdminLegal() {
                         <p className="font-medium line-clamp-1">{a.title}</p>
                         <p className="text-xs text-muted-foreground font-mono">{a.slug}</p>
                       </td>
-                      <td className="px-4 py-3">{a.category ? <Badge variant="secondary" className="text-xs">{a.category}</Badge> : "--"}</td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">{a.country ?? "--"}</td>
+                      <td className="px-4 py-3">{a.category ? <Badge variant="secondary" className="text-xs">{a.category}</Badge> : "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{a.country ?? "—"}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1 flex-wrap">
                           <Badge variant={a.isPublished ? "default" : "outline"} className="text-xs">{a.isPublished ? t("admin.publish") : "Draft"}</Badge>

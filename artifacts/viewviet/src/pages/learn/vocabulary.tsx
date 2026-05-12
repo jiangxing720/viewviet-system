@@ -94,8 +94,10 @@ export default function Vocabulary() {
     { query: { queryKey: getGetWordsQueryKey({ language_code: lang, category, search: search || undefined, page, limit: 20 }) } },
   );
   const { data: categories } = useGetWordCategories(
-    { query: { queryKey: getGetWordCategoriesQueryKey() } },
+    { language_code: lang },
+    { query: { queryKey: getGetWordCategoriesQueryKey({ language_code: lang }) } },
   );
+
 
   const words = (wordsResp as any)?.data ?? [];
   const pagination = (wordsResp as any)?.pagination;

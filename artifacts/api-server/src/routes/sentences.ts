@@ -36,11 +36,14 @@ router.get("/scene-sentences", async (req, res): Promise<void> => {
   res.json({ data, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
 });
 
-router.get("/scene-sentences/scenes", async (_req, res): Promise<void> => {
+router.get("/scene-sentences/scenes", async (req, res): Promise<void> => {
+  const { language_code } = req.query as { language_code?: string };
+  const conditions = [eq(sceneSentencesTable.isPublished, true)];
+  if (language_code) conditions.push(eq(sceneSentencesTable.languageCode, language_code));
   const result = await db
     .selectDistinct({ sceneName: sceneSentencesTable.sceneName })
     .from(sceneSentencesTable)
-    .where(eq(sceneSentencesTable.isPublished, true));
+    .where(and(...conditions));
   res.json(result.map((r) => r.sceneName));
 });
 

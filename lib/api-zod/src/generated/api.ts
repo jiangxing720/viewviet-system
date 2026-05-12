@@ -87,6 +87,10 @@ export const GetWordResponse = zod.object({
 /**
  * @summary Get all word categories
  */
+export const GetWordCategoriesQueryParams = zod.object({
+  language_code: zod.coerce.string().optional(),
+});
+
 export const GetWordCategoriesResponseItem = zod.string();
 export const GetWordCategoriesResponse = zod.array(
   GetWordCategoriesResponseItem,
@@ -162,6 +166,10 @@ export const GetSceneSentencesResponse = zod.object({
 /**
  * @summary Get all unique scene names
  */
+export const GetSceneNamesQueryParams = zod.object({
+  language_code: zod.coerce.string().optional(),
+});
+
 export const GetSceneNamesResponseItem = zod.string();
 export const GetSceneNamesResponse = zod.array(GetSceneNamesResponseItem);
 
