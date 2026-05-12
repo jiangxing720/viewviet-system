@@ -52,6 +52,8 @@ async function interpretTranslate(text: string, from: LangCode, to: LangCode): P
   if (!text.trim() || from === to) return text;
   const k = `vv-interp:${from}>${to}:${text.slice(0, 80)}`;
   try { const c = sessionStorage.getItem(k); if (c) return c; } catch {}
+
+  // Primary: OpenAI via API server (fast, accurate)
   try {
     const r = await fetch("/api/interpreter/translate", {
       method: "POST",
@@ -59,11 +61,28 @@ async function interpretTranslate(text: string, from: LangCode, to: LangCode): P
       body: JSON.stringify({ text, from, to }),
       signal: AbortSignal.timeout(10000),
     });
-    const d = await r.json() as { translated?: string };
-    const v: string = d.translated ?? text;
+    if (r.ok) {
+      const d = await r.json() as { translated?: string };
+      const v: string = d.translated ?? text;
+      try { sessionStorage.setItem(k, v); } catch {}
+      return v;
+    }
+  } catch {}
+
+  // Fallback: MyMemory (when OpenAI content filter blocks or server error)
+  const MM: Record<LangCode, string> = { zh: "zh-CN", en: "en-GB", vi: "vi-VN", ko: "ko-KR" };
+  try {
+    const r = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${MM[from]}|${MM[to]}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    const d = await r.json() as { responseData?: { translatedText?: string } };
+    const v: string = d.responseData?.translatedText ?? text;
     try { sessionStorage.setItem(k, v); } catch {}
     return v;
-  } catch { return text; }
+  } catch {}
+
+  return text;
 }
 
 function speakAsync(text: string, lang: LangCode): Promise<void> {
@@ -325,7 +344,17 @@ export function useInterpreter(
   }
 
   function replay(exchange: Exchange) {
-    void speakAsync(exchange.translated, exchange.targetLang);
+    if (!exchange.translated) return;
+    // Pause recognition while TTS plays so the mic doesn't pick up the audio
+    const wasContinuousListening = runRef.current && !pushToTalkRef.current;
+    if (wasContinuousListening) destroyRec();
+
+    void speakAsync(exchange.translated, exchange.targetLang).then(() => {
+      // Resume recognition after TTS finishes
+      if (wasContinuousListening && runRef.current) {
+        setTimeout(() => startListening(nextSpeakerRef.current), 150);
+      }
+    });
   }
 
   function clearLog() {
