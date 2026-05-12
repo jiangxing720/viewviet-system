@@ -39,7 +39,9 @@
     "push_to_talk": "按键说话",
     "hold_to_speak": "按住说话",
     "release_to_send": "松开发送",
-    "ptt_hint": "按住面板按钮开始说话"
+    "ptt_hint": "按住面板按钮开始说话",
+    "layout_split": "各看各的",
+    "layout_same": "同向查看"
   },
   "home": {
     "hero_title": "越南，一切尽在掌握",

@@ -39,7 +39,9 @@
     "push_to_talk": "Push to Talk",
     "hold_to_speak": "Hold to speak",
     "release_to_send": "Release to send",
-    "ptt_hint": "Press your panel button to speak"
+    "ptt_hint": "Press your panel button to speak",
+    "layout_split": "Face to Face",
+    "layout_same": "Same Direction"
   },
   "home": {
     "hero_title": "Your Life in Vietnam, Simplified",

@@ -261,11 +261,6 @@ export function useInterpreter(
         timestamp: Date.now(),
       };
       setLog((prev) => [...prev, exchange]);
-
-      if (runRef.current) {
-        setStatus("speaking");
-        await speakAsync(translated, to);
-      }
     } finally {
       busyRef.current = false;
       if (runRef.current) {

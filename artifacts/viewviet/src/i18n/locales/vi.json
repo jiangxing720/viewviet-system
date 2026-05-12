@@ -39,7 +39,9 @@
     "push_to_talk": "Nhấn để nói",
     "hold_to_speak": "Giữ để nói",
     "release_to_send": "Thả để gửi",
-    "ptt_hint": "Nhấn giữ nút trên màn hình của bạn để nói"
+    "ptt_hint": "Nhấn giữ nút trên màn hình của bạn để nói",
+    "layout_split": "Mỗi người một hướng",
+    "layout_same": "Cùng hướng"
   },
   "home": {
     "hero_title": "Cuộc sống tại Việt Nam, thật dễ dàng",

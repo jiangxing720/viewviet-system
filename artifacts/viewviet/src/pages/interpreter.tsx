@@ -255,6 +255,7 @@ export default function InterpreterPage() {
   const [langB, setLangB] = useState<LangCode>("vi");
   const [direction, setDirection] = useState<DirectionMode>("both");
   const [pushToTalk, setPushToTalk] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<"split" | "same">("split");
   const [reviewing, setReviewing] = useState(false);
 
   const {
@@ -297,8 +298,8 @@ export default function InterpreterPage() {
   return (
     <div className="flex flex-col h-[calc(100dvh-4rem)] overflow-hidden select-none bg-background">
 
-      {/* Person A panel — rotated 180° */}
-      <div className="rotate-180 flex-1 flex flex-col min-h-0 border-b bg-primary/5">
+      {/* Person A panel — rotated 180° in split mode, normal in same-direction mode */}
+      <div className={`${layoutMode === "split" ? "rotate-180" : ""} flex-1 flex flex-col min-h-0 border-b bg-primary/5`}>
         <PersonPanel
           speaker="A" lang={langA} otherLang={langB}
           disabled={running} onChangeLang={setLangA}
@@ -337,6 +338,17 @@ export default function InterpreterPage() {
               ))}
             </div>
             <div className="flex-1" />
+            {/* Layout toggle */}
+            <button
+              onClick={() => setLayoutMode((m) => m === "split" ? "same" : "split")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                layoutMode === "same"
+                  ? "bg-primary/20 text-primary border border-primary/30"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {layoutMode === "split" ? t("interpreter.layout_split") : t("interpreter.layout_same")}
+            </button>
             {/* PTT toggle */}
             <button
               onClick={() => setPushToTalk((v) => !v)}
