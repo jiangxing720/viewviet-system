@@ -46,7 +46,8 @@
     "video_mode": "Video Caption",
     "video_lang": "Video Language",
     "caption_lang": "Caption Language",
-    "video_mode_hint": "Listening to video and translating"
+    "video_mode_hint": "Listening to video and translating",
+    "popup_window": "Pop-out"
   },
   "home": {
     "hero_title": "Your Life in Vietnam, Simplified",

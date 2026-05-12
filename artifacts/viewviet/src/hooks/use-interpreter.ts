@@ -113,7 +113,6 @@ export function useInterpreter(
   const [permissionError, setPermissionError] = useState(false);
 
   const runRef = useRef(false);
-  // Dual listeners — one per language for auto-detection in "both" mode
   const recARef = useRef<SpeechRecognitionInstance | null>(null);
   const recBRef = useRef<SpeechRecognitionInstance | null>(null);
   const langARef = useRef(langA);
@@ -171,8 +170,10 @@ export function useInterpreter(
   }
 
   // -----------------------------------------------------------------
-  // launchListener — creates and starts ONE recognizer for a speaker.
-  // In "both" mode two of these run concurrently (one per language).
+  // launchListener — creates and starts ONE new recognizer for a speaker.
+  // Call this only when the current recognizer has ended or was aborted.
+  // Do NOT call this while the recognizer is already running — the
+  // continuous=true instance handles multiple utterances on its own.
   // -----------------------------------------------------------------
   function launchListener(speaker: "A" | "B") {
     if (!SR || !runRef.current) return;
@@ -207,8 +208,11 @@ export function useInterpreter(
       if (finalText.trim()) {
         pendingInterimRef.current = "";
         setInterim("");
-        // Abort the OTHER listener immediately to stop it processing the same audio
-        abortRec(speaker === "A" ? "B" : "A");
+        // In "both" mode: abort the OTHER listener to stop it processing the same audio.
+        // The current speaker's recognizer (continuous=true) keeps running for the next utterance.
+        if (directionRef.current === "both") {
+          abortRec(speaker === "A" ? "B" : "A");
+        }
         void handleSpeak(speaker, finalText.trim());
       }
     };
@@ -219,14 +223,16 @@ export function useInterpreter(
         stopSession();
         return;
       }
+      // On transient errors, restart this listener after a short delay
       if (runRef.current && thisRef.current === rec) {
         setTimeout(() => {
           if (runRef.current && thisRef.current === rec) launchListener(speaker);
-        }, 150);
+        }, 300);
       }
     };
 
     rec.onend = () => {
+      // Guard: ignore stale onend from a replaced recognizer
       if (thisRef.current !== rec) return;
       if (pushToTalkRef.current) {
         const pending = pendingInterimRef.current.trim();
@@ -238,10 +244,12 @@ export function useInterpreter(
           setStatus("idle");
         }
       } else {
+        // Natural end (silence timeout / browser limit) — restart this listener.
+        // We use a short delay to let any in-flight translation settle.
         if (runRef.current) {
           setTimeout(() => {
             if (runRef.current && thisRef.current === rec) launchListener(speaker);
-          }, 100);
+          }, 80);
         }
       }
     };
@@ -251,15 +259,14 @@ export function useInterpreter(
       rec.start();
       setStatus("listening");
     } catch {
-      setTimeout(() => launchListener(speaker), 200);
+      // start() can throw if another instance is starting — retry
+      setTimeout(() => launchListener(speaker), 300);
     }
   }
 
   // -----------------------------------------------------------------
-  // startListening — launches the right set of listeners based on mode
-  // "both": two simultaneous listeners (auto language detection)
-  // "a-to-b": only speaker A listens
-  // "b-to-a": only speaker B listens
+  // startListening — launches the right set of listeners based on mode.
+  // Only call this at session start or after a full stop (not between utterances).
   // -----------------------------------------------------------------
   function startListening(forceSpeaker?: "A" | "B") {
     if (!SR || !runRef.current) return;
@@ -284,11 +291,13 @@ export function useInterpreter(
   // -----------------------------------------------------------------
   // handleSpeak — two paths depending on autoSpeak mode:
   //
-  // autoSpeak=OFF (default): restart mic immediately so next speaker
-  //   can talk while translation runs in background (low latency).
+  // autoSpeak=OFF (default): The continuous recognizer keeps running.
+  //   Only restart the OTHER aborted listener (in "both" mode).
+  //   Translation runs concurrently without interrupting listening.
   //
-  // autoSpeak=ON: hold mic closed → translate → TTS reads aloud →
-  //   only THEN restart mic. Prevents TTS from being re-recognised.
+  // autoSpeak=ON: Block onresult processing during TTS via isSpeakingTTSRef.
+  //   Sequence: translate → TTS reads aloud → then restart the other listener.
+  //   The current speaker's continuous recognizer stays running (results ignored during TTS).
   // -----------------------------------------------------------------
   async function handleSpeak(speaker: "A" | "B", original: string) {
     if (!runRef.current) return;
@@ -302,7 +311,9 @@ export function useInterpreter(
 
     if (autoSpeakRef.current) {
       // ── Auto-speak path ────────────────────────────────────────────
-      // Keep mic CLOSED while TTS plays. Sequence: translate → TTS → mic.
+      // Block onresult processing so TTS audio isn't re-recognised.
+      // The current speaker's recognizer keeps running but results are ignored.
+      isSpeakingTTSRef.current = true;
       setStatus("translating");
       try {
         const translated = await interpretTranslate(original, from, to);
@@ -311,26 +322,36 @@ export function useInterpreter(
         setLog((prev) => [...prev, exchange]);
         setPendings((prev) => prev.filter((p) => p.id !== id));
 
-        // Play TTS — mic is still closed
-        isSpeakingTTSRef.current = true;
         setStatus("speaking");
         await speakAsync(translated, to);
-        isSpeakingTTSRef.current = false;
       } finally {
         setPendings((prev) => prev.filter((p) => p.id !== id));
         isSpeakingTTSRef.current = false;
       }
-      // Restart mic only after TTS is fully done
+
+      // After TTS: re-enable listening.
+      // Current speaker's continuous recognizer is still running (or will restart via onend).
+      // In "both" mode, also restart the OTHER listener that was aborted.
       if (runRef.current && !pushToTalkRef.current) {
-        setTimeout(() => startListening(), 80);
+        setStatus("listening");
+        if (directionRef.current === "both") {
+          const other = speaker === "A" ? "B" : "A";
+          setTimeout(() => { if (runRef.current) launchListener(other); }, 100);
+        }
       } else if (runRef.current) {
         setStatus("idle");
       }
     } else {
       // ── Normal path ────────────────────────────────────────────────
-      // Restart mic immediately; translation runs concurrently.
+      // The current speaker's continuous recognizer is still running — don't touch it.
+      // In "both" mode, restart ONLY the aborted OTHER listener.
+      // Translation runs concurrently without interrupting listening.
       if (!pushToTalkRef.current) {
-        setTimeout(() => startListening(), 80);
+        setStatus("listening");
+        if (directionRef.current === "both") {
+          const other = speaker === "A" ? "B" : "A";
+          setTimeout(() => { if (runRef.current) launchListener(other); }, 200);
+        }
       } else {
         setStatus("idle");
       }
@@ -372,7 +393,6 @@ export function useInterpreter(
 
   function stop() { stopSession(); }
 
-  // startFor is used by PTT buttons — forces a specific speaker
   function startFor(speaker: "A" | "B") {
     if (!SR || !runRef.current) return;
     destroyAllRec();

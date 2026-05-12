@@ -46,7 +46,8 @@
     "video_mode": "Phụ đề video",
     "video_lang": "Ngôn ngữ video",
     "caption_lang": "Ngôn ngữ phụ đề",
-    "video_mode_hint": "Đang nhận dạng và dịch âm thanh video"
+    "video_mode_hint": "Đang nhận dạng và dịch âm thanh video",
+    "popup_window": "Cửa sổ nhỏ"
   },
   "home": {
     "hero_title": "Cuộc sống tại Việt Nam, thật dễ dàng",

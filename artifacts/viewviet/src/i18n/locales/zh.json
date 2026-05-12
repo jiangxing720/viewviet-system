@@ -46,7 +46,8 @@
     "video_mode": "视频字幕",
     "video_lang": "视频语言",
     "caption_lang": "字幕语言",
-    "video_mode_hint": "正在识别视频语音并翻译"
+    "video_mode_hint": "正在识别视频语音并翻译",
+    "popup_window": "弹出小窗"
   },
   "home": {
     "hero_title": "越南，一切尽在掌握",
