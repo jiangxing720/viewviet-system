@@ -6,3 +6,9 @@ id = "F10WLQa4pSG4hrkfU53qr"
 uri = "file://ViewViet-说明书.md"
 type = "text"
 title = "ViewViet 平台功能说明书"
+
+[[outputs]]
+id = "OdJvEJ-WrYmFa9QbukvHy"
+uri = "file://viewviet-hostinger.zip"
+type = "unspecified"
+title = "viewviet-hostinger.zip — Hostinger 部署包"
