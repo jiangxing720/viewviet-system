@@ -263,7 +263,7 @@ export function useInterpreter(
     const lang = speaker === "A" ? langARef.current : langBRef.current;
     const rec = new SR();
     rec.lang = BCP47[lang];
-    rec.continuous = true;
+    rec.continuous = false;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
 
@@ -360,7 +360,16 @@ export function useInterpreter(
           setStatus("idle");
         }
       } else {
-        // Natural end (browser silence timeout) — restart the same listener
+        // Natural end — commit any pending interim that the silence timer missed
+        // (some browsers fire onend before isFinal on short utterances)
+        const pending = pendingRef.current.trim();
+        if (pending && runRef.current && !isSpeakingTTSRef.current) {
+          if (directionRef.current === "both" && !pushToTalkRef.current) {
+            abortRec(speaker === "A" ? "B" : "A");
+          }
+          commitSpeech(speaker, pending);
+        }
+        // Restart this listener so it's ready for the next utterance
         if (runRef.current) {
           setTimeout(() => {
             if (runRef.current && recRef.current === rec) launchListener(speaker);
