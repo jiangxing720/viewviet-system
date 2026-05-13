@@ -135,9 +135,14 @@ export function useInterpreter(
   const audioCtxRef = useRef<AnyAudioContext | null>(null);
   const isSpeakingTTSRef = useRef(false);
 
-  // Per-speaker silence-commit timers
+  // Per-speaker silence-commit timers (1.4s → commit current utterance)
   const commitTimerARef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const commitTimerBRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Per-speaker hand-off timers (3s after last activity → switch to the other speaker).
+  // Resets on every interim or commit so A can speak multiple sentences before B's turn.
+  const handoffTimerARef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handoffTimerBRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { langARef.current = langA; }, [langA]);
   useEffect(() => { langBRef.current = langB; }, [langB]);
@@ -150,6 +155,8 @@ export function useInterpreter(
       runRef.current = false;
       clearTimerRef(commitTimerARef);
       clearTimerRef(commitTimerBRef);
+      clearTimerRef(handoffTimerARef);
+      clearTimerRef(handoffTimerBRef);
       try { recARef.current?.abort(); } catch {}
       try { recBRef.current?.abort(); } catch {}
       try { window.speechSynthesis?.cancel(); } catch {}
@@ -168,9 +175,32 @@ export function useInterpreter(
     clearTimerRef(speaker === "A" ? commitTimerARef : commitTimerBRef);
   }
 
+  function clearHandoffTimer(speaker: "A" | "B") {
+    clearTimerRef(speaker === "A" ? handoffTimerARef : handoffTimerBRef);
+  }
+
+  /**
+   * Schedule switching from `speaker` to the other speaker after HANDOFF_SILENCE_MS
+   * of inactivity. Reset on every interim or commit so the speaker can say multiple
+   * sentences without being interrupted. Only one listener runs at a time.
+   */
+  function scheduleHandoff(speaker: "A" | "B") {
+    const ref = speaker === "A" ? handoffTimerARef : handoffTimerBRef;
+    if (ref.current !== null) clearTimeout(ref.current);
+    const other = speaker === "A" ? "B" : "A";
+    ref.current = setTimeout(() => {
+      ref.current = null;
+      if (!runRef.current) return;
+      // Abort current speaker, then start the other
+      abortRec(speaker);
+      setTimeout(() => { if (runRef.current) launchListener(other); }, 120);
+    }, HANDOFF_SILENCE_MS);
+  }
+
   /** Abort a speaker's recognizer and null its ref. Does NOT restart. */
   function abortRec(speaker: "A" | "B") {
     clearCommitTimer(speaker);
+    clearHandoffTimer(speaker);
     const ref = speaker === "A" ? recARef : recBRef;
     try { ref.current?.abort(); } catch {}
     ref.current = null;
