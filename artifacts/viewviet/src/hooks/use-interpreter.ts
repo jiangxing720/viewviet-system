@@ -53,7 +53,7 @@ const BCP47: Record<LangCode, string> = { zh: "zh-CN", en: "en-US", vi: "vi-VN",
 // 700 ms feels snappy while still capturing natural mid-sentence pauses.
 const COMMIT_SILENCE_MS = 700;
 
-// After A commits a sentence, wait this long before starting B.
+// After one speaker commits, wait this long before starting the other.
 const RESTART_OTHER_DELAY_MS = 80;
 
 async function interpretTranslate(text: string, from: LangCode, to: LangCode): Promise<string> {
@@ -123,6 +123,8 @@ export function useInterpreter(
   const runRef = useRef(false);
   const recARef = useRef<SpeechRecognitionInstance | null>(null);
   const recBRef = useRef<SpeechRecognitionInstance | null>(null);
+  // In ping-pong "both" mode, tracks which speaker should start next (used by startListening after TTS).
+  const nextSpeakerRef = useRef<"A" | "B">("B");
 
   const langARef = useRef(langA);
   const langBRef = useRef(langB);
@@ -201,23 +203,17 @@ export function useInterpreter(
   }
 
   // -----------------------------------------------------------------
-  // "RACE" mode design for "both" direction:
+  // "PING-PONG" mode for "both" direction:
   //
-  // A and B recognizers run SIMULTANEOUSLY. Both listen all the time.
-  // The correct language model fires confident results quickly; the
-  // wrong-language model gets silence or garbled output.
+  // Only ONE recognizer runs at a time. After A commits, A is stopped
+  // and B starts. After B commits, B is stopped and A starts.
   //
-  // When EITHER fires a confident result:
-  //   1. Abort the OTHER immediately (prevent their garbled result committing)
-  //   2. Commit the winner's text
-  //   3. Restart the OTHER after RESTART_OTHER_DELAY_MS
-  //      (current speaker's continuous recognizer keeps running — no restart needed)
+  // This is reliable on all devices and makes the UI unambiguous:
+  // the panel with the green "LISTENING" indicator is always clearly
+  // the one the user should be speaking into.
   //
-  // On mobile Chrome where only ONE recognizer can hold the mic:
-  //   The second one gets "audio-capture" → retries after 2 s.
-  //   After any commit, both restart, giving the other a fresh attempt.
-  //   In practice the mic is released between utterances, so both
-  //   get a fair chance on the next round.
+  // The user can also tap the INACTIVE panel at any time to manually
+  // switch — handled by the switchTo() function returned from the hook.
   // -----------------------------------------------------------------
 
   // -----------------------------------------------------------------
@@ -233,9 +229,10 @@ export function useInterpreter(
     setInterim("");
 
     if (!pushToTalkRef.current && directionRef.current === "both") {
-      // Restart the other speaker — but ONLY if TTS is not playing.
-      // If autoSpeak is on, handleSpeak will call startListening() after TTS ends.
+      // Ping-pong: stop the speaker who just spoke, start the other.
+      abortRec(speaker);
       const other = speaker === "A" ? "B" : "A";
+      nextSpeakerRef.current = other;
       setTimeout(() => {
         if (runRef.current && !isSpeakingTTSRef.current) launchListener(other);
       }, RESTART_OTHER_DELAY_MS);
@@ -301,19 +298,13 @@ export function useInterpreter(
             if (!runRef.current || isSpeakingTTSRef.current) return;
             const pending = pendingRef.current;
             if (!pending.trim()) return;
-            // Race: abort the other speaker before they can fire a wrong-language result
-            if (directionRef.current === "both") abortRec(speaker === "A" ? "B" : "A");
             commitSpeech(speaker, pending);
           }, COMMIT_SILENCE_MS);
         }
       }
 
       if (finalText.trim()) {
-        // Natural isFinal — race: abort the other speaker immediately
         clearTimerRef(commitTimerRef);
-        if (directionRef.current === "both" && !pushToTalkRef.current) {
-          abortRec(speaker === "A" ? "B" : "A");
-        }
         commitSpeech(speaker, finalText.trim());
       }
     };
@@ -392,11 +383,9 @@ export function useInterpreter(
   // -----------------------------------------------------------------
   // startListening — initial listeners at session start.
   //
-  // "both" mode: start BOTH A and B (race mode).
-  //   A starts immediately, B starts 150 ms later (small stagger reduces
-  //   simultaneous mic-grab conflicts on some browsers).
-  //   On mobile where only one can hold the mic, the second gets
-  //   audio-capture and retries every 2 s — still giving both a fair chance.
+  // "both" mode (ping-pong): always start with A first.
+  //   After A commits → B starts; after B commits → A starts.
+  //   Manual switchTo() overrides this at any time.
   //
   // Single direction: start only the relevant speaker.
   // -----------------------------------------------------------------
@@ -408,13 +397,28 @@ export function useInterpreter(
     const dir = directionRef.current;
     if (dir === "b-to-a") {
       launchListener("B");
-    } else if (dir === "a-to-b") {
-      launchListener("A");
+    } else if (dir === "both") {
+      // Ping-pong: use nextSpeakerRef so post-TTS restart goes to the correct side
+      launchListener(nextSpeakerRef.current);
     } else {
-      // "both" — race mode: start both
       launchListener("A");
-      setTimeout(() => { if (runRef.current) launchListener("B"); }, 150);
     }
+  }
+
+  // -----------------------------------------------------------------
+  // switchTo — manually switch to the given speaker immediately.
+  // Called when user taps the inactive panel in "both" auto mode.
+  // -----------------------------------------------------------------
+  function switchTo(to: "A" | "B") {
+    if (!runRef.current) return;
+    clearCommitTimer("A");
+    clearCommitTimer("B");
+    abortRec("A");
+    abortRec("B");
+    pendingInterimARef.current = "";
+    pendingInterimBRef.current = "";
+    setInterim("");
+    setTimeout(() => { if (runRef.current) launchListener(to); }, 60);
   }
 
   // -----------------------------------------------------------------
@@ -483,6 +487,7 @@ export function useInterpreter(
   function start() {
     if (!SR || runRef.current) return;
     setPermissionError(false);
+    nextSpeakerRef.current = "A"; // always start with A in "both" mode
     ensureSilentAudio();
     // Warm up the translation API so the first real request isn't cold-start slow
     void fetch("/api/interpreter/translate", {
@@ -527,7 +532,7 @@ export function useInterpreter(
 
   return {
     running, status, log, pendings, interim, activeSpeaker,
-    permissionError, start, stop, startFor, stopListening, replay, clearLog,
+    permissionError, start, stop, startFor, stopListening, switchTo, replay, clearLog,
     supported: !!SR,
   };
 }
