@@ -50,11 +50,11 @@ const BCP47: Record<LangCode, string> = { zh: "zh-CN", en: "en-US", vi: "vi-VN",
 
 // After this much silence following the last interim result, force-commit the utterance.
 // zh fires isFinal quickly; vi/en/ko rely on this timer as their primary commit path.
-const COMMIT_SILENCE_MS = 1400;
+// 700 ms feels snappy while still capturing natural mid-sentence pauses.
+const COMMIT_SILENCE_MS = 700;
 
 // After A commits a sentence, wait this long before starting B.
-// Gives A time to keep talking without immediately handing off.
-const RESTART_OTHER_DELAY_MS = 180;
+const RESTART_OTHER_DELAY_MS = 80;
 
 async function interpretTranslate(text: string, from: LangCode, to: LangCode): Promise<string> {
   if (!text.trim() || from === to) return text;
@@ -327,12 +327,12 @@ export function useInterpreter(
       if (e.error === "aborted") return;
 
       // audio-capture: another recognizer is holding the mic (common on mobile).
-      // Retry after a longer delay to avoid hammering the browser.
+      // Retry after a short delay — mic is released after each utterance with continuous=false.
       if (e.error === "audio-capture") {
         if (runRef.current && recRef.current === rec) {
           setTimeout(() => {
             if (runRef.current && recRef.current === rec) launchListener(speaker);
-          }, 2000);
+          }, 800);
         }
         return;
       }
@@ -373,7 +373,7 @@ export function useInterpreter(
         if (runRef.current) {
           setTimeout(() => {
             if (runRef.current && recRef.current === rec) launchListener(speaker);
-          }, 80);
+          }, 40);
         }
       }
     };
@@ -476,6 +476,13 @@ export function useInterpreter(
     if (!SR || runRef.current) return;
     setPermissionError(false);
     ensureSilentAudio();
+    // Warm up the translation API so the first real request isn't cold-start slow
+    void fetch("/api/interpreter/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: "你好", from: "zh", to: langBRef.current }),
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => {});
     runRef.current = true;
     setRunning(true);
     if (!pushToTalk) {
