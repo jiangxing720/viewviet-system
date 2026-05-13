@@ -233,10 +233,12 @@ export function useInterpreter(
     setInterim("");
 
     if (!pushToTalkRef.current && directionRef.current === "both") {
-      // Current speaker's continuous recognizer is still running — leave it.
-      // Restart the other speaker so they can interject at any time.
+      // Restart the other speaker — but ONLY if TTS is not playing.
+      // If autoSpeak is on, handleSpeak will call startListening() after TTS ends.
       const other = speaker === "A" ? "B" : "A";
-      setTimeout(() => { if (runRef.current) launchListener(other); }, RESTART_OTHER_DELAY_MS);
+      setTimeout(() => {
+        if (runRef.current && !isSpeakingTTSRef.current) launchListener(other);
+      }, RESTART_OTHER_DELAY_MS);
     }
     // Single direction: continuous recognizer stays running — nothing to do.
     // PTT: managed by startFor / stopListening.
@@ -369,10 +371,10 @@ export function useInterpreter(
           }
           commitSpeech(speaker, pending);
         }
-        // Restart this listener so it's ready for the next utterance
-        if (runRef.current) {
+        // Do NOT restart during TTS playback — handleSpeak restarts listeners after TTS ends.
+        if (runRef.current && !isSpeakingTTSRef.current) {
           setTimeout(() => {
-            if (runRef.current && recRef.current === rec) launchListener(speaker);
+            if (runRef.current && recRef.current === rec && !isSpeakingTTSRef.current) launchListener(speaker);
           }, 40);
         }
       }
@@ -430,6 +432,9 @@ export function useInterpreter(
     setPendings((prev) => [...prev, { id, speaker, original }]);
 
     if (autoSpeakRef.current) {
+      // Stop ALL recognizers BEFORE TTS to prevent the mic picking up the speaker.
+      // We restart them ourselves once TTS is done.
+      destroyAllRec();
       isSpeakingTTSRef.current = true;
       setStatus("translating");
       try {
@@ -442,10 +447,13 @@ export function useInterpreter(
       } finally {
         setPendings((prev) => prev.filter((p) => p.id !== id));
         isSpeakingTTSRef.current = false;
-        if (runRef.current) setStatus("listening");
+        if (runRef.current) {
+          setStatus("listening");
+          // Restart both listeners now that TTS is finished.
+          startListening();
+        }
       }
-      // Both listeners are already running or will restart naturally.
-      // isSpeakingTTSRef was blocking them during TTS; now unblocked.
+      // Listeners restarted above — nothing else to do here.
     } else {
       if (runRef.current) setStatus("listening");
       try {

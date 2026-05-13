@@ -373,15 +373,15 @@ export default function InterpreterPage() {
   const { t } = useTranslation();
   const [langA, setLangA] = useState<LangCode>("zh");
   const [langB, setLangB] = useState<LangCode>("vi");
-  const [direction, setDirection] = useState<DirectionMode>("both");
   const [pushToTalk, setPushToTalk] = useState(false);
   const [layoutMode, setLayoutMode] = useState<"split" | "same">("split");
   const [reviewing, setReviewing] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [videoMode, setVideoMode] = useState(false);
 
-  // In video mode: single direction A→B, no auto-speak, same-direction layout
-  const effectiveDirection: DirectionMode = videoMode ? "a-to-b" : direction;
+  // In video mode: single direction A→B, no auto-speak, same-direction layout.
+  // Normal face-to-face mode is always "both" — race-mode auto-detection handles speaker switching.
+  const effectiveDirection: DirectionMode = videoMode ? "a-to-b" : "both";
   const effectiveAutoSpeak = videoMode ? false : autoSpeak;
 
   const {
@@ -400,12 +400,6 @@ export default function InterpreterPage() {
 
   const sameLang = langA === langB;
   const canStart = supported && !sameLang;
-
-  const DIRECTIONS: { value: DirectionMode; label: string }[] = [
-    { value: "both", label: t("interpreter.direction_both") },
-    { value: "a-to-b", label: "A→B" },
-    { value: "b-to-a", label: "B→A" },
-  ];
 
   if (reviewing && log.length > 0) {
     return (
@@ -457,25 +451,6 @@ export default function InterpreterPage() {
               <Film className="w-3 h-3" />
               {t("interpreter.video_mode")}
             </button>
-
-            {/* Direction pills — hidden in video mode (locked to A→B) */}
-            {!videoMode && (
-              <div className="flex gap-1">
-                {DIRECTIONS.map(({ value, label }) => (
-                  <button
-                    key={value}
-                    onClick={() => setDirection(value)}
-                    className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
-                      direction === value
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
 
             <div className="flex-1" />
 
