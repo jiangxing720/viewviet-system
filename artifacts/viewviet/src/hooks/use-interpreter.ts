@@ -53,8 +53,12 @@ const BCP47: Record<LangCode, string> = { zh: "zh-CN", en: "en-US", vi: "vi-VN",
 // 700 ms feels snappy while still capturing natural mid-sentence pauses.
 const COMMIT_SILENCE_MS = 700;
 
-// After one speaker commits, wait this long before starting the other.
+// After a commit, wait this long before starting the next cycle.
 const RESTART_OTHER_DELAY_MS = 80;
+
+// In "both" mode, how long each speaker's window lasts before auto-switching.
+// If the speaker starts talking (interim fires), the window is extended indefinitely.
+const CYCLE_DURATION_MS = 2000;
 
 async function interpretTranslate(text: string, from: LangCode, to: LangCode): Promise<string> {
   if (!text.trim() || from === to) return text;
@@ -124,6 +128,10 @@ export function useInterpreter(
   const recARef = useRef<SpeechRecognitionInstance | null>(null);
   const recBRef = useRef<SpeechRecognitionInstance | null>(null);
 
+  // "both" auto-mode: strict single-recognizer cycle
+  const cycleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeCycleSpeakerRef = useRef<"A" | "B">("A"); // who currently owns the mic
+
   const langARef = useRef(langA);
   const langBRef = useRef(langB);
   const directionRef = useRef(direction);
@@ -152,6 +160,7 @@ export function useInterpreter(
       runRef.current = false;
       clearTimerRef(commitTimerARef);
       clearTimerRef(commitTimerBRef);
+      clearTimerRef(cycleTimerRef);
       try { recARef.current?.abort(); } catch {}
       try { recBRef.current?.abort(); } catch {}
       try { window.speechSynthesis?.cancel(); } catch {}
@@ -201,17 +210,34 @@ export function useInterpreter(
   }
 
   // -----------------------------------------------------------------
-  // "RACE" mode for "both" direction:
+  // "CYCLE" mode for "both" direction:
   //
-  // Both A and B recognizers run simultaneously. Whoever fires first
-  // with a confident result wins — the other is ignored until the next
-  // restart cycle. After any commit, BOTH restart so either person can
-  // speak next with no forced turn order.
+  // Only ONE recognizer runs at a time. The active speaker gets
+  // CYCLE_DURATION_MS to start talking. If they begin (interim fires)
+  // the timer is cancelled so they can finish their thought. On commit,
+  // the OTHER speaker's cycle starts immediately.
   //
-  // On mobile where only one recognizer can hold the mic, the second
-  // gets "audio-capture" and retries on a short loop, giving it a fair
-  // chance whenever the winner releases the mic between utterances.
+  // This eliminates the audio-capture mic-monopoly problem on mobile
+  // where two simultaneous recognizers always race, with A winning
+  // because A restarts in 40 ms vs B's 800 ms retry after audio-capture.
   // -----------------------------------------------------------------
+
+  // startCycle — gives `speaker` exclusive mic access for up to CYCLE_DURATION_MS.
+  // If no speech detected → switches to the other speaker automatically.
+  function startCycle(speaker: "A" | "B") {
+    if (!SR || !runRef.current) return;
+    clearTimerRef(cycleTimerRef);
+    activeCycleSpeakerRef.current = speaker;
+    launchListener(speaker);
+    cycleTimerRef.current = setTimeout(() => {
+      cycleTimerRef.current = null;
+      if (!runRef.current || isSpeakingTTSRef.current) return;
+      // No speech detected within the window — switch to other speaker
+      abortRec(speaker);
+      const other = speaker === "A" ? "B" : "A";
+      setTimeout(() => { if (runRef.current) startCycle(other); }, 50);
+    }, CYCLE_DURATION_MS);
+  }
 
   // -----------------------------------------------------------------
   // commitSpeech — finalises one utterance and manages listener state.
@@ -226,17 +252,15 @@ export function useInterpreter(
     setInterim("");
 
     if (!pushToTalkRef.current && directionRef.current === "both") {
-      // Race: abort both, then restart both so either person can speak next.
+      // Cycle mode: abort both, then give the OTHER speaker the next cycle.
+      clearTimerRef(cycleTimerRef);
       abortRec("A");
       abortRec("B");
+      const other = speaker === "A" ? "B" : "A";
       setTimeout(() => {
         if (!runRef.current || isSpeakingTTSRef.current) return;
-        launchListener("A");
+        startCycle(other);
       }, RESTART_OTHER_DELAY_MS);
-      setTimeout(() => {
-        if (!runRef.current || isSpeakingTTSRef.current) return;
-        launchListener("B");
-      }, RESTART_OTHER_DELAY_MS + 100);
     }
     // Single direction: continuous recognizer stays running — nothing to do.
     // PTT: managed by startFor / stopListening.
@@ -290,6 +314,12 @@ export function useInterpreter(
         setActiveSpeaker(speaker);
         setInterim(interimText);
 
+        // Cycle mode: speaker has started talking — cancel the auto-switch timer
+        // so they can finish their full thought without being cut off.
+        if (!pushToTalkRef.current && directionRef.current === "both") {
+          clearTimerRef(cycleTimerRef);
+        }
+
         // Silence-commit timer: fire after COMMIT_SILENCE_MS of no new speech.
         // PTT mode commits on button release — no timer needed there.
         if (!pushToTalkRef.current) {
@@ -320,10 +350,11 @@ export function useInterpreter(
       // Expected when we call abort() — ignore, no restart needed
       if (e.error === "aborted") return;
 
-      // audio-capture: another recognizer is holding the mic (common on mobile).
-      // Retry after a short delay — mic is released after each utterance with continuous=false.
+      // audio-capture: another recognizer is holding the mic.
+      // In cycle mode ("both") the cycle timer handles mic allocation — don't retry
+      // here or we'll fight the active recognizer. For single-direction, retry.
       if (e.error === "audio-capture") {
-        if (runRef.current && recRef.current === rec) {
+        if (directionRef.current !== "both" && runRef.current && recRef.current === rec) {
           setTimeout(() => {
             if (runRef.current && recRef.current === rec) launchListener(speaker);
           }, 800);
@@ -353,14 +384,36 @@ export function useInterpreter(
         } else if (runRef.current) {
           setStatus("idle");
         }
-      } else {
-        // Natural end — commit any pending interim that the silence timer missed
-        // (some browsers fire onend before isFinal on short utterances)
+      } else if (directionRef.current === "both") {
+        // Cycle mode — commit any interim the silence timer missed, then let the
+        // cycle timer handle switching.  Only self-restart if we're still the active
+        // cycle speaker AND the cycle timer hasn't fired yet (cycleTimerRef not null).
         const pending = pendingRef.current.trim();
         if (pending && runRef.current && !isSpeakingTTSRef.current) {
-          if (directionRef.current === "both" && !pushToTalkRef.current) {
-            abortRec(speaker === "A" ? "B" : "A");
-          }
+          commitSpeech(speaker, pending); // commitSpeech will start the other cycle
+          return;
+        }
+        // If we're still the active cycle speaker, restart to keep the mic warm
+        // (browser sometimes ends the recognizer from silence before the cycle timer).
+        if (
+          runRef.current &&
+          !isSpeakingTTSRef.current &&
+          activeCycleSpeakerRef.current === speaker &&
+          cycleTimerRef.current !== null // cycle is still in progress
+        ) {
+          setTimeout(() => {
+            if (
+              runRef.current &&
+              !isSpeakingTTSRef.current &&
+              activeCycleSpeakerRef.current === speaker &&
+              cycleTimerRef.current !== null
+            ) launchListener(speaker);
+          }, 40);
+        }
+      } else {
+        // Single direction — commit pending, then restart.
+        const pending = pendingRef.current.trim();
+        if (pending && runRef.current && !isSpeakingTTSRef.current) {
           commitSpeech(speaker, pending);
         }
         // Do NOT restart during TTS playback — handleSpeak restarts listeners after TTS ends.
@@ -389,17 +442,18 @@ export function useInterpreter(
   //
   // Single direction: start only the relevant speaker.
   // -----------------------------------------------------------------
-  function startListening(forceSpeaker?: "A" | "B") {
+  function startListening(preferSpeaker?: "A" | "B") {
     if (!SR || !runRef.current) return;
 
-    if (forceSpeaker) { launchListener(forceSpeaker); return; }
-
     const dir = directionRef.current;
+    if (dir === "both" && !pushToTalkRef.current) {
+      // Cycle mode: start with the preferred speaker (or A by default)
+      startCycle(preferSpeaker ?? "A");
+      return;
+    }
+    if (preferSpeaker) { launchListener(preferSpeaker); return; }
     if (dir === "b-to-a") {
       launchListener("B");
-    } else if (dir === "both") {
-      launchListener("A");
-      setTimeout(() => { if (runRef.current) launchListener("B"); }, 100);
     } else {
       launchListener("A");
     }
@@ -437,8 +491,12 @@ export function useInterpreter(
         isSpeakingTTSRef.current = false;
         if (runRef.current) {
           setStatus("listening");
-          // Restart both listeners now that TTS is finished.
-          startListening();
+          // In cycle mode, give the OTHER speaker priority after TTS finishes —
+          // A just spoke, so B likely wants to respond next.
+          const other = speaker === "A" ? "B" : "A";
+          startListening(
+            (directionRef.current === "both" && !pushToTalkRef.current) ? other : undefined
+          );
         }
       }
       // Listeners restarted above — nothing else to do here.
@@ -456,6 +514,7 @@ export function useInterpreter(
 
   function stopSession() {
     runRef.current = false;
+    clearTimerRef(cycleTimerRef);
     setPendings([]);
     setRunning(false);
     setStatus("idle");

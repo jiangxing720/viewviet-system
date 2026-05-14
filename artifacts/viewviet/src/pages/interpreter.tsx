@@ -151,10 +151,20 @@ function PersonPanel({
       <div className="flex items-center gap-2 flex-shrink-0">
         <LangSelect value={lang} other={otherLang} disabled={disabled} onChange={onChangeLang} />
         <span className="text-xs text-muted-foreground font-medium flex-1">{label}</span>
-        {running && !pushToTalk && isActive && (
-          status === "listening" ? <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" /> :
-          status === "translating" ? <Loader2 className="w-3 h-3 text-amber-500 animate-spin flex-shrink-0" /> :
-          null
+        {running && !pushToTalk && (
+          isListening ? (
+            <span className="flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400 bg-green-500/12 px-2 py-0.5 rounded-full flex-shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              {t("interpreter.listening")}
+            </span>
+          ) : isActive && status === "translating" ? (
+            <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 flex-shrink-0">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              {t("interpreter.translating")}
+            </span>
+          ) : !isActive ? (
+            <span className="text-xs text-muted-foreground/30 flex-shrink-0">{t("interpreter.waiting")}</span>
+          ) : null
         )}
       </div>
 
