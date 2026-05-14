@@ -74,7 +74,7 @@ function PersonPanel({
   running, status, activeSpeaker, interim,
   exchanges, pendings, onReplayExchange,
   pushToTalk, autoSpeak, isPttSpeaker, onPttStart, onPttEnd,
-  captionMode, onSwitchTo,
+  captionMode,
 }: {
   speaker: "A" | "B"; lang: LangCode; otherLang: LangCode;
   disabled: boolean; onChangeLang: (l: LangCode) => void; label: string;
@@ -86,14 +86,12 @@ function PersonPanel({
   pushToTalk: boolean; autoSpeak: boolean; isPttSpeaker: boolean;
   onPttStart: () => void; onPttEnd: () => void;
   captionMode?: boolean;
-  onSwitchTo?: () => void;
 }) {
   const { t } = useTranslation();
   const isActive = activeSpeaker === speaker;
   const isListening = isActive && status === "listening";
   const showInterim = !!interim;
   const inPttSpeakerMode = running && pushToTalk && isPttSpeaker;
-  const langNative = LANGUAGES.find((l) => l.code === lang)?.native ?? lang;
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -153,51 +151,12 @@ function PersonPanel({
       <div className="flex items-center gap-2 flex-shrink-0">
         <LangSelect value={lang} other={otherLang} disabled={disabled} onChange={onChangeLang} />
         <span className="text-xs text-muted-foreground font-medium flex-1">{label}</span>
+        {running && !pushToTalk && isActive && (
+          status === "listening" ? <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" /> :
+          status === "translating" ? <Loader2 className="w-3 h-3 text-amber-500 animate-spin flex-shrink-0" /> :
+          null
+        )}
       </div>
-
-      {/* Ping-pong status banner — auto mode only (onSwitchTo provided = "both" non-PTT) */}
-      {running && onSwitchTo !== undefined && (
-        <button
-          type="button"
-          disabled={isActive}
-          onClick={!isActive ? onSwitchTo : undefined}
-          className={`flex-shrink-0 w-full flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-all text-left
-            ${isListening
-              ? "bg-green-500/15 border-green-500/30 cursor-default"
-              : isActive && (status === "translating" || status === "speaking")
-                ? "bg-amber-500/10 border-amber-500/20 cursor-default"
-                : "bg-muted/40 border-dashed border-muted-foreground/20 cursor-pointer hover:bg-muted/60 active:scale-[0.98]"
-            }`}
-        >
-          {isListening ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" />
-              <span className="text-xs font-bold text-green-700 dark:text-green-400 flex-1">
-                {langNative} · {t("interpreter.listening")}
-              </span>
-              <Mic className="w-3.5 h-3.5 text-green-500 animate-pulse flex-shrink-0" />
-            </>
-          ) : isActive && status === "translating" ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin flex-shrink-0" />
-              <span className="text-xs text-amber-600 dark:text-amber-400 flex-1">{t("interpreter.translating")}</span>
-            </>
-          ) : isActive && status === "speaking" ? (
-            <>
-              <Volume2 className="w-3.5 h-3.5 text-blue-500 animate-pulse flex-shrink-0" />
-              <span className="text-xs text-blue-600 dark:text-blue-400 flex-1">{t("interpreter.speaking")}</span>
-            </>
-          ) : (
-            <>
-              <MicOff className="w-3.5 h-3.5 text-muted-foreground/30 flex-shrink-0" />
-              <span className="text-xs text-muted-foreground/50 flex-1">
-                {langNative} · {t("interpreter.tap_to_speak")}
-              </span>
-              <ArrowRight className="w-3 h-3 text-muted-foreground/30 flex-shrink-0" />
-            </>
-          )}
-        </button>
-      )}
 
       {/* Scrollable bilingual history */}
       <div
@@ -427,11 +386,8 @@ export default function InterpreterPage() {
 
   const {
     running, status, log, pendings, interim, activeSpeaker,
-    permissionError, start, stop, startFor, stopListening, switchTo, replay, clearLog, supported,
+    permissionError, start, stop, startFor, stopListening, replay, clearLog, supported,
   } = useInterpreter(langA, langB, effectiveDirection, pushToTalk, effectiveAutoSpeak);
-
-  // onSwitchTo: only provided in "both" non-PTT mode (face-to-face ping-pong)
-  const autoSwitchMode = !pushToTalk && effectiveDirection === "both";
 
   useEffect(() => {
     if (!running && log.length > 0) setReviewing(true);
@@ -475,7 +431,6 @@ export default function InterpreterPage() {
           isPttSpeaker={isSpeakerInDirection("A", effectiveDirection)}
           onPttStart={() => startFor("A")}
           onPttEnd={stopListening}
-          onSwitchTo={autoSwitchMode ? () => switchTo("A") : undefined}
         />
       </div>
 
@@ -635,7 +590,6 @@ export default function InterpreterPage() {
           onPttStart={() => startFor("B")}
           onPttEnd={stopListening}
           captionMode={videoMode}
-          onSwitchTo={autoSwitchMode ? () => switchTo("B") : undefined}
         />
       </div>
     </div>

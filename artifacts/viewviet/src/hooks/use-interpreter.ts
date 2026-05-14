@@ -123,8 +123,6 @@ export function useInterpreter(
   const runRef = useRef(false);
   const recARef = useRef<SpeechRecognitionInstance | null>(null);
   const recBRef = useRef<SpeechRecognitionInstance | null>(null);
-  // In ping-pong "both" mode, tracks which speaker should start next (used by startListening after TTS).
-  const nextSpeakerRef = useRef<"A" | "B">("B");
 
   const langARef = useRef(langA);
   const langBRef = useRef(langB);
@@ -203,17 +201,16 @@ export function useInterpreter(
   }
 
   // -----------------------------------------------------------------
-  // "PING-PONG" mode for "both" direction:
+  // "RACE" mode for "both" direction:
   //
-  // Only ONE recognizer runs at a time. After A commits, A is stopped
-  // and B starts. After B commits, B is stopped and A starts.
+  // Both A and B recognizers run simultaneously. Whoever fires first
+  // with a confident result wins — the other is ignored until the next
+  // restart cycle. After any commit, BOTH restart so either person can
+  // speak next with no forced turn order.
   //
-  // This is reliable on all devices and makes the UI unambiguous:
-  // the panel with the green "LISTENING" indicator is always clearly
-  // the one the user should be speaking into.
-  //
-  // The user can also tap the INACTIVE panel at any time to manually
-  // switch — handled by the switchTo() function returned from the hook.
+  // On mobile where only one recognizer can hold the mic, the second
+  // gets "audio-capture" and retries on a short loop, giving it a fair
+  // chance whenever the winner releases the mic between utterances.
   // -----------------------------------------------------------------
 
   // -----------------------------------------------------------------
@@ -229,13 +226,17 @@ export function useInterpreter(
     setInterim("");
 
     if (!pushToTalkRef.current && directionRef.current === "both") {
-      // Ping-pong: stop the speaker who just spoke, start the other.
-      abortRec(speaker);
-      const other = speaker === "A" ? "B" : "A";
-      nextSpeakerRef.current = other;
+      // Race: abort both, then restart both so either person can speak next.
+      abortRec("A");
+      abortRec("B");
       setTimeout(() => {
-        if (runRef.current && !isSpeakingTTSRef.current) launchListener(other);
+        if (!runRef.current || isSpeakingTTSRef.current) return;
+        launchListener("A");
       }, RESTART_OTHER_DELAY_MS);
+      setTimeout(() => {
+        if (!runRef.current || isSpeakingTTSRef.current) return;
+        launchListener("B");
+      }, RESTART_OTHER_DELAY_MS + 100);
     }
     // Single direction: continuous recognizer stays running — nothing to do.
     // PTT: managed by startFor / stopListening.
@@ -383,9 +384,8 @@ export function useInterpreter(
   // -----------------------------------------------------------------
   // startListening — initial listeners at session start.
   //
-  // "both" mode (ping-pong): always start with A first.
-  //   After A commits → B starts; after B commits → A starts.
-  //   Manual switchTo() overrides this at any time.
+  // "both" mode (race): start BOTH so either person can speak first.
+  //   B starts 100 ms after A to reduce simultaneous mic-grab conflicts.
   //
   // Single direction: start only the relevant speaker.
   // -----------------------------------------------------------------
@@ -398,27 +398,11 @@ export function useInterpreter(
     if (dir === "b-to-a") {
       launchListener("B");
     } else if (dir === "both") {
-      // Ping-pong: use nextSpeakerRef so post-TTS restart goes to the correct side
-      launchListener(nextSpeakerRef.current);
+      launchListener("A");
+      setTimeout(() => { if (runRef.current) launchListener("B"); }, 100);
     } else {
       launchListener("A");
     }
-  }
-
-  // -----------------------------------------------------------------
-  // switchTo — manually switch to the given speaker immediately.
-  // Called when user taps the inactive panel in "both" auto mode.
-  // -----------------------------------------------------------------
-  function switchTo(to: "A" | "B") {
-    if (!runRef.current) return;
-    clearCommitTimer("A");
-    clearCommitTimer("B");
-    abortRec("A");
-    abortRec("B");
-    pendingInterimARef.current = "";
-    pendingInterimBRef.current = "";
-    setInterim("");
-    setTimeout(() => { if (runRef.current) launchListener(to); }, 60);
   }
 
   // -----------------------------------------------------------------
@@ -487,7 +471,6 @@ export function useInterpreter(
   function start() {
     if (!SR || runRef.current) return;
     setPermissionError(false);
-    nextSpeakerRef.current = "A"; // always start with A in "both" mode
     ensureSilentAudio();
     // Warm up the translation API so the first real request isn't cold-start slow
     void fetch("/api/interpreter/translate", {
@@ -532,7 +515,7 @@ export function useInterpreter(
 
   return {
     running, status, log, pendings, interim, activeSpeaker,
-    permissionError, start, stop, startFor, stopListening, switchTo, replay, clearLog,
+    permissionError, start, stop, startFor, stopListening, replay, clearLog,
     supported: !!SR,
   };
 }
