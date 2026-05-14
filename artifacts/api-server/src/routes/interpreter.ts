@@ -1,7 +1,15 @@
 import { Router } from "express";
+import multer from "multer";
+import { toFile } from "openai";
 import { openai } from "@workspace/integrations-openai-ai-server";
 
 const router = Router();
+
+// Memory-only multer — audio blobs are small (<2 MB per utterance)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+});
 
 interface Exchange {
   speaker: "A" | "B";
@@ -10,6 +18,33 @@ interface Exchange {
   targetLang: string;
   timestamp: number;
 }
+
+// POST /interpreter/transcribe — Whisper auto-detect language + transcribe
+router.post(
+  "/interpreter/transcribe",
+  upload.single("audio"),
+  async (req, res): Promise<void> => {
+    if (!req.file) {
+      res.status(400).json({ error: "No audio file provided" });
+      return;
+    }
+    try {
+      const ext = req.file.mimetype.includes("mp4") ? "audio.mp4"
+        : req.file.mimetype.includes("ogg") ? "audio.ogg"
+        : "audio.webm";
+      const file = await toFile(req.file.buffer, ext, { type: req.file.mimetype });
+      const response = await openai.audio.transcriptions.create({
+        file,
+        model: "whisper-1",
+        response_format: "verbose_json",
+      });
+      res.json({ text: response.text?.trim() ?? "", language: response.language ?? "" });
+    } catch (err) {
+      req.log.error({ err }, "Whisper transcription failed");
+      res.status(500).json({ error: "Transcription failed" });
+    }
+  },
+);
 
 router.post("/interpreter/translate", async (req, res): Promise<void> => {
   const { text, from, to } = req.body as { text: string; from: string; to: string };
