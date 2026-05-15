@@ -52,9 +52,15 @@ router.post("/activities", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const { startTime, endTime, ...activityRest } = parsed.data;
   const [activity] = await db
     .insert(activitiesTable)
-    .values({ ...parsed.data, isPublished: false })
+    .values({
+      ...activityRest,
+      isPublished: false,
+      startTime: startTime ? new Date(startTime) : null,
+      endTime: endTime ? new Date(endTime) : null,
+    })
     .returning();
   res.status(201).json(activity);
 });

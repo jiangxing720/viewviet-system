@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetLawyers, getGetLawyersQueryKey } from "@workspace/api-client-react";
-import { Search, Scale, Phone, Mail, MessageSquare } from "lucide-react";
+import { Search, Scale, Phone, Mail, MessageSquare, ChevronRight } from "lucide-react";
 import { T } from "@/components/T";
 import { Seo } from "@/components/seo";
 
@@ -15,6 +16,7 @@ const CITIES = ["河内", "胡志明市", "岘港"];
 
 export default function Lawyers() {
   const { t } = useTranslation();
+  const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState<string | undefined>();
   const [city, setCity] = useState<string | undefined>();
@@ -74,72 +76,65 @@ export default function Lawyers() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {lawyers.map((lawyer: any) => (
-            <Card key={lawyer.id} className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+            <Card
+              key={lawyer.id}
+              className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer h-full"
+              onClick={() => navigate(`/lawyers/${lawyer.id}`)}
+            >
               <CardContent className="p-5 space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {lawyer.photo ? (
-                      <img src={lawyer.photo} alt={lawyer.name} className="w-14 h-14 object-cover rounded-full" />
-                    ) : (
-                      <Scale className="w-6 h-6 text-primary" />
-                    )}
+                  <div className="flex items-start gap-3">
+                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden border border-primary/10">
+                      {lawyer.photo ? (
+                        <img src={lawyer.photo} alt={lawyer.name} className="w-14 h-14 object-cover rounded-full" />
+                      ) : (
+                        <Scale className="w-6 h-6 text-primary" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-base">{lawyer.name}</p>
+                      {lawyer.nameEn && lawyer.nameEn !== lawyer.name && <p className="text-xs text-muted-foreground">{lawyer.nameEn}</p>}
+                      {lawyer.title && <p className="text-sm text-muted-foreground"><T>{lawyer.title}</T></p>}
+                      {lawyer.lawFirm && <p className="text-xs text-primary font-medium mt-0.5">{lawyer.lawFirm}</p>}
+                    </div>
+                    {lawyer.isFeatured && <Badge className="ml-auto flex-shrink-0 text-xs">{t("lawyers.featured")}</Badge>}
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-bold text-base">{lawyer.name}</p>
-                    {lawyer.nameEn && lawyer.nameEn !== lawyer.name && <p className="text-xs text-muted-foreground">{lawyer.nameEn}</p>}
-                    {lawyer.title && <p className="text-sm text-muted-foreground"><T>{lawyer.title}</T></p>}
-                    {lawyer.lawFirm && <p className="text-xs text-primary font-medium mt-0.5">{lawyer.lawFirm}</p>}
-                  </div>
-                  {lawyer.isFeatured && <Badge className="ml-auto flex-shrink-0 text-xs">{t("lawyers.featured")}</Badge>}
-                </div>
 
-                {(lawyer.city || lawyer.country) && (
-                  <p className="text-sm text-muted-foreground">{[lawyer.city, lawyer.country].filter(Boolean).join(", ")}</p>
-                )}
+                  {(lawyer.city || lawyer.country) && (
+                    <p className="text-sm text-muted-foreground">{[lawyer.city, lawyer.country].filter(Boolean).join(", ")}</p>
+                  )}
 
-                {lawyer.bio && <p className="text-sm text-muted-foreground line-clamp-3"><T>{lawyer.bio}</T></p>}
+                  {lawyer.bio && <p className="text-sm text-muted-foreground line-clamp-2"><T>{lawyer.bio}</T></p>}
 
-                {lawyer.specialties?.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">{t("lawyers.specialties")}</p>
+                  {lawyer.specialties?.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {(lawyer.specialties as string[]).map((s: string) => (
+                      {(lawyer.specialties as string[]).slice(0, 3).map((s: string) => (
                         <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
                       ))}
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {lawyer.languages?.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {(lawyer.languages as string[]).map((l: string) => (
-                      <Badge key={l} variant="outline" className="text-xs">{l}</Badge>
-                    ))}
+                  <div className="flex items-center gap-2 pt-2 border-t">
+                    {lawyer.email && (
+                      <a href={`mailto:${lawyer.email}`} onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="w-8 h-8"><Mail className="w-4 h-4" /></Button>
+                      </a>
+                    )}
+                    {lawyer.phone && (
+                      <a href={`tel:${lawyer.phone}`} onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="w-8 h-8"><Phone className="w-4 h-4" /></Button>
+                      </a>
+                    )}
+                    {lawyer.whatsapp && (
+                      <a href={`https://wa.me/${lawyer.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="w-8 h-8"><MessageSquare className="w-4 h-4" /></Button>
+                      </a>
+                    )}
+                    <span className="ml-auto flex items-center text-xs text-muted-foreground">
+                      查看详情 <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+                    </span>
                   </div>
-                )}
-
-                <div className="flex gap-2 pt-2 border-t">
-                  {lawyer.email && (
-                    <a href={`mailto:${lawyer.email}`}>
-                      <Button variant="ghost" size="icon" className="w-8 h-8"><Mail className="w-4 h-4" /></Button>
-                    </a>
-                  )}
-                  {lawyer.phone && (
-                    <a href={`tel:${lawyer.phone}`}>
-                      <Button variant="ghost" size="icon" className="w-8 h-8"><Phone className="w-4 h-4" /></Button>
-                    </a>
-                  )}
-                  {lawyer.whatsapp && (
-                    <a href={`https://wa.me/${lawyer.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">
-                      <Button variant="ghost" size="icon" className="w-8 h-8"><MessageSquare className="w-4 h-4" /></Button>
-                    </a>
-                  )}
-                  <Button asChild size="sm" className="ml-auto">
-                    <a href={`mailto:${lawyer.email ?? ""}`}>{t("lawyers.contact")}</a>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
           ))}
         </div>
       )}

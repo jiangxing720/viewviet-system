@@ -3114,6 +3114,90 @@ export const useUpdateLawyer = <
 };
 
 /**
+ * @summary Delete lawyer (admin)
+ */
+export const getDeleteLawyerUrl = (id: number) => {
+  return `/api/admin/lawyers/${id}`;
+};
+
+export const deleteLawyer = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteLawyerUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteLawyerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteLawyer>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteLawyer>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteLawyer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteLawyer>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteLawyer(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteLawyerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteLawyer>>
+>;
+
+export type DeleteLawyerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete lawyer (admin)
+ */
+export const useDeleteLawyer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteLawyer>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteLawyer>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteLawyerMutationOptions(options));
+};
+
+/**
  * @summary List published activities
  */
 export const getGetActivitiesUrl = (params?: GetActivitiesParams) => {

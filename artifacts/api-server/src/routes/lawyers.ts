@@ -6,6 +6,7 @@ import {
   CreateLawyerBody,
   GetLawyerParams,
   UpdateLawyerParams,
+  DeleteLawyerParams,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -85,6 +86,23 @@ router.put("/admin/lawyers/:id", async (req, res): Promise<void> => {
     return;
   }
   res.json(lawyer);
+});
+
+router.delete("/admin/lawyers/:id", async (req, res): Promise<void> => {
+  const params = DeleteLawyerParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [deleted] = await db
+    .delete(lawyersTable)
+    .where(eq(lawyersTable.id, params.data.id))
+    .returning();
+  if (!deleted) {
+    res.status(404).json({ error: "Lawyer not found" });
+    return;
+  }
+  res.status(204).send();
 });
 
 export default router;

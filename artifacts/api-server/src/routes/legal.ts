@@ -210,7 +210,12 @@ router.post("/admin/legal-documents", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [doc] = await db.insert(legalDocumentsTable).values(parsed.data).returning();
+  const { issueDate, effectiveDate, ...rest } = parsed.data;
+  const [doc] = await db.insert(legalDocumentsTable).values({
+    ...rest,
+    issueDate: issueDate ? new Date(issueDate) : null,
+    effectiveDate: effectiveDate ? new Date(effectiveDate) : null,
+  }).returning();
   res.status(201).json(doc);
 });
 
@@ -225,9 +230,14 @@ router.put("/admin/legal-documents/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const { issueDate, effectiveDate, ...rest } = parsed.data;
   const [doc] = await db
     .update(legalDocumentsTable)
-    .set(parsed.data)
+    .set({
+      ...rest,
+      issueDate: issueDate ? new Date(issueDate) : null,
+      effectiveDate: effectiveDate ? new Date(effectiveDate) : null,
+    })
     .where(eq(legalDocumentsTable.id, params.data.id))
     .returning();
   if (!doc) {

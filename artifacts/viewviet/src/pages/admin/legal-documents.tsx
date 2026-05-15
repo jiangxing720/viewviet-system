@@ -97,7 +97,7 @@ export default function AdminLegalDocuments() {
       contentEn: form.contentEn || undefined,
       contentLocal: form.contentLocal || undefined,
     };
-    createDoc.mutate({ data: payload as any }, {
+    createDoc.mutate(payload as any, {
       onSuccess: () => {
         toast({ title: "法律条文已创建" });
         setForm({ ...EMPTY_FORM });

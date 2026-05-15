@@ -941,6 +941,13 @@ export const UpdateLawyerResponse = zod.object({
 });
 
 /**
+ * @summary Delete lawyer (admin)
+ */
+export const DeleteLawyerParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary List published activities
  */
 export const GetActivitiesQueryParams = zod.object({

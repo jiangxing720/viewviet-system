@@ -22,6 +22,9 @@ import GuideDetail from "@/pages/guides/detail";
 import LegalBlog from "@/pages/legal";
 import ArticleDetail from "@/pages/legal/detail";
 import Lawyers from "@/pages/lawyers";
+import LawyerDetail from "@/pages/lawyers/detail";
+import LegalDocuments from "@/pages/legal-documents";
+import LegalDocumentDetail from "@/pages/legal-documents/detail";
 import Community from "@/pages/community";
 import ActivityDetail from "@/pages/community/detail";
 import InterpreterPage from "@/pages/interpreter";
@@ -81,7 +84,10 @@ function Router() {
         {/* Legal */}
         <Route path="/legal" component={LegalBlog} />
         <Route path="/legal/:slug" component={ArticleDetail} />
+        <Route path="/legal-documents" component={LegalDocuments} />
+        <Route path="/legal-documents/:slug" component={LegalDocumentDetail} />
         <Route path="/lawyers" component={Lawyers} />
+        <Route path="/lawyers/:id" component={LawyerDetail} />
 
         {/* Community */}
         <Route path="/community" component={Community} />
