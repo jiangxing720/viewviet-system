@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useGetActivities, getGetActivitiesQueryKey } from "@workspace/api-client-react";
 import { Calendar, MapPin, Users, Plus } from "lucide-react";
 import { T } from "@/components/T";
+import { Seo } from "@/components/seo";
 
 const CATEGORIES = ["文化", "户外", "商务", "美食", "语言交流", "志愿者"];
 
@@ -25,6 +26,11 @@ export default function Community() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <Seo
+        title="社区活动"
+        description="东南亚华人社区活动——文化交流、户外探索、商务社交、美食聚会、语言学习，一起融入当地生活。"
+        path="/community"
+      />
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold mb-2">{t("community.title")}</h1>

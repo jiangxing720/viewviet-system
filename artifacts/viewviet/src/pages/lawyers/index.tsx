@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useGetLawyers, getGetLawyersQueryKey } from "@workspace/api-client-react";
 import { Search, Scale, Phone, Mail, MessageSquare } from "lucide-react";
 import { T } from "@/components/T";
+import { Seo } from "@/components/seo";
 
 const COUNTRIES = ["越南", "中国", "东南亚"];
 const CITIES = ["河内", "胡志明市", "岘港"];
@@ -27,6 +28,11 @@ export default function Lawyers() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <Seo
+        title="律师查询"
+        description="查找东南亚懂中文的律师——越南、泰国、马来西亚、新加坡等国家，劳动法、公司法、移民、房产领域专业律师。"
+        path="/lawyers"
+      />
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold mb-2">{t("lawyers.title")}</h1>
         <p className="text-muted-foreground">{t("lawyers.subtitle")}</p>

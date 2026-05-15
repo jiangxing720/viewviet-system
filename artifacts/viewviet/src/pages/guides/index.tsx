@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useGetTravelGuides, getGetTravelGuidesQueryKey, useGetFeaturedTravelGuides, getGetFeaturedTravelGuidesQueryKey } from "@workspace/api-client-react";
 import { Search, MapPin, Eye, Compass } from "lucide-react";
 import { T } from "@/components/T";
+import { Seo } from "@/components/seo";
 
 const CATEGORIES = ["美食", "文化", "户外", "夜生活", "购物", "咖啡", "住宿"];
 const COUNTRIES = ["越南", "中国", "东南亚"];
@@ -36,6 +37,11 @@ export default function TravelGuides() {
 
   return (
     <div className="flex flex-col gap-10 pb-12">
+      <Seo
+        title="旅行攻略"
+        description="越南、泰国、马来西亚等东南亚国家旅行攻略——美食、文化、户外、购物、住宿，华人视角深度指南。"
+        path="/guides"
+      />
       {/* Featured banner */}
       {featuredList.length > 0 && (
         <div className="relative h-[300px] md:h-[420px] overflow-hidden bg-muted">

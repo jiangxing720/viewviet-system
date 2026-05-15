@@ -8,6 +8,7 @@ import { parseMarkdown } from "@/lib/markdown";
 import { T } from "@/components/T";
 import { useTranslation } from "react-i18next";
 import { useTranslate } from "@/hooks/use-translate";
+import { Seo } from "@/components/seo";
 
 function TranslatedContent({ content, lang }: { content: string | undefined | null; lang: "en" | "vi" }) {
   const translated = useTranslate(content);
@@ -66,6 +67,12 @@ export default function GuideDetail() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-6" data-testid="page-guide-detail">
+      <Seo
+        title={g?.title}
+        description={g?.summary ?? undefined}
+        path={`/guides/${id}`}
+        type="article"
+      />
       <Link href="/guides">
         <Button variant="ghost" size="sm" data-testid="button-back-guides">
           <ArrowLeft className="w-4 h-4 mr-1" />Back to Guides

@@ -13,6 +13,7 @@ import {
 } from "@workspace/api-client-react";
 import { Search, Eye, Scale, Globe } from "lucide-react";
 import { T } from "@/components/T";
+import { Seo } from "@/components/seo";
 
 const COUNTRIES = ["越南", "东南亚", "中国"];
 
@@ -41,6 +42,11 @@ export default function LegalBlog() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <Seo
+        title="法律资讯"
+        description="东南亚华人必读的法律资讯——越南、泰国、马来西亚等国的劳动法、外商投资、签证移民政策，中文解读。"
+        path="/legal"
+      />
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold mb-2">{t("legal.title")}</h1>
         <p className="text-muted-foreground">{t("legal.subtitle")}</p>

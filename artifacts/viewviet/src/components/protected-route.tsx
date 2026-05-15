@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/auth";
+import { Helmet } from "react-helmet-async";
 
 interface Props {
   children: React.ReactNode;
@@ -33,5 +34,12 @@ export default function ProtectedAdminRoute({ children, redirectTo = "/admin/log
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <Helmet>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
+      {children}
+    </>
+  );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
+import { Seo } from "@/components/seo";
 
 const LANG_STORAGE_KEY = "vv-learn-languages";
 
@@ -127,6 +128,11 @@ export default function LearnHub() {
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)]">
+      <Seo
+        title="语言学习"
+        description="学越南语、英语、中文、韩语——词汇、场景对话、复杂语法，配真人语音朗读，专为东南亚华人设计。"
+        path="/learn"
+      />
       {/* ── Left panel: Language selection ── */}
       <div className="w-full md:w-[42%] flex flex-col justify-center px-6 py-10 md:px-12 md:py-16 bg-background">
         <div className="max-w-sm mx-auto md:mx-0 w-full space-y-7">

@@ -12,6 +12,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, Scale, Users, BookOpen, Globe, ArrowRight, Calendar } from "lucide-react";
 import { T } from "@/components/T";
+import { Seo } from "@/components/seo";
 
 export default function Home() {
   const { t } = useTranslation();
@@ -22,6 +23,10 @@ export default function Home() {
 
   return (
     <div className="flex flex-col gap-12 md:gap-16 pb-16">
+      <Seo
+        path="/"
+        description="越南语学习、东南亚旅行攻略、法律资讯、律师查询、华人社区活动，一站式服务旅居东南亚的华人。"
+      />
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-white py-20 md:py-24 px-4">
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=1600)", backgroundSize: "cover", backgroundPosition: "center" }} />

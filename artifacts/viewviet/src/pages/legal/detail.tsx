@@ -12,6 +12,7 @@ import { parseMarkdown } from "@/lib/markdown";
 import { T } from "@/components/T";
 import { useTranslation } from "react-i18next";
 import { useTranslate } from "@/hooks/use-translate";
+import { Seo } from "@/components/seo";
 
 function TranslatedContent({ content }: { content: string | undefined | null }) {
   const translated = useTranslate(content);
@@ -61,6 +62,12 @@ export default function ArticleDetail() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8" data-testid="page-article-detail">
+      <Seo
+        title={a?.title}
+        description={a?.summary ?? undefined}
+        path={`/legal/${slug}`}
+        type="article"
+      />
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
         <Link href="/legal" data-testid="link-breadcrumb-legal">
