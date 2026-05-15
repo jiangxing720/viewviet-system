@@ -60,8 +60,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link href="/guides" className={`hover:text-primary transition-colors ${location.startsWith("/guides") ? "text-primary" : ""}`}>
                 {t("nav.guides")}
               </Link>
-              <Link href="/legal" className={`hover:text-primary transition-colors ${location.startsWith("/legal") ? "text-primary" : ""}`}>
+              <Link href="/legal" className={`hover:text-primary transition-colors ${location.startsWith("/legal") && !location.startsWith("/legal-documents") ? "text-primary" : ""}`}>
                 {t("nav.legal")}
+              </Link>
+              <Link href="/legal-documents" className={`hover:text-primary transition-colors ${location.startsWith("/legal-documents") ? "text-primary" : ""}`}>
+                {t("nav.legalDocs")}
               </Link>
               <Link href="/lawyers" className={`hover:text-primary transition-colors ${location.startsWith("/lawyers") ? "text-primary" : ""}`}>
                 {t("nav.lawyers")}
@@ -168,6 +171,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       <MobileNavLink href="/learn" icon={BookOpen} title={t("nav.learn")} />
                       <MobileNavLink href="/guides" icon={Compass} title={t("nav.guides")} />
                       <MobileNavLink href="/legal" icon={Scale} title={t("nav.legal")} />
+                      <MobileNavLink href="/legal-documents" icon={FileText} title={t("nav.legalDocs")} />
                       <MobileNavLink href="/lawyers" icon={Shield} title={t("nav.lawyers")} />
                       <MobileNavLink href="/community" icon={Users} title={t("nav.community")} />
                       <MobileNavLink href="/interpreter" icon={Languages} title={t("nav.interpreter")} />
@@ -235,6 +239,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link href="/guides" className="hover:text-primary">{t("nav.guides")}</Link></li>
                 <li><Link href="/legal" className="hover:text-primary">{t("nav.legal")}</Link></li>
+                <li><Link href="/legal-documents" className="hover:text-primary">{t("nav.legalDocs")}</Link></li>
                 <li><Link href="/lawyers" className="hover:text-primary">{t("nav.lawyers")}</Link></li>
                 <li><Link href="/community" className="hover:text-primary">{t("nav.community")}</Link></li>
                 <li><Link href="/interpreter" className="hover:text-primary">{t("nav.interpreter")}</Link></li>
