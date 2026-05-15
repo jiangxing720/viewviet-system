@@ -15,7 +15,7 @@ import {
   useDeleteLegalDocument,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Pencil, X, FileText, Globe, Calendar } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, X, FileText, Globe, Calendar, Link2, Loader2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -58,6 +58,8 @@ export default function AdminLegalDocuments() {
   const [editDoc, setEditDoc] = useState<any | null>(null);
   const [country, setCountry] = useState<string>("");
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [importUrl, setImportUrl] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
 
   const { data: resp, isLoading } = useGetLegalDocuments(
     { country: country || undefined, limit: 50 } as any,
@@ -75,6 +77,47 @@ export default function AdminLegalDocuments() {
       if (k === "titleZh" && !prev.slug) next.slug = generateSlug(e.target.value);
       return next;
     });
+
+  const handleImportUrl = async () => {
+    if (!importUrl.trim()) return;
+    setIsImporting(true);
+    try {
+      const res = await fetch(`${BASE}/api/admin/legal-documents/import-url`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: importUrl.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "提取失败");
+      // Fill the form with AI-extracted data
+      setForm((prev) => ({
+        ...prev,
+        titleZh: data.titleZh ?? prev.titleZh,
+        titleEn: data.titleEn ?? prev.titleEn,
+        titleLocal: data.titleLocal ?? prev.titleLocal,
+        slug: data.titleZh ? generateSlug(data.titleZh) : prev.slug,
+        documentNumber: data.documentNumber ?? prev.documentNumber,
+        documentType: data.documentType ?? prev.documentType,
+        country: data.country ?? prev.country,
+        category: data.category ?? prev.category,
+        issuingBody: data.issuingBody ?? prev.issuingBody,
+        issueDate: data.issueDate ?? prev.issueDate,
+        effectiveDate: data.effectiveDate ?? prev.effectiveDate,
+        contentZh: data.contentZh ?? prev.contentZh,
+        contentEn: data.contentEn ?? prev.contentEn,
+        contentLocal: data.contentLocal ?? prev.contentLocal,
+        tags: Array.isArray(data.tags) ? data.tags.join(", ") : prev.tags,
+      }));
+      setTab("add");
+      toast({ title: "AI 提取成功，请检查并补充后保存" });
+      setImportUrl("");
+    } catch (e: any) {
+      toast({ title: e?.message ?? "提取失败，请重试", variant: "destructive" });
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,7 +164,7 @@ export default function AdminLegalDocuments() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Link href="/admin">
           <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4 mr-1" />{t("admin.dashboard")}</Button>
         </Link>
@@ -130,6 +173,38 @@ export default function AdminLegalDocuments() {
         <Button size="sm" className="ml-auto" onClick={() => { setForm({ ...EMPTY_FORM }); setTab("add"); }}>
           <Plus className="w-4 h-4 mr-1" />新增条文
         </Button>
+      </div>
+
+      {/* AI URL Import Panel */}
+      <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <span className="text-sm font-semibold text-primary">AI 智能导入</span>
+          <span className="text-xs text-muted-foreground">粘贴法律文件网页链接，AI 自动识别并翻译成三种语言</span>
+        </div>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              className="pl-9 bg-background"
+              placeholder="粘贴法律条文网页地址，例如 https://luatvietnam.vn/..."
+              value={importUrl}
+              onChange={(e) => setImportUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !isImporting && handleImportUrl()}
+              disabled={isImporting}
+            />
+          </div>
+          <Button onClick={handleImportUrl} disabled={isImporting || !importUrl.trim()} className="gap-1.5 shrink-0">
+            {isImporting ? (
+              <><Loader2 className="w-4 h-4 animate-spin" />AI 识别中...</>
+            ) : (
+              <><Sparkles className="w-4 h-4" />AI 提取</>
+            )}
+          </Button>
+        </div>
+        {isImporting && (
+          <p className="text-xs text-muted-foreground mt-2">正在抓取网页内容并调用 AI 提取+翻译，通常需要 10-20 秒...</p>
+        )}
       </div>
 
       {/* Tabs */}

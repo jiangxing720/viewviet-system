@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, ilike, and, sql, desc, ne } from "drizzle-orm";
 import { db, legalArticlesTable, legalDocumentsTable } from "@workspace/db";
+import { openai } from "@workspace/integrations-openai-ai-server";
 import {
   GetLegalArticlesQueryParams,
   CreateLegalArticleBody,
@@ -222,6 +223,87 @@ router.get("/legal-documents/:slug", async (req, res): Promise<void> => {
     return;
   }
   res.json(doc);
+});
+
+// AI: import legal document from URL
+router.post("/admin/legal-documents/import-url", async (req, res): Promise<void> => {
+  const { url } = req.body as { url?: string };
+  if (!url || typeof url !== "string") {
+    res.status(400).json({ error: "url is required" });
+    return;
+  }
+
+  // Fetch the page
+  let rawHtml: string;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; ViewViet-Bot/1.0)" },
+    });
+    clearTimeout(timeout);
+    rawHtml = await response.text();
+  } catch (err: any) {
+    res.status(400).json({ error: `无法访问该链接: ${err?.message ?? err}` });
+    return;
+  }
+
+  // Strip HTML tags, collapse whitespace, limit length
+  const plainText = rawHtml
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+    .slice(0, 12000);
+
+  const systemPrompt = `你是专业的法律文件信息提取助手，帮助从网页文字中识别并提取东盟国家的法律条文信息。
+请根据提供的网页内容，提取法律文件的结构化数据，并将相关内容翻译成中文、英文和当地语言（根据所属国家判断：越南→Vietnamese，泰国→Thai，缅甸→Burmese，柬埔寨→Khmer，老挝→Lao，马来西亚→Malay，新加坡→English，印度尼西亚→Indonesian，菲律宾→Filipino，文莱→Malay）。
+
+必须返回有效的 JSON 格式，包含以下字段（所有字段都可为 null 如果找不到对应信息）：
+{
+  "titleZh": "法律条文中文标题",
+  "titleEn": "English title",
+  "titleLocal": "当地语言标题",
+  "documentNumber": "文号/编号",
+  "documentType": "文件类型（宪法/法律/法令/条例/决议/通知/协定/议定书/其他）",
+  "country": "所属东盟国家（中文名：越南/泰国/缅甸/柬埔寨/老挝/马来西亚/新加坡/印度尼西亚/菲律宾/文莱）",
+  "category": "法律领域（劳动法/税法/公司法/外商投资/移民/房产/知识产权/海关/刑法/民法/其他）",
+  "issuingBody": "颁发机构",
+  "issueDate": "颁布日期 YYYY-MM-DD 格式，如不知道则 null",
+  "effectiveDate": "生效日期 YYYY-MM-DD 格式，如不知道则 null",
+  "contentZh": "条文主要内容的中文摘要或翻译（500字以内）",
+  "contentEn": "Main content summary in English (within 500 words)",
+  "contentLocal": "当地语言摘要（500词以内）",
+  "tags": ["相关标签数组，最多5个"]
+}
+只返回 JSON，不要加任何其他文字。`;
+
+  let extracted: any;
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5.1",
+      max_completion_tokens: 4096,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `请从以下网页内容中提取法律条文信息：\n\n${plainText}` },
+      ],
+    });
+    const raw = completion.choices[0]?.message?.content ?? "";
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("AI 未返回有效 JSON");
+    extracted = JSON.parse(jsonMatch[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: `AI 提取失败: ${err?.message ?? err}` });
+    return;
+  }
+
+  res.json(extracted);
 });
 
 router.post("/admin/legal-documents", async (req, res): Promise<void> => {
