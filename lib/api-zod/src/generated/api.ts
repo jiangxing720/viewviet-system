@@ -1135,3 +1135,82 @@ export const GetDashboardResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * @summary Get all public site settings as key-value map
+ */
+export const GetSettingsResponse = zod.record(zod.string(), zod.string());
+
+/**
+ * @summary Get all settings with metadata (admin)
+ */
+export const GetAdminSettingsResponseItem = zod.object({
+  key: zod.string(),
+  value: zod.string(),
+  section: zod.string(),
+  label: zod.string(),
+  description: zod.string().nullish(),
+  fieldType: zod.string(),
+  sortOrder: zod.number(),
+});
+export const GetAdminSettingsResponse = zod.array(GetAdminSettingsResponseItem);
+
+/**
+ * @summary Bulk upsert settings (admin)
+ */
+export const UpdateSettingsBodyItem = zod.object({
+  key: zod.string(),
+  value: zod.string(),
+});
+export const UpdateSettingsBody = zod.array(UpdateSettingsBodyItem);
+
+export const UpdateSettingsResponse = zod.record(zod.string(), zod.string());
+
+/**
+ * @summary List admin users
+ */
+export const GetAdminUsersResponseItem = zod.object({
+  id: zod.number(),
+  username: zod.string(),
+  email: zod.string(),
+  displayName: zod.string().nullish(),
+  role: zod.string(),
+  createdAt: zod.string(),
+});
+export const GetAdminUsersResponse = zod.array(GetAdminUsersResponseItem);
+
+/**
+ * @summary Create a new admin user
+ */
+export const CreateAdminUserBody = zod.object({
+  username: zod.string(),
+  email: zod.string(),
+  password: zod.string(),
+  displayName: zod.string().optional(),
+});
+
+/**
+ * @summary Delete an admin user
+ */
+export const DeleteAdminUserParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteAdminUserResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Change password for an admin user
+ */
+export const UpdateAdminUserPasswordParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAdminUserPasswordBody = zod.object({
+  newPassword: zod.string(),
+});
+
+export const UpdateAdminUserPasswordResponse = zod.object({
+  ok: zod.boolean(),
+});

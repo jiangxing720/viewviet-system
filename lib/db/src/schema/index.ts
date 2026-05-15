@@ -5,3 +5,4 @@ export * from "./travel";
 export * from "./lawyers";
 export * from "./activities";
 export * from "./users";
+export * from "./settings";

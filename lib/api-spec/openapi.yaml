@@ -28,6 +28,10 @@ tags:
     description: Community activities
   - name: dashboard
     description: Admin dashboard stats
+  - name: settings
+    description: Site settings / content management
+  - name: adminUsers
+    description: Admin user management
 
 paths:
   /healthz:
@@ -893,6 +897,130 @@ paths:
               schema:
                 $ref: "#/components/schemas/DashboardStats"
 
+  # ── Site Settings (public) ────────────────────────────────────────────────
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get all public site settings as key-value map
+      responses:
+        "200":
+          description: Settings map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsMap"
+
+  # ── Admin: Site Settings ──────────────────────────────────────────────────
+  /admin/settings:
+    get:
+      operationId: getAdminSettings
+      tags: [settings]
+      summary: Get all settings with metadata (admin)
+      responses:
+        "200":
+          description: Full settings list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SiteSetting"
+    put:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Bulk upsert settings (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/SiteSettingUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsMap"
+
+  # ── Admin: Users ──────────────────────────────────────────────────────────
+  /admin/users:
+    get:
+      operationId: getAdminUsers
+      tags: [adminUsers]
+      summary: List admin users
+      responses:
+        "200":
+          description: Admin user list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUser"
+    post:
+      operationId: createAdminUser
+      tags: [adminUsers]
+      summary: Create a new admin user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAdminUserInput"
+      responses:
+        "201":
+          description: Created admin user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+
+  /admin/users/{id}:
+    delete:
+      operationId: deleteAdminUser
+      tags: [adminUsers]
+      summary: Delete an admin user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
+  /admin/users/{id}/password:
+    put:
+      operationId: updateAdminUserPassword
+      tags: [adminUsers]
+      summary: Change password for an admin user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePasswordInput"
+      responses:
+        "200":
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -1566,6 +1694,85 @@ components:
         coverImage:
           type: ["string", "null"]
       required: [title]
+
+    # ── Settings ──────────────────────────────────────────────────────────────
+    SettingsMap:
+      type: object
+      additionalProperties:
+        type: string
+
+    SiteSetting:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+        section:
+          type: string
+        label:
+          type: string
+        description:
+          type: ["string", "null"]
+        fieldType:
+          type: string
+        sortOrder:
+          type: integer
+      required: [key, value, section, label, fieldType, sortOrder]
+
+    SiteSettingUpdate:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+      required: [key, value]
+
+    # ── Admin Users ───────────────────────────────────────────────────────────
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+        displayName:
+          type: ["string", "null"]
+        role:
+          type: string
+        createdAt:
+          type: string
+      required: [id, username, email, role, createdAt]
+
+    CreateAdminUserInput:
+      type: object
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        displayName:
+          type: string
+      required: [username, email, password]
+
+    UpdatePasswordInput:
+      type: object
+      properties:
+        newPassword:
+          type: string
+      required: [newPassword]
+
+    OkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required: [ok]
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
     DashboardStats:

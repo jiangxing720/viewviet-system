@@ -8,18 +8,77 @@ import {
   useGetFeaturedLegalArticles,
   useGetFeaturedLawyers,
   useGetActivities,
+  useGetSettings,
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, Scale, Users, BookOpen, Globe, ArrowRight, Calendar } from "lucide-react";
 import { T } from "@/components/T";
 import { Seo } from "@/components/seo";
 
+function useSiteSettings() {
+  const { data } = useGetSettings();
+  return (data as Record<string, string> | undefined) ?? {};
+}
+
 export default function Home() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: guides, isLoading: guidesLoading } = useGetFeaturedTravelGuides();
   const { data: articles, isLoading: articlesLoading } = useGetFeaturedLegalArticles();
   const { data: lawyers, isLoading: lawyersLoading } = useGetFeaturedLawyers();
   const { data: activities, isLoading: activitiesLoading } = useGetActivities({ upcoming: true });
+  const s = useSiteSettings();
+
+  const lang = i18n.language?.startsWith("en") ? "en" : i18n.language?.startsWith("vi") ? "vi" : "zh";
+
+  const heroTitle = s[`home.hero_title_${lang}`] || s["home.hero_title_zh"] || t("home.hero_title");
+  const heroSubtitle = s[`home.hero_subtitle_${lang}`] || s["home.hero_subtitle_zh"] || t("home.hero_subtitle");
+  const heroBadge = s["home.hero_badge"] || "中越跨境生活平台";
+  const heroBgImage = s["home.hero_bg_image"] || "https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=1600";
+  const ctaPrimaryLabel = s["home.hero_cta_primary_label"] || t("home.hero_cta_learn");
+  const ctaPrimaryUrl = s["home.hero_cta_primary_url"] || "/learn";
+  const ctaSecondaryLabel = s["home.hero_cta_secondary_label"] || t("home.hero_cta_guides");
+  const ctaSecondaryUrl = s["home.hero_cta_secondary_url"] || "/guides";
+
+  const sectionGuides = s["home.section_guides_title"] || t("home.featured_guides");
+  const sectionLegal = s["home.section_legal_title"] || t("home.legal_resources");
+  const sectionLawyers = s["home.section_lawyers_title"] || t("home.featured_lawyers");
+  const sectionActivities = s["home.section_activities_title"] || t("home.upcoming_activities");
+
+  const moduleCards = [
+    {
+      href: s["home.hero_cta_primary_url"] || "/learn/vi/words",
+      icon: BookOpen,
+      label: s["home.module_vietnamese_label"] || t("home.module_vietnamese"),
+      sub: s["home.module_vietnamese_sub"] || t("home.module_words"),
+      color: "text-primary",
+    },
+    {
+      href: "/guides",
+      icon: MapPin,
+      label: s["home.module_travel_label"] || t("home.module_travel"),
+      sub: s["home.module_travel_sub"] || t("home.module_explore"),
+      color: "text-amber-500",
+    },
+    {
+      href: "/legal",
+      icon: Scale,
+      label: s["home.module_legal_label"] || t("home.module_legal"),
+      sub: s["home.module_legal_sub"] || t("home.module_laws"),
+      color: "text-blue-500",
+    },
+    {
+      href: "/community",
+      icon: Users,
+      label: s["home.module_community_label"] || t("home.module_community"),
+      sub: s["home.module_community_sub"] || t("home.module_events"),
+      color: "text-green-500",
+    },
+  ];
+
+  const ctaTitle = s["home.cta_title"] || t("home.cta_title");
+  const ctaSubtitle = s["home.cta_subtitle"] || t("home.cta_subtitle");
+  const ctaButtonLabel = s["home.cta_button_label"] || t("home.cta_button");
+  const ctaButtonUrl = s["home.cta_button_url"] || "/learn";
 
   return (
     <div className="flex flex-col gap-12 md:gap-16 pb-16">
@@ -29,23 +88,26 @@ export default function Home() {
       />
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-white py-20 md:py-24 px-4">
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=1600)", backgroundSize: "cover", backgroundPosition: "center" }} />
+        <div
+          className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: `url(${heroBgImage})`, backgroundSize: "cover", backgroundPosition: "center" }}
+        />
         <div className="relative container mx-auto max-w-5xl text-center space-y-6">
           <Badge className="bg-accent/20 text-accent-foreground border-accent/30 text-sm px-4 py-1">
-            中越跨境生活平台
+            {heroBadge}
           </Badge>
           <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
-            {t("home.hero_title")}
+            {heroTitle}
           </h1>
           <p className="text-base md:text-xl text-white/80 max-w-2xl mx-auto">
-            {t("home.hero_subtitle")}
+            {heroSubtitle}
           </p>
           <div className="flex flex-wrap justify-center gap-4 pt-4">
             <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 font-semibold">
-              <Link href="/learn">{t("home.hero_cta_learn")}</Link>
+              <Link href={ctaPrimaryUrl}>{ctaPrimaryLabel}</Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="border-white/40 text-white hover:bg-white/10">
-              <Link href="/guides">{t("home.hero_cta_guides")}</Link>
+              <Link href={ctaSecondaryUrl}>{ctaSecondaryLabel}</Link>
             </Button>
           </div>
         </div>
@@ -54,12 +116,7 @@ export default function Home() {
       {/* Quick access modules */}
       <section className="container mx-auto px-4 max-w-6xl">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-          {[
-            { href: "/learn/vi/words", icon: BookOpen, label: t("home.module_vietnamese"), sub: t("home.module_words"), color: "text-primary" },
-            { href: "/guides", icon: MapPin, label: t("home.module_travel"), sub: t("home.module_explore"), color: "text-amber-500" },
-            { href: "/legal", icon: Scale, label: t("home.module_legal"), sub: t("home.module_laws"), color: "text-blue-500" },
-            { href: "/community", icon: Users, label: t("home.module_community"), sub: t("home.module_events"), color: "text-green-500" },
-          ].map(({ href, icon: Icon, label, sub, color }) => (
+          {moduleCards.map(({ href, icon: Icon, label, sub, color }) => (
             <Link key={href} href={href}>
               <Card className="cursor-pointer hover:-translate-y-1 hover:shadow-lg transition-all duration-300 text-center p-4 md:p-6">
                 <Icon className={`w-7 h-7 md:w-8 md:h-8 mx-auto mb-2 md:mb-3 ${color}`} />
@@ -74,7 +131,7 @@ export default function Home() {
       {/* Featured Travel Guides */}
       <section className="container mx-auto px-4 max-w-6xl space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl md:text-2xl font-bold">{t("home.featured_guides")}</h2>
+          <h2 className="text-xl md:text-2xl font-bold">{sectionGuides}</h2>
           <Button asChild variant="ghost" size="sm">
             <Link href="/guides">{t("home.view_all")} <ArrowRight className="ml-1 w-4 h-4" /></Link>
           </Button>
@@ -112,7 +169,7 @@ export default function Home() {
       <section className="bg-muted/40 py-12">
         <div className="container mx-auto px-4 max-w-6xl space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl md:text-2xl font-bold">{t("home.legal_resources")}</h2>
+            <h2 className="text-xl md:text-2xl font-bold">{sectionLegal}</h2>
             <Button asChild variant="ghost" size="sm">
               <Link href="/legal">{t("home.view_all")} <ArrowRight className="ml-1 w-4 h-4" /></Link>
             </Button>
@@ -147,7 +204,7 @@ export default function Home() {
       {/* Featured Lawyers */}
       <section className="container mx-auto px-4 max-w-6xl space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl md:text-2xl font-bold">{t("home.featured_lawyers")}</h2>
+          <h2 className="text-xl md:text-2xl font-bold">{sectionLawyers}</h2>
           <Button asChild variant="ghost" size="sm">
             <Link href="/lawyers">{t("home.view_all")} <ArrowRight className="ml-1 w-4 h-4" /></Link>
           </Button>
@@ -177,8 +234,8 @@ export default function Home() {
                   </div>
                   {lawyer.specialties?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-3">
-                      {(lawyer.specialties as string[]).slice(0, 2).map((s: string) => (
-                        <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+                      {(lawyer.specialties as string[]).slice(0, 2).map((sp: string) => (
+                        <Badge key={sp} variant="secondary" className="text-xs">{sp}</Badge>
                       ))}
                     </div>
                   )}
@@ -193,7 +250,7 @@ export default function Home() {
       <section className="bg-muted/40 py-12">
         <div className="container mx-auto px-4 max-w-6xl space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl md:text-2xl font-bold">{t("home.upcoming_activities")}</h2>
+            <h2 className="text-xl md:text-2xl font-bold">{sectionActivities}</h2>
             <Button asChild variant="ghost" size="sm">
               <Link href="/community">{t("home.view_all")} <ArrowRight className="ml-1 w-4 h-4" /></Link>
             </Button>
@@ -235,10 +292,10 @@ export default function Home() {
       <section className="container mx-auto px-4 max-w-6xl">
         <Card className="bg-primary/5 border-primary/20 p-6 md:p-8 text-center">
           <Globe className="w-12 h-12 text-primary mx-auto mb-4" />
-          <h2 className="text-xl md:text-2xl font-bold mb-2">{t("home.cta_title")}</h2>
-          <p className="text-muted-foreground mb-6 text-sm md:text-base">{t("home.cta_subtitle")}</p>
+          <h2 className="text-xl md:text-2xl font-bold mb-2">{ctaTitle}</h2>
+          <p className="text-muted-foreground mb-6 text-sm md:text-base">{ctaSubtitle}</p>
           <Button asChild size="lg">
-            <Link href="/learn">{t("home.cta_button")}</Link>
+            <Link href={ctaButtonUrl}>{ctaButtonLabel}</Link>
           </Button>
         </Card>
       </section>

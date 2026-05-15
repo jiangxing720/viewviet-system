@@ -9,7 +9,7 @@ import { AuthProvider } from "@/contexts/auth";
 import ProtectedAdminRoute from "@/components/protected-route";
 import "@/i18n";
 import { useEffect } from "react";
-import { initSiteSettings } from "@/pages/admin/settings";
+import { useGetSettings } from "@workspace/api-client-react";
 
 // Pages
 import Home from "@/pages/home";
@@ -43,6 +43,7 @@ import AdminLawyers from "@/pages/admin/lawyers";
 import AdminActivities from "@/pages/admin/activities";
 import AdminSettings from "@/pages/admin/settings";
 import AdminLanguages from "@/pages/admin/languages";
+import AdminUsers from "@/pages/admin/users";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,10 +54,15 @@ const queryClient = new QueryClient({
   },
 });
 
-function SiteSettingsInit() {
+function ColorSyncer() {
+  const { data } = useGetSettings();
   useEffect(() => {
-    initSiteSettings();
-  }, []);
+    if (!data) return;
+    const map = data as Record<string, string>;
+    const root = document.documentElement;
+    if (map["theme.primary_hsl"]) root.style.setProperty("--primary", map["theme.primary_hsl"]);
+    if (map["theme.accent_hsl"]) root.style.setProperty("--accent", map["theme.accent_hsl"]);
+  }, [data]);
   return null;
 }
 
@@ -127,6 +133,9 @@ function Router() {
         <Route path="/admin/languages">
           {() => <ProtectedAdminRoute><AdminLanguages /></ProtectedAdminRoute>}
         </Route>
+        <Route path="/admin/users">
+          {() => <ProtectedAdminRoute><AdminUsers /></ProtectedAdminRoute>}
+        </Route>
 
         <Route component={NotFound} />
       </Switch>
@@ -140,7 +149,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TooltipProvider>
-            <SiteSettingsInit />
+            <ColorSyncer />
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <Router />
             </WouterRouter>

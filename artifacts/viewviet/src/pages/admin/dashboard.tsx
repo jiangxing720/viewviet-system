@@ -40,6 +40,7 @@ export default function AdminDashboard() {
           <Link href="/admin/activities"><Badge variant="outline" className="cursor-pointer hover:bg-muted">Activities</Badge></Link>
           <Link href="/admin/languages"><Badge variant="outline" className="cursor-pointer hover:bg-muted">Languages</Badge></Link>
           <Link href="/admin/settings"><Badge variant="outline" className="cursor-pointer hover:bg-muted">Settings</Badge></Link>
+          <Link href="/admin/users"><Badge variant="outline" className="cursor-pointer hover:bg-muted">管理员</Badge></Link>
         </div>
       </div>
 

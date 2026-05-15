@@ -86,6 +86,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link href="/admin/lawyers" className={`hover:text-primary ${location === "/admin/lawyers" ? "text-primary" : ""}`}>{t("admin.lawyers")}</Link>
               <Link href="/admin/activities" className={`hover:text-primary ${location === "/admin/activities" ? "text-primary" : ""}`}>{t("admin.activities")}</Link>
               <Link href="/admin/settings" className={`hover:text-primary ${location === "/admin/settings" ? "text-primary" : ""}`}>{t("admin.settings")}</Link>
+              <Link href="/admin/users" className={`hover:text-primary ${location === "/admin/users" ? "text-primary" : ""}`}>管理员</Link>
             </nav>
           )}
 
@@ -239,12 +240,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <li><Link href="/interpreter" className="hover:text-primary">{t("nav.interpreter")}</Link></li>
               </ul>
             </div>
-            <div>
-              <h4 className="font-semibold mb-4">{t("footer.admin")}</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="/admin" className="hover:text-primary">{t("admin.dashboard")}</Link></li>
-              </ul>
-            </div>
+            {isAdmin && (
+              <div>
+                <h4 className="font-semibold mb-4">{t("footer.admin")}</h4>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li><Link href="/admin" className="hover:text-primary">{t("admin.dashboard")}</Link></li>
+                </ul>
+              </div>
+            )}
           </div>
           <div className="container mx-auto px-4 mt-12 pt-8 border-t border-border text-center text-sm text-muted-foreground">
             &copy; {new Date().getFullYear()} ViewViet. {t("footer.rights")}.

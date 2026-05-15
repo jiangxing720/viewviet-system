@@ -9,6 +9,8 @@ import activitiesRouter from "./activities";
 import dashboardRouter from "./dashboard";
 import authRouter from "./auth";
 import interpreterRouter from "./interpreter";
+import settingsRouter from "./settings";
+import adminUsersRouter from "./admin-users";
 
 const router: IRouter = Router();
 
@@ -22,5 +24,7 @@ router.use(travelRouter);
 router.use(lawyersRouter);
 router.use(activitiesRouter);
 router.use(dashboardRouter);
+router.use(settingsRouter);
+router.use(adminUsersRouter);
 
 export default router;

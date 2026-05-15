@@ -504,6 +504,51 @@ export interface CreateActivityBody {
   coverImage?: string | null;
 }
 
+export interface SettingsMap {
+  [key: string]: string;
+}
+
+export interface SiteSetting {
+  key: string;
+  value: string;
+  section: string;
+  label: string;
+  /** @nullable */
+  description?: string | null;
+  fieldType: string;
+  sortOrder: number;
+}
+
+export interface SiteSettingUpdate {
+  key: string;
+  value: string;
+}
+
+export interface AdminUser {
+  id: number;
+  username: string;
+  email: string;
+  /** @nullable */
+  displayName?: string | null;
+  role: string;
+  createdAt: string;
+}
+
+export interface CreateAdminUserInput {
+  username: string;
+  email: string;
+  password: string;
+  displayName?: string;
+}
+
+export interface UpdatePasswordInput {
+  newPassword: string;
+}
+
+export interface OkResponse {
+  ok: boolean;
+}
+
 export interface DashboardStats {
   totalWords: number;
   totalLegalArticles: number;
