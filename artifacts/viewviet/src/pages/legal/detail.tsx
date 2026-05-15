@@ -14,6 +14,7 @@ import { T } from "@/components/T";
 import { useTranslation } from "react-i18next";
 import { useTranslate } from "@/hooks/use-translate";
 import { Seo } from "@/components/seo";
+import { ShareCardGenerator } from "@/components/ShareCardGenerator";
 
 function TranslatedContent({ content }: { content: string | undefined | null }) {
   const translated = useTranslate(content);
@@ -127,6 +128,8 @@ export default function ArticleDetail() {
               ))}
             </div>
           )}
+
+          <ShareCardGenerator title={a.title ?? ""} content={a.content ?? ""} />
         </div>
 
         {/* Sidebar */}

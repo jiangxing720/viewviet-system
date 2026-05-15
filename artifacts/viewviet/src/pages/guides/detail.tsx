@@ -10,6 +10,7 @@ import { T } from "@/components/T";
 import { useTranslation } from "react-i18next";
 import { useTranslate } from "@/hooks/use-translate";
 import { Seo } from "@/components/seo";
+import { ShareCardGenerator } from "@/components/ShareCardGenerator";
 
 function TranslatedContent({ content, lang }: { content: string | undefined | null; lang: "en" | "vi" }) {
   const translated = useTranslate(content);
@@ -137,6 +138,8 @@ export default function GuideDetail() {
           />
         </div>
       )}
+
+      <ShareCardGenerator title={g.title ?? ""} content={g.content ?? ""} />
 
       <div className="border-t pt-6">
         <Link href="/guides">
