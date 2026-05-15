@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useGetTravelGuide, getGetTravelGuideQueryKey } from "@workspace/api-client-react";
 import { MapPin, Eye, ArrowLeft, DollarSign } from "lucide-react";
 import { parseMarkdown } from "@/lib/markdown";
+import { proxyImage } from "@/lib/image-proxy";
 import { T } from "@/components/T";
 import { useTranslation } from "react-i18next";
 import { useTranslate } from "@/hooks/use-translate";
@@ -82,7 +83,7 @@ export default function GuideDetail() {
       {g.coverImage && (
         <div
           className="w-full h-80 rounded-2xl bg-cover bg-center"
-          style={{ backgroundImage: `url(${g.coverImage})` }}
+          style={{ backgroundImage: `url(${proxyImage(g.coverImage)})` }}
           data-testid="img-guide-cover"
         />
       )}

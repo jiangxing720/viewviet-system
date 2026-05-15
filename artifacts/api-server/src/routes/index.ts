@@ -11,12 +11,14 @@ import authRouter from "./auth";
 import interpreterRouter from "./interpreter";
 import settingsRouter from "./settings";
 import adminUsersRouter from "./admin-users";
+import imagesRouter from "./images";
 
 const router: IRouter = Router();
 
 router.use("/auth", authRouter);
 router.use(interpreterRouter);
 router.use(healthRouter);
+router.use(imagesRouter);
 router.use(wordsRouter);
 router.use(sentencesRouter);
 router.use(legalRouter);

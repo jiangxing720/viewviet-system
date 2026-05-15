@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-client-react";
 import { Eye, ArrowLeft, Scale, Globe } from "lucide-react";
 import { parseMarkdown } from "@/lib/markdown";
+import { proxyImage } from "@/lib/image-proxy";
 import { T } from "@/components/T";
 import { useTranslation } from "react-i18next";
 import { useTranslate } from "@/hooks/use-translate";
@@ -104,7 +105,7 @@ export default function ArticleDetail() {
           </div>
 
           {a.coverImage && (
-            <div className="w-full h-64 rounded-2xl bg-cover bg-center" style={{ backgroundImage: `url(${a.coverImage})` }} data-testid="img-article-cover" />
+            <div className="w-full h-64 rounded-2xl bg-cover bg-center" style={{ backgroundImage: `url(${proxyImage(a.coverImage)})` }} data-testid="img-article-cover" />
           )}
 
           {i18n.language === "zh" || !["en", "vi"].includes(i18n.language) ? (

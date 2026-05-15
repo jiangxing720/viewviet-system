@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams, Link } from "wouter";
+import { proxyImage } from "@/lib/image-proxy";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -96,7 +97,7 @@ export default function ActivityDetail() {
       {a.coverImage && (
         <div
           className="w-full h-72 rounded-2xl bg-cover bg-center"
-          style={{ backgroundImage: `url(${a.coverImage})` }}
+          style={{ backgroundImage: `url(${proxyImage(a.coverImage)})` }}
           data-testid="img-activity-cover"
         />
       )}

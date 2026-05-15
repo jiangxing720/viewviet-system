@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
+import { proxyImage } from "@/lib/image-proxy";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -149,7 +150,7 @@ export default function Home() {
                 <Card className="cursor-pointer overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
                   <div
                     className="h-48 bg-muted bg-cover bg-center"
-                    style={{ backgroundImage: `url(${guide.coverImage || 'https://images.unsplash.com/photo-1559494007-9f5847c49d94?w=400'})` }}
+                    style={{ backgroundImage: `url(${proxyImage(guide.coverImage) || 'https://images.unsplash.com/photo-1559494007-9f5847c49d94?w=400'})` }}
                   />
                   <CardContent className="p-4">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
@@ -185,7 +186,7 @@ export default function Home() {
                   <Card className="cursor-pointer hover:shadow-md transition-all duration-200 p-4">
                     <div className="flex gap-3">
                       {article.coverImage && (
-                        <div className="w-20 h-16 rounded-lg bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${article.coverImage})` }} />
+                        <div className="w-20 h-16 rounded-lg bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${proxyImage(article.coverImage)})` }} />
                       )}
                       <div className="flex-1 min-w-0">
                         {article.category && <Badge variant="outline" className="text-xs mb-1"><T>{article.category}</T></Badge>}
@@ -266,7 +267,7 @@ export default function Home() {
                   <Card className="cursor-pointer hover:shadow-md transition-all duration-200 p-4">
                     <div className="flex gap-3">
                       {activity.coverImage && (
-                        <div className="w-20 h-16 rounded-lg bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${activity.coverImage})` }} />
+                        <div className="w-20 h-16 rounded-lg bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${proxyImage(activity.coverImage)})` }} />
                       )}
                       <div className="flex-1 min-w-0">
                         {activity.category && <Badge variant="secondary" className="text-xs mb-1"><T>{activity.category}</T></Badge>}

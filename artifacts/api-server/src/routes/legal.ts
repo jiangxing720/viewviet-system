@@ -348,10 +348,14 @@ router.post("/admin/legal-documents/import-url", async (req, res): Promise<void>
   let rawHtml: string;
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 35000);
     const response = await fetch(url, {
       signal: controller.signal,
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; ViewViet-Bot/1.0)" },
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      },
     });
     clearTimeout(timeout);
     rawHtml = await response.text();
@@ -406,7 +410,7 @@ router.post("/admin/legal-documents/import-url", async (req, res): Promise<void>
 }`;
 
   let extracted: any;
-  try {
+  const callAI = async () => {
     const completion = await openai.chat.completions.create({
       model: "gpt-5.1",
       max_completion_tokens: 32768,
@@ -416,12 +420,19 @@ router.post("/admin/legal-documents/import-url", async (req, res): Promise<void>
       ],
     });
     const raw = completion.choices[0]?.message?.content ?? "";
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("AI 未返回有效 JSON");
-    extracted = JSON.parse(jsonMatch[0]);
+    const jsonMatch = raw.match(/```json\s*([\s\S]*?)\s*```/) ?? raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error(`AI 未返回有效 JSON (got: ${raw.slice(0, 200)})`);
+    return JSON.parse(jsonMatch[1] ?? jsonMatch[0]);
+  };
+  try {
+    extracted = await callAI();
   } catch (err: any) {
-    res.status(500).json({ error: `AI 提取失败: ${err?.message ?? err}` });
-    return;
+    try {
+      extracted = await callAI();
+    } catch (err2: any) {
+      res.status(500).json({ error: `AI 提取失败: ${err2?.message ?? err2}` });
+      return;
+    }
   }
 
   res.json(extracted);

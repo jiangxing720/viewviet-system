@@ -122,7 +122,7 @@ export default function LegalDocumentDetail() {
           const html = parseMarkdown(content);
           return html ? (
             <div
-              className="prose prose-neutral max-w-none dark:prose-invert text-foreground"
+              className="prose prose-neutral max-w-none dark:prose-invert text-foreground [&_h1]:text-center [&_h2]:text-center [&_p]:text-justify"
               dangerouslySetInnerHTML={{ __html: html }}
             />
           ) : (

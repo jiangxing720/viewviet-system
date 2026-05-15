@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
+import { proxyImage } from "@/lib/image-proxy";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,7 +90,7 @@ export default function Community() {
               <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden">
                 <div className="flex">
                   {activity.coverImage && (
-                    <div className="w-28 md:w-36 bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${activity.coverImage})` }} />
+                    <div className="w-28 md:w-36 bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${proxyImage(activity.coverImage)})` }} />
                   )}
                   <CardContent className="p-4 flex-1">
                     <div className="flex items-start justify-between gap-2 mb-2">

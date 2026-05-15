@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
+import { proxyImage } from "@/lib/image-proxy";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -131,7 +132,7 @@ export default function LegalBlog() {
                 {featuredList.slice(0, 2).map((a: any) => (
                   <Link key={a.id} href={`/legal/${a.slug}`}>
                     <Card className="cursor-pointer hover:shadow-lg transition-all duration-300 overflow-hidden">
-                      {a.coverImage && <div className="h-40 bg-cover bg-center" style={{ backgroundImage: `url(${a.coverImage})` }} />}
+                      {a.coverImage && <div className="h-40 bg-cover bg-center" style={{ backgroundImage: `url(${proxyImage(a.coverImage)})` }} />}
                       <CardContent className="p-4">
                         {a.category && <Badge className="mb-2 text-xs"><T>{a.category}</T></Badge>}
                         <h3 className="font-semibold leading-snug line-clamp-2"><T>{a.title}</T></h3>
@@ -166,7 +167,7 @@ export default function LegalBlog() {
                     <CardContent className="p-4">
                       <div className="flex gap-4">
                         {a.coverImage && (
-                          <div className="w-20 md:w-24 h-16 rounded-lg bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${a.coverImage})` }} />
+                          <div className="w-20 md:w-24 h-16 rounded-lg bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${proxyImage(a.coverImage)})` }} />
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">

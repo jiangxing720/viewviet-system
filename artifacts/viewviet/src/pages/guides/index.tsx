@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
+import { proxyImage } from "@/lib/image-proxy";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,7 +49,7 @@ export default function TravelGuides() {
           {currentFeatured?.coverImage && (
             <div
               className="absolute inset-0 bg-cover bg-center transition-all duration-700"
-              style={{ backgroundImage: `url(${currentFeatured.coverImage})` }}
+              style={{ backgroundImage: `url(${proxyImage(currentFeatured.coverImage)})` }}
             />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
@@ -132,7 +133,7 @@ export default function TravelGuides() {
                 <Card className="cursor-pointer overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full">
                   <div
                     className="h-48 bg-muted bg-cover bg-center"
-                    style={{ backgroundImage: `url(${guide.coverImage || 'https://images.unsplash.com/photo-1559494007-9f5847c49d94?w=400'})` }}
+                    style={{ backgroundImage: `url(${proxyImage(guide.coverImage) || 'https://images.unsplash.com/photo-1559494007-9f5847c49d94?w=400'})` }}
                   />
                   <CardContent className="p-4 flex-1">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
