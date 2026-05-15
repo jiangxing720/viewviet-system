@@ -249,49 +249,59 @@ router.post("/admin/legal-documents/import-url", async (req, res): Promise<void>
     return;
   }
 
-  // Strip HTML tags, collapse whitespace, limit length
+  // Strip HTML — preserve block element structure with newlines
   const plainText = rawHtml
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<\/?(p|div|section|article|h[1-6]|li|br|tr|td|th|blockquote|pre|header|footer|main|aside)[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
-    .replace(/\s{2,}/g, " ")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim()
-    .slice(0, 12000);
+    .slice(0, 120000); // large enough for full legal documents
 
-  const systemPrompt = `你是专业的法律文件信息提取助手，帮助从网页文字中识别并提取东盟国家的法律条文信息。
-请根据提供的网页内容，提取法律文件的结构化数据，并将相关内容翻译成中文、英文和当地语言（根据所属国家判断：越南→Vietnamese，泰国→Thai，缅甸→Burmese，柬埔寨→Khmer，老挝→Lao，马来西亚→Malay，新加坡→English，印度尼西亚→Indonesian，菲律宾→Filipino，文莱→Malay）。
+  const systemPrompt = `你是专业的法律文件全文提取与翻译助手，专门处理东盟国家法律条文。
 
-必须返回有效的 JSON 格式，包含以下字段（所有字段都可为 null 如果找不到对应信息）：
+任务：从以下网页内容中提取完整的法律条文全文，并翻译成三种语言。
+
+要求：
+1. contentZh / contentEn / contentLocal 必须包含法律条文的【完整全文】，不得截断或摘要。
+2. 保留章节编号、条款编号（第一条、第二条……）、段落结构。
+3. 翻译应逐条对应，不遗漏任何条款。
+4. 根据所属国家判断当地语言：越南→Vietnamese，泰国→Thai，缅甸→Burmese，柬埔寨→Khmer，老挝→Lao，马来西亚→Malay，新加坡→English（如已是英文则直接复制），印度尼西亚→Indonesian，菲律宾→Filipino，文莱→Malay。
+
+必须返回有效的 JSON 格式（不要加任何其他文字，不要加 markdown 代码块）：
 {
-  "titleZh": "法律条文中文标题",
-  "titleEn": "English title",
-  "titleLocal": "当地语言标题",
+  "titleZh": "法律条文完整中文标题",
+  "titleEn": "Full English title",
+  "titleLocal": "当地语言完整标题",
   "documentNumber": "文号/编号",
   "documentType": "文件类型（宪法/法律/法令/条例/决议/通知/协定/议定书/其他）",
   "country": "所属东盟国家（中文名：越南/泰国/缅甸/柬埔寨/老挝/马来西亚/新加坡/印度尼西亚/菲律宾/文莱）",
   "category": "法律领域（劳动法/税法/公司法/外商投资/移民/房产/知识产权/海关/刑法/民法/其他）",
   "issuingBody": "颁发机构",
-  "issueDate": "颁布日期 YYYY-MM-DD 格式，如不知道则 null",
-  "effectiveDate": "生效日期 YYYY-MM-DD 格式，如不知道则 null",
-  "contentZh": "条文主要内容的中文摘要或翻译（500字以内）",
-  "contentEn": "Main content summary in English (within 500 words)",
-  "contentLocal": "当地语言摘要（500词以内）",
-  "tags": ["相关标签数组，最多5个"]
-}
-只返回 JSON，不要加任何其他文字。`;
+  "issueDate": "颁布日期 YYYY-MM-DD，不知道则 null",
+  "effectiveDate": "生效日期 YYYY-MM-DD，不知道则 null",
+  "contentZh": "【完整条文全文中文翻译，保留所有条款编号和章节结构】",
+  "contentEn": "【Full legal text in English, all articles preserved】",
+  "contentLocal": "【完整当地语言原文或翻译，保留所有条款】",
+  "tags": ["相关标签，最多8个"]
+}`;
 
   let extracted: any;
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-5.1",
-      max_completion_tokens: 4096,
+      max_completion_tokens: 32768,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `请从以下网页内容中提取法律条文信息：\n\n${plainText}` },
+        { role: "user", content: `请从以下网页内容中提取法律条文完整全文并翻译：\n\n${plainText}` },
       ],
     });
     const raw = completion.choices[0]?.message?.content ?? "";
