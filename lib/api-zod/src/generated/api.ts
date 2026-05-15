@@ -458,6 +458,161 @@ export const DeleteLegalArticleParams = zod.object({
 });
 
 /**
+ * @summary List legal documents
+ */
+export const getLegalDocumentsQueryPageDefault = 1;
+export const getLegalDocumentsQueryLimitDefault = 20;
+
+export const GetLegalDocumentsQueryParams = zod.object({
+  country: zod.coerce.string().optional(),
+  category: zod.coerce.string().optional(),
+  documentType: zod.coerce.string().optional(),
+  search: zod.coerce.string().optional(),
+  page: zod.coerce.number().default(getLegalDocumentsQueryPageDefault),
+  limit: zod.coerce.number().default(getLegalDocumentsQueryLimitDefault),
+});
+
+export const GetLegalDocumentsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      titleZh: zod.string(),
+      titleEn: zod.string().nullish(),
+      titleLocal: zod.string().nullish(),
+      slug: zod.string(),
+      documentNumber: zod.string().nullish(),
+      documentType: zod.string().nullish(),
+      country: zod.string(),
+      category: zod.string().nullish(),
+      contentZh: zod.string().nullish(),
+      contentEn: zod.string().nullish(),
+      contentLocal: zod.string().nullish(),
+      issueDate: zod.string().nullish(),
+      effectiveDate: zod.string().nullish(),
+      issuingBody: zod.string().nullish(),
+      tags: zod.array(zod.string()).nullish(),
+      isFeatured: zod.boolean(),
+      isPublished: zod.boolean(),
+      createdAt: zod.string(),
+    }),
+  ),
+  pagination: zod.object({
+    total: zod.number(),
+    page: zod.number(),
+    limit: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Get legal document by slug
+ */
+export const GetLegalDocumentParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetLegalDocumentResponse = zod.object({
+  id: zod.number(),
+  titleZh: zod.string(),
+  titleEn: zod.string().nullish(),
+  titleLocal: zod.string().nullish(),
+  slug: zod.string(),
+  documentNumber: zod.string().nullish(),
+  documentType: zod.string().nullish(),
+  country: zod.string(),
+  category: zod.string().nullish(),
+  contentZh: zod.string().nullish(),
+  contentEn: zod.string().nullish(),
+  contentLocal: zod.string().nullish(),
+  issueDate: zod.string().nullish(),
+  effectiveDate: zod.string().nullish(),
+  issuingBody: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  isFeatured: zod.boolean(),
+  isPublished: zod.boolean(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Create legal document (admin)
+ */
+export const CreateLegalDocumentBody = zod.object({
+  titleZh: zod.string(),
+  titleEn: zod.string().nullish(),
+  titleLocal: zod.string().nullish(),
+  slug: zod.string(),
+  documentNumber: zod.string().nullish(),
+  documentType: zod.string().nullish(),
+  country: zod.string(),
+  category: zod.string().nullish(),
+  contentZh: zod.string().nullish(),
+  contentEn: zod.string().nullish(),
+  contentLocal: zod.string().nullish(),
+  issueDate: zod.string().nullish(),
+  effectiveDate: zod.string().nullish(),
+  issuingBody: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  isFeatured: zod.boolean().optional(),
+  isPublished: zod.boolean().optional(),
+});
+
+/**
+ * @summary Update legal document (admin)
+ */
+export const UpdateLegalDocumentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateLegalDocumentBody = zod.object({
+  titleZh: zod.string(),
+  titleEn: zod.string().nullish(),
+  titleLocal: zod.string().nullish(),
+  slug: zod.string(),
+  documentNumber: zod.string().nullish(),
+  documentType: zod.string().nullish(),
+  country: zod.string(),
+  category: zod.string().nullish(),
+  contentZh: zod.string().nullish(),
+  contentEn: zod.string().nullish(),
+  contentLocal: zod.string().nullish(),
+  issueDate: zod.string().nullish(),
+  effectiveDate: zod.string().nullish(),
+  issuingBody: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  isFeatured: zod.boolean().optional(),
+  isPublished: zod.boolean().optional(),
+});
+
+export const UpdateLegalDocumentResponse = zod.object({
+  id: zod.number(),
+  titleZh: zod.string(),
+  titleEn: zod.string().nullish(),
+  titleLocal: zod.string().nullish(),
+  slug: zod.string(),
+  documentNumber: zod.string().nullish(),
+  documentType: zod.string().nullish(),
+  country: zod.string(),
+  category: zod.string().nullish(),
+  contentZh: zod.string().nullish(),
+  contentEn: zod.string().nullish(),
+  contentLocal: zod.string().nullish(),
+  issueDate: zod.string().nullish(),
+  effectiveDate: zod.string().nullish(),
+  issuingBody: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  isFeatured: zod.boolean(),
+  isPublished: zod.boolean(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Delete legal document (admin)
+ */
+export const DeleteLegalDocumentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary List travel guides
  */
 export const getTravelGuidesQueryPageDefault = 1;
@@ -854,6 +1009,13 @@ export const GetActivityResponse = zod.object({
   isPublished: zod.boolean(),
   isFeatured: zod.boolean(),
   createdAt: zod.string(),
+});
+
+/**
+ * @summary Delete activity (admin)
+ */
+export const DeleteActivityParams = zod.object({
+  id: zod.coerce.number(),
 });
 
 /**

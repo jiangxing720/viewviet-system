@@ -7,6 +7,7 @@ import {
   GetActivityParams,
   ApproveActivityParams,
   RejectActivityParams,
+  DeleteActivityParams,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -119,6 +120,23 @@ router.put("/admin/activities/:id/reject", async (req, res): Promise<void> => {
     return;
   }
   res.json(activity);
+});
+
+router.delete("/admin/activities/:id", async (req, res): Promise<void> => {
+  const params = DeleteActivityParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [deleted] = await db
+    .delete(activitiesTable)
+    .where(eq(activitiesTable.id, params.data.id))
+    .returning();
+  if (!deleted) {
+    res.status(404).json({ error: "Activity not found" });
+    return;
+  }
+  res.sendStatus(204);
 });
 
 export default router;

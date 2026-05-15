@@ -34,6 +34,7 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import AdminWords from "@/pages/admin/words";
 import AdminSentences from "@/pages/admin/sentences";
 import AdminLegal from "@/pages/admin/legal";
+import AdminLegalDocuments from "@/pages/admin/legal-documents";
 import AdminGuides from "@/pages/admin/guides";
 import AdminLawyers from "@/pages/admin/lawyers";
 import AdminActivities from "@/pages/admin/activities";
@@ -101,6 +102,9 @@ function Router() {
         </Route>
         <Route path="/admin/legal">
           {() => <ProtectedAdminRoute><AdminLegal /></ProtectedAdminRoute>}
+        </Route>
+        <Route path="/admin/legal-documents">
+          {() => <ProtectedAdminRoute><AdminLegalDocuments /></ProtectedAdminRoute>}
         </Route>
         <Route path="/admin/guides">
           {() => <ProtectedAdminRoute><AdminGuides /></ProtectedAdminRoute>}

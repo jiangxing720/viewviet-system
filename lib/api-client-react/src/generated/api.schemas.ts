@@ -248,6 +248,77 @@ export interface LegalArticleListResponse {
   pagination: Pagination;
 }
 
+export interface LegalDocument {
+  id: number;
+  titleZh: string;
+  /** @nullable */
+  titleEn?: string | null;
+  /** @nullable */
+  titleLocal?: string | null;
+  slug: string;
+  /** @nullable */
+  documentNumber?: string | null;
+  /** @nullable */
+  documentType?: string | null;
+  country: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  contentZh?: string | null;
+  /** @nullable */
+  contentEn?: string | null;
+  /** @nullable */
+  contentLocal?: string | null;
+  /** @nullable */
+  issueDate?: string | null;
+  /** @nullable */
+  effectiveDate?: string | null;
+  /** @nullable */
+  issuingBody?: string | null;
+  /** @nullable */
+  tags?: string[] | null;
+  isFeatured: boolean;
+  isPublished: boolean;
+  createdAt: string;
+}
+
+export interface CreateLegalDocumentBody {
+  titleZh: string;
+  /** @nullable */
+  titleEn?: string | null;
+  /** @nullable */
+  titleLocal?: string | null;
+  slug: string;
+  /** @nullable */
+  documentNumber?: string | null;
+  /** @nullable */
+  documentType?: string | null;
+  country: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  contentZh?: string | null;
+  /** @nullable */
+  contentEn?: string | null;
+  /** @nullable */
+  contentLocal?: string | null;
+  /** @nullable */
+  issueDate?: string | null;
+  /** @nullable */
+  effectiveDate?: string | null;
+  /** @nullable */
+  issuingBody?: string | null;
+  /** @nullable */
+  tags?: string[] | null;
+  isFeatured?: boolean;
+  isPublished?: boolean;
+}
+
+export interface LegalDocumentListResponse {
+  data: LegalDocument[];
+  pagination: Pagination;
+}
+
 export interface TravelGuide {
   id: number;
   title: string;
@@ -483,6 +554,15 @@ export type GetLegalArticlesParams = {
   country?: string;
   search?: string;
   featured?: boolean;
+  page?: number;
+  limit?: number;
+};
+
+export type GetLegalDocumentsParams = {
+  country?: string;
+  category?: string;
+  documentType?: string;
+  search?: string;
   page?: number;
   limit?: number;
 };

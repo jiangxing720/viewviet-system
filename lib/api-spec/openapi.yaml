@@ -17,7 +17,9 @@ tags:
   - name: complexSentences
     description: Complex sentences
   - name: legalArticles
-    description: Legal articles
+    description: Legal articles (news/blog)
+  - name: legalDocuments
+    description: Legal documents (statutes, decrees, regulations)
   - name: travelGuides
     description: Travel guides
   - name: lawyers
@@ -419,6 +421,114 @@ paths:
         "204":
           description: Deleted
 
+  # ── Legal Documents ─────────────────────────────────────────────────────────
+  /legal-documents:
+    get:
+      operationId: getLegalDocuments
+      tags: [legalDocuments]
+      summary: List legal documents
+      parameters:
+        - name: country
+          in: query
+          schema: { type: string }
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: documentType
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Legal document list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocumentListResponse"
+
+  /legal-documents/{slug}:
+    get:
+      operationId: getLegalDocument
+      tags: [legalDocuments]
+      summary: Get legal document by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Legal document detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocument"
+        "404":
+          description: Not found
+
+  /admin/legal-documents:
+    post:
+      operationId: createLegalDocument
+      tags: [legalDocuments]
+      summary: Create legal document (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLegalDocumentBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocument"
+
+  /admin/legal-documents/{id}:
+    put:
+      operationId: updateLegalDocument
+      tags: [legalDocuments]
+      summary: Update legal document (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLegalDocumentBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocument"
+    delete:
+      operationId: deleteLegalDocument
+      tags: [legalDocuments]
+      summary: Delete legal document (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
   # ── Travel Guides ───────────────────────────────────────────────────────────
   /travel-guides:
     get:
@@ -706,6 +816,20 @@ paths:
                 $ref: "#/components/schemas/Activity"
         "404":
           description: Not found
+
+  /admin/activities/{id}:
+    delete:
+      operationId: deleteActivity
+      tags: [activities]
+      summary: Delete activity (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
 
   /admin/activities/{id}/approve:
     put:
@@ -1095,6 +1219,104 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/LegalArticle"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+      required: [data, pagination]
+
+    # ── Legal Document ────────────────────────────────────────────────────────
+    LegalDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+        titleZh:
+          type: string
+        titleEn:
+          type: ["string", "null"]
+        titleLocal:
+          type: ["string", "null"]
+        slug:
+          type: string
+        documentNumber:
+          type: ["string", "null"]
+        documentType:
+          type: ["string", "null"]
+        country:
+          type: string
+        category:
+          type: ["string", "null"]
+        contentZh:
+          type: ["string", "null"]
+        contentEn:
+          type: ["string", "null"]
+        contentLocal:
+          type: ["string", "null"]
+        issueDate:
+          type: ["string", "null"]
+        effectiveDate:
+          type: ["string", "null"]
+        issuingBody:
+          type: ["string", "null"]
+        tags:
+          type: ["array", "null"]
+          items:
+            type: string
+        isFeatured:
+          type: boolean
+        isPublished:
+          type: boolean
+        createdAt:
+          type: string
+      required: [id, titleZh, slug, country, isFeatured, isPublished, createdAt]
+
+    CreateLegalDocumentBody:
+      type: object
+      properties:
+        titleZh:
+          type: string
+        titleEn:
+          type: ["string", "null"]
+        titleLocal:
+          type: ["string", "null"]
+        slug:
+          type: string
+        documentNumber:
+          type: ["string", "null"]
+        documentType:
+          type: ["string", "null"]
+        country:
+          type: string
+        category:
+          type: ["string", "null"]
+        contentZh:
+          type: ["string", "null"]
+        contentEn:
+          type: ["string", "null"]
+        contentLocal:
+          type: ["string", "null"]
+        issueDate:
+          type: ["string", "null"]
+        effectiveDate:
+          type: ["string", "null"]
+        issuingBody:
+          type: ["string", "null"]
+        tags:
+          type: ["array", "null"]
+          items:
+            type: string
+        isFeatured:
+          type: boolean
+        isPublished:
+          type: boolean
+      required: [titleZh, slug, country]
+
+    LegalDocumentListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LegalDocument"
         pagination:
           $ref: "#/components/schemas/Pagination"
       required: [data, pagination]

@@ -25,6 +25,7 @@ import type {
   CreateComplexSentenceBody,
   CreateLawyerBody,
   CreateLegalArticleBody,
+  CreateLegalDocumentBody,
   CreateSceneSentenceBody,
   CreateTravelGuideBody,
   CreateWordBody,
@@ -33,6 +34,7 @@ import type {
   GetComplexSentencesParams,
   GetLawyersParams,
   GetLegalArticlesParams,
+  GetLegalDocumentsParams,
   GetSceneNamesParams,
   GetSceneSentencesParams,
   GetTravelGuidesParams,
@@ -42,6 +44,8 @@ import type {
   Lawyer,
   LegalArticle,
   LegalArticleListResponse,
+  LegalDocument,
+  LegalDocumentListResponse,
   SceneSentence,
   SceneSentenceListResponse,
   TravelGuide,
@@ -1725,6 +1729,450 @@ export const useDeleteLegalArticle = <
 };
 
 /**
+ * @summary List legal documents
+ */
+export const getGetLegalDocumentsUrl = (params?: GetLegalDocumentsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/legal-documents?${stringifiedParams}`
+    : `/api/legal-documents`;
+};
+
+export const getLegalDocuments = async (
+  params?: GetLegalDocumentsParams,
+  options?: RequestInit,
+): Promise<LegalDocumentListResponse> => {
+  return customFetch<LegalDocumentListResponse>(
+    getGetLegalDocumentsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetLegalDocumentsQueryKey = (
+  params?: GetLegalDocumentsParams,
+) => {
+  return [`/api/legal-documents`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetLegalDocumentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLegalDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetLegalDocumentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLegalDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetLegalDocumentsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getLegalDocuments>>
+  > = ({ signal }) => getLegalDocuments(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLegalDocuments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLegalDocumentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLegalDocuments>>
+>;
+export type GetLegalDocumentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List legal documents
+ */
+
+export function useGetLegalDocuments<
+  TData = Awaited<ReturnType<typeof getLegalDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetLegalDocumentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLegalDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLegalDocumentsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get legal document by slug
+ */
+export const getGetLegalDocumentUrl = (slug: string) => {
+  return `/api/legal-documents/${slug}`;
+};
+
+export const getLegalDocument = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<LegalDocument> => {
+  return customFetch<LegalDocument>(getGetLegalDocumentUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetLegalDocumentQueryKey = (slug: string) => {
+  return [`/api/legal-documents/${slug}`] as const;
+};
+
+export const getGetLegalDocumentQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLegalDocument>>,
+  TError = ErrorType<void>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLegalDocument>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetLegalDocumentQueryKey(slug);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getLegalDocument>>
+  > = ({ signal }) => getLegalDocument(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLegalDocument>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLegalDocumentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLegalDocument>>
+>;
+export type GetLegalDocumentQueryError = ErrorType<void>;
+
+/**
+ * @summary Get legal document by slug
+ */
+
+export function useGetLegalDocument<
+  TData = Awaited<ReturnType<typeof getLegalDocument>>,
+  TError = ErrorType<void>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLegalDocument>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLegalDocumentQueryOptions(slug, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create legal document (admin)
+ */
+export const getCreateLegalDocumentUrl = () => {
+  return `/api/admin/legal-documents`;
+};
+
+export const createLegalDocument = async (
+  createLegalDocumentBody: CreateLegalDocumentBody,
+  options?: RequestInit,
+): Promise<LegalDocument> => {
+  return customFetch<LegalDocument>(getCreateLegalDocumentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createLegalDocumentBody),
+  });
+};
+
+export const getCreateLegalDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLegalDocument>>,
+    TError,
+    { data: BodyType<CreateLegalDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createLegalDocument>>,
+  TError,
+  { data: BodyType<CreateLegalDocumentBody> },
+  TContext
+> => {
+  const mutationKey = ["createLegalDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createLegalDocument>>,
+    { data: BodyType<CreateLegalDocumentBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createLegalDocument(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateLegalDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createLegalDocument>>
+>;
+export type CreateLegalDocumentMutationBody = BodyType<CreateLegalDocumentBody>;
+export type CreateLegalDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create legal document (admin)
+ */
+export const useCreateLegalDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLegalDocument>>,
+    TError,
+    { data: BodyType<CreateLegalDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createLegalDocument>>,
+  TError,
+  { data: BodyType<CreateLegalDocumentBody> },
+  TContext
+> => {
+  return useMutation(getCreateLegalDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Update legal document (admin)
+ */
+export const getUpdateLegalDocumentUrl = (id: number) => {
+  return `/api/admin/legal-documents/${id}`;
+};
+
+export const updateLegalDocument = async (
+  id: number,
+  createLegalDocumentBody: CreateLegalDocumentBody,
+  options?: RequestInit,
+): Promise<LegalDocument> => {
+  return customFetch<LegalDocument>(getUpdateLegalDocumentUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createLegalDocumentBody),
+  });
+};
+
+export const getUpdateLegalDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLegalDocument>>,
+    TError,
+    { id: number; data: BodyType<CreateLegalDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateLegalDocument>>,
+  TError,
+  { id: number; data: BodyType<CreateLegalDocumentBody> },
+  TContext
+> => {
+  const mutationKey = ["updateLegalDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateLegalDocument>>,
+    { id: number; data: BodyType<CreateLegalDocumentBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateLegalDocument(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateLegalDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateLegalDocument>>
+>;
+export type UpdateLegalDocumentMutationBody = BodyType<CreateLegalDocumentBody>;
+export type UpdateLegalDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update legal document (admin)
+ */
+export const useUpdateLegalDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLegalDocument>>,
+    TError,
+    { id: number; data: BodyType<CreateLegalDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateLegalDocument>>,
+  TError,
+  { id: number; data: BodyType<CreateLegalDocumentBody> },
+  TContext
+> => {
+  return useMutation(getUpdateLegalDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Delete legal document (admin)
+ */
+export const getDeleteLegalDocumentUrl = (id: number) => {
+  return `/api/admin/legal-documents/${id}`;
+};
+
+export const deleteLegalDocument = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteLegalDocumentUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteLegalDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteLegalDocument>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteLegalDocument>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteLegalDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteLegalDocument>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteLegalDocument(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteLegalDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteLegalDocument>>
+>;
+
+export type DeleteLegalDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete legal document (admin)
+ */
+export const useDeleteLegalDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteLegalDocument>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteLegalDocument>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteLegalDocumentMutationOptions(options));
+};
+
+/**
  * @summary List travel guides
  */
 export const getGetTravelGuidesUrl = (params?: GetTravelGuidesParams) => {
@@ -2931,6 +3379,90 @@ export function useGetActivity<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Delete activity (admin)
+ */
+export const getDeleteActivityUrl = (id: number) => {
+  return `/api/admin/activities/${id}`;
+};
+
+export const deleteActivity = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteActivityUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteActivityMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteActivity>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteActivity>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteActivity"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteActivity>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteActivity(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteActivityMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteActivity>>
+>;
+
+export type DeleteActivityMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete activity (admin)
+ */
+export const useDeleteActivity = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteActivity>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteActivity>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteActivityMutationOptions(options));
+};
 
 /**
  * @summary Approve activity (admin)

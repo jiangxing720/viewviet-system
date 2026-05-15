@@ -13,9 +13,10 @@ import {
   useApproveActivity,
   useRejectActivity,
   useCreateActivity,
+  useDeleteActivity,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, X, Calendar, MapPin, Users, Plus, Clock } from "lucide-react";
+import { ArrowLeft, Check, X, Calendar, MapPin, Users, Plus, Clock, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
@@ -35,6 +36,7 @@ export default function AdminActivities() {
   const approveActivity = useApproveActivity();
   const rejectActivity = useRejectActivity();
   const createActivity = useCreateActivity();
+  const deleteActivity = useDeleteActivity();
 
   const allActivities = (allData as any[]) ?? [];
   const pending = allActivities.filter((a: any) => !a.isPublished);
@@ -58,6 +60,14 @@ export default function AdminActivities() {
   const handleReject = (id: number) => {
     rejectActivity.mutate({ id }, {
       onSuccess: () => { toast({ title: t("admin.reject") + " ✓" }); queryClient.invalidateQueries({ queryKey: getGetActivitiesQueryKey({}) }); },
+      onError: () => toast({ title: "Failed", variant: "destructive" }),
+    });
+  };
+
+  const handleDelete = (id: number) => {
+    if (!window.confirm("确认删除该活动？")) return;
+    deleteActivity.mutate({ id }, {
+      onSuccess: () => { toast({ title: t("admin.delete") + " ✓" }); queryClient.invalidateQueries({ queryKey: getGetActivitiesQueryKey({}) }); },
       onError: () => toast({ title: "Failed", variant: "destructive" }),
     });
   };
@@ -225,19 +235,25 @@ export default function AdminActivities() {
                               <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{activity.description}</p>
                             )}
                           </div>
-                          {tab === "pending" && (
-                            <div className="flex gap-2 flex-shrink-0">
-                              <Button size="sm" onClick={() => handleApprove(activity.id)}
-                                disabled={approveActivity.isPending}
-                                className="bg-green-600 hover:bg-green-700 text-white gap-1">
-                                <Check className="w-3.5 h-3.5" />{t("admin.approve")}
-                              </Button>
-                              <Button size="sm" variant="destructive" onClick={() => handleReject(activity.id)}
-                                disabled={rejectActivity.isPending} className="gap-1">
-                                <X className="w-3.5 h-3.5" />{t("admin.reject")}
-                              </Button>
-                            </div>
-                          )}
+                          <div className="flex gap-2 flex-shrink-0">
+                            {tab === "pending" && (
+                              <>
+                                <Button size="sm" onClick={() => handleApprove(activity.id)}
+                                  disabled={approveActivity.isPending}
+                                  className="bg-green-600 hover:bg-green-700 text-white gap-1">
+                                  <Check className="w-3.5 h-3.5" />{t("admin.approve")}
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => handleReject(activity.id)}
+                                  disabled={rejectActivity.isPending} className="gap-1">
+                                  <X className="w-3.5 h-3.5" />{t("admin.reject")}
+                                </Button>
+                              </>
+                            )}
+                            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                              onClick={() => handleDelete(activity.id)} disabled={deleteActivity.isPending}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </div>
                         <div className="flex flex-wrap gap-4 mt-2 text-xs text-muted-foreground">
                           {activity.startTime && (

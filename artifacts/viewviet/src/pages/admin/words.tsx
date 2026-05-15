@@ -24,10 +24,10 @@ const LANGS = ["vi", "en", "zh", "ko"];
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const CSV_HEADERS = ["word", "languageCode", "pronunciation", "meaningZh", "meaningEn", "meaningVi", "category", "difficulty", "isPublished"];
-const CSV_EXAMPLE = `word,languageCode,pronunciation,meaningZh,meaningEn,meaningVi,category,difficulty,isPublished
-Xin chào,vi,sin chào,你好,Hello,Xin chào,日常用语,1,true
-Cảm ơn,vi,gảm ơn,谢谢,Thank you,Cảm ơn,日常用语,1,true`;
+const CSV_HEADERS = ["word", "languageCode", "pronunciation", "meaningZh", "meaningEn", "meaningVi", "category", "difficulty", "isPublished", "exampleSentence", "exampleTranslation"];
+const CSV_EXAMPLE = `word,languageCode,pronunciation,meaningZh,meaningEn,meaningVi,category,difficulty,isPublished,exampleSentence,exampleTranslation
+Xin chào,vi,sin chào,你好,Hello,Xin chào,日常用语,1,true,Xin chào bạn!,你好！
+Cảm ơn,vi,gảm ơn,谢谢,Thank you,Cảm ơn,日常用语,1,true,Cảm ơn rất nhiều!,非常感谢！`;
 
 function parseCsv(text: string) {
   const lines = text.trim().split("\n");

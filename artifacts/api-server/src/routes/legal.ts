@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, ilike, and, sql, desc, ne } from "drizzle-orm";
-import { db, legalArticlesTable } from "@workspace/db";
+import { db, legalArticlesTable, legalDocumentsTable } from "@workspace/db";
 import {
   GetLegalArticlesQueryParams,
   CreateLegalArticleBody,
@@ -8,6 +8,11 @@ import {
   GetRelatedLegalArticlesParams,
   UpdateLegalArticleParams,
   DeleteLegalArticleParams,
+  GetLegalDocumentsQueryParams,
+  CreateLegalDocumentBody,
+  GetLegalDocumentParams,
+  UpdateLegalDocumentParams,
+  DeleteLegalDocumentParams,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -149,6 +154,101 @@ router.delete("/admin/legal-articles/:id", async (req, res): Promise<void> => {
     .returning();
   if (!deleted) {
     res.status(404).json({ error: "Article not found" });
+    return;
+  }
+  res.sendStatus(204);
+});
+
+// ── Legal Documents ──────────────────────────────────────────────────────────
+
+router.get("/legal-documents", async (req, res): Promise<void> => {
+  const parsed = GetLegalDocumentsQueryParams.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { country, category, documentType, search, page, limit } = parsed.data;
+
+  const conditions = [eq(legalDocumentsTable.isPublished, true)];
+  if (country) conditions.push(eq(legalDocumentsTable.country, country));
+  if (category) conditions.push(eq(legalDocumentsTable.category, category));
+  if (documentType) conditions.push(eq(legalDocumentsTable.documentType, documentType));
+  if (search) conditions.push(ilike(legalDocumentsTable.titleZh, `%${search}%`));
+
+  const where = and(...conditions);
+  const offset = (page - 1) * limit;
+
+  const [data, countResult] = await Promise.all([
+    db.select().from(legalDocumentsTable).where(where).limit(limit).offset(offset).orderBy(desc(legalDocumentsTable.createdAt)),
+    db.select({ count: sql<number>`count(*)::int` }).from(legalDocumentsTable).where(where),
+  ]);
+
+  const total = countResult[0]?.count ?? 0;
+  res.json({ data, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
+});
+
+router.get("/legal-documents/:slug", async (req, res): Promise<void> => {
+  const params = GetLegalDocumentParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [doc] = await db
+    .select()
+    .from(legalDocumentsTable)
+    .where(eq(legalDocumentsTable.slug, params.data.slug));
+  if (!doc) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  res.json(doc);
+});
+
+router.post("/admin/legal-documents", async (req, res): Promise<void> => {
+  const parsed = CreateLegalDocumentBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [doc] = await db.insert(legalDocumentsTable).values(parsed.data).returning();
+  res.status(201).json(doc);
+});
+
+router.put("/admin/legal-documents/:id", async (req, res): Promise<void> => {
+  const params = UpdateLegalDocumentParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = CreateLegalDocumentBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [doc] = await db
+    .update(legalDocumentsTable)
+    .set(parsed.data)
+    .where(eq(legalDocumentsTable.id, params.data.id))
+    .returning();
+  if (!doc) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  res.json(doc);
+});
+
+router.delete("/admin/legal-documents/:id", async (req, res): Promise<void> => {
+  const params = DeleteLegalDocumentParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [deleted] = await db
+    .delete(legalDocumentsTable)
+    .where(eq(legalDocumentsTable.id, params.data.id))
+    .returning();
+  if (!deleted) {
+    res.status(404).json({ error: "Document not found" });
     return;
   }
   res.sendStatus(204);

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useTheme } from "./theme-provider";
-import { Moon, Sun, Menu, Globe, BookOpen, Compass, Scale, Users, Shield, LogIn, LogOut, UserCircle, ChevronDown, Languages } from "lucide-react";
+import { Moon, Sun, Menu, Globe, BookOpen, Compass, Scale, Users, Shield, LogIn, LogOut, UserCircle, ChevronDown, Languages, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -80,6 +80,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <nav className="hidden md:flex items-center gap-4 text-sm font-medium text-muted-foreground">
               <Link href="/admin/words" className={`hover:text-primary ${location === "/admin/words" ? "text-primary" : ""}`}>{t("admin.words")}</Link>
               <Link href="/admin/legal" className={`hover:text-primary ${location === "/admin/legal" ? "text-primary" : ""}`}>{t("admin.legal")}</Link>
+              <Link href="/admin/legal-documents" className={`hover:text-primary ${location === "/admin/legal-documents" ? "text-primary" : ""}`}>法律条文</Link>
               <Link href="/admin/guides" className={`hover:text-primary ${location === "/admin/guides" ? "text-primary" : ""}`}>{t("admin.guides")}</Link>
               <Link href="/admin/sentences" className={`hover:text-primary ${location === "/admin/sentences" ? "text-primary" : ""}`}>{t("admin.sentences")}</Link>
               <Link href="/admin/lawyers" className={`hover:text-primary ${location === "/admin/lawyers" ? "text-primary" : ""}`}>{t("admin.lawyers")}</Link>
@@ -175,6 +176,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       <MobileNavLink href="/admin/words" icon={BookOpen} title={t("admin.words")} />
                       <MobileNavLink href="/admin/sentences" icon={BookOpen} title={t("admin.sentences")} />
                       <MobileNavLink href="/admin/legal" icon={Scale} title={t("admin.legal")} />
+                      <MobileNavLink href="/admin/legal-documents" icon={FileText} title="法律条文" />
                       <MobileNavLink href="/admin/guides" icon={Compass} title={t("admin.guides")} />
                       <MobileNavLink href="/admin/lawyers" icon={Shield} title={t("admin.lawyers")} />
                       <MobileNavLink href="/admin/activities" icon={Users} title={t("admin.activities")} />
