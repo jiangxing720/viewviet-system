@@ -8,20 +8,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  useGetWords, getGetWordsQueryKey,
-  useCreateWord,
-  useDeleteWord,
+  useCreateWord, useDeleteWord, getGetWordsQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, ArrowLeft, Search, Upload, Pencil, CheckCircle2, X } from "lucide-react";
+import {
+  Plus, Trash2, ArrowLeft, Search, Upload, Pencil, CheckCircle2, X,
+  CheckSquare, Square, Layers, AlertTriangle, ChevronLeft, ChevronRight,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const LANGS = ["vi", "en", "zh", "ko"];
-
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const CSV_HEADERS = ["word", "languageCode", "pronunciation", "meaningZh", "meaningEn", "meaningVi", "category", "difficulty", "isPublished", "exampleSentence", "exampleTranslation"];
@@ -43,28 +43,77 @@ function parseCsv(text: string) {
   });
 }
 
+async function adminFetch(path: string, opts?: RequestInit) {
+  const res = await fetch(`${BASE}/api${path}`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    ...opts,
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Request failed");
+  if (res.status === 204) return null;
+  return res.json();
+}
+
 export default function AdminWords() {
   const { t } = useTranslation();
-  const [search, setSearch] = useState("");
   const [lang, setLang] = useState("vi");
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<"list" | "add" | "bulk">("list");
   const [editWord, setEditWord] = useState<any | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [showBulkFilter, setShowBulkFilter] = useState(false);
+  const [bulkFilterLang, setBulkFilterLang] = useState("vi");
+  const [bulkFilterCategory, setBulkFilterCategory] = useState("");
   const [bulkText, setBulkText] = useState("");
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ inserted: number; errors: any[] } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const { data: wordsResp, isLoading } = useGetWords(
-    { language_code: lang, search: search || undefined, page, limit: 20 },
-    { query: { queryKey: getGetWordsQueryKey({ language_code: lang, search: search || undefined, page, limit: 20 }) } },
-  );
   const createWord = useCreateWord();
   const deleteWord = useDeleteWord();
 
+  const qParams = new URLSearchParams({ language_code: lang, page: String(page), limit: "50" });
+  if (search) qParams.set("search", search);
+  if (categoryFilter) qParams.set("category", categoryFilter);
+
+  const { data: wordsResp, isLoading, refetch } = useQuery({
+    queryKey: ["admin-words", lang, search, categoryFilter, page],
+    queryFn: () => adminFetch(`/admin/words?${qParams}`),
+  });
+
+  const { data: categoriesRaw } = useQuery({
+    queryKey: ["admin-words-categories", lang],
+    queryFn: () => adminFetch(`/admin/words/categories?language_code=${lang}`),
+  });
+
+  const { data: bulkCategoriesRaw } = useQuery({
+    queryKey: ["admin-words-categories", bulkFilterLang],
+    queryFn: () => adminFetch(`/admin/words/categories?language_code=${bulkFilterLang}`),
+    enabled: showBulkFilter,
+  });
+
   const words = (wordsResp as any)?.data ?? [];
   const pagination = (wordsResp as any)?.pagination;
+  const categories: string[] = (categoriesRaw as string[]) ?? [];
+  const bulkCategories: string[] = (bulkCategoriesRaw as string[]) ?? [];
+
+  const allIds = words.map((w: any) => w.id as number);
+  const allSelected = allIds.length > 0 && allIds.every((id: number) => selected.has(id));
+
+  const toggleAll = () => {
+    if (allSelected) setSelected(prev => { const n = new Set(prev); allIds.forEach((id: number) => n.delete(id)); return n; });
+    else setSelected(prev => new Set([...prev, ...allIds]));
+  };
+  const toggleOne = (id: number) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin-words"] });
+    queryClient.invalidateQueries({ queryKey: getGetWordsQueryKey({}) });
+    setSelected(new Set());
+    refetch();
+  };
 
   const form = useForm({
     defaultValues: {
@@ -79,7 +128,7 @@ export default function AdminWords() {
         toast({ title: t("admin.save") + " ✓" });
         setActiveTab("list");
         form.reset();
-        queryClient.invalidateQueries({ queryKey: getGetWordsQueryKey({ language_code: lang }) });
+        invalidate();
       },
       onError: () => toast({ title: "Failed", variant: "destructive" }),
     });
@@ -89,10 +138,41 @@ export default function AdminWords() {
     deleteWord.mutate({ id }, {
       onSuccess: () => {
         toast({ title: t("admin.delete") + " ✓" });
-        queryClient.invalidateQueries({ queryKey: getGetWordsQueryKey({ language_code: lang }) });
+        invalidate();
       },
       onError: () => toast({ title: "Failed", variant: "destructive" }),
     });
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`确认删除选中的 ${selected.size} 个单词？`)) return;
+    try {
+      const r = await adminFetch("/admin/words/bulk-delete", { method: "POST", body: JSON.stringify({ ids: [...selected] }) });
+      toast({ title: `已删除 ${r.deleted} 个单词` });
+      invalidate();
+    } catch (e: any) { toast({ title: "操作失败", description: e.message, variant: "destructive" }); }
+  };
+
+  const handleDeleteDuplicates = async () => {
+    if (!confirm(`确认清除 ${lang.toUpperCase()} 语言中的重复单词？\n系统将保留每个单词的最早记录，删除其余重复项。`)) return;
+    try {
+      const r = await adminFetch(`/admin/words/duplicates?language_code=${lang}`, { method: "DELETE" });
+      toast({ title: `已清除 ${r.deleted} 条重复单词` });
+      invalidate();
+    } catch (e: any) { toast({ title: "操作失败", description: e.message, variant: "destructive" }); }
+  };
+
+  const handleDeleteByFilter = async () => {
+    const target = bulkFilterCategory ? `分类「${bulkFilterCategory}」` : `语言 ${bulkFilterLang.toUpperCase()} 全部单词`;
+    if (!confirm(`确认删除 ${target}？此操作不可撤销！`)) return;
+    const p = new URLSearchParams({ language_code: bulkFilterLang });
+    if (bulkFilterCategory) p.set("category", bulkFilterCategory);
+    try {
+      const r = await adminFetch(`/admin/words/by-filter?${p}`, { method: "DELETE" });
+      toast({ title: `已删除 ${r.deleted} 个单词` });
+      setShowBulkFilter(false);
+      invalidate();
+    } catch (e: any) { toast({ title: "操作失败", description: e.message, variant: "destructive" }); }
   };
 
   const handleBulkUpload = async () => {
@@ -101,17 +181,11 @@ export default function AdminWords() {
     setBulkResult(null);
     try {
       const rows = parseCsv(bulkText);
-      const res = await fetch(`${BASE}/api/admin/words/bulk`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows }),
-      });
-      const data = await res.json();
+      const data = await adminFetch("/admin/words/bulk", { method: "POST", body: JSON.stringify({ rows }) });
       setBulkResult(data);
       if (data.inserted > 0) {
-        toast({ title: `${data.inserted} ${t("admin.words")} imported` });
-        queryClient.invalidateQueries({ queryKey: getGetWordsQueryKey({}) });
+        toast({ title: `${data.inserted} 个单词已导入` });
+        invalidate();
       }
     } catch {
       toast({ title: "Import failed", variant: "destructive" });
@@ -152,14 +226,14 @@ export default function AdminWords() {
                   <FormItem><FormLabel>{t("learn.words")} *</FormLabel><FormControl><Input {...field} placeholder="e.g. Xin chào" /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="languageCode" render={({ field }) => (
-                  <FormItem><FormLabel>{t("learn.words")}</FormLabel><FormControl>
+                  <FormItem><FormLabel>语言</FormLabel><FormControl>
                     <select className="w-full border rounded-md px-3 py-2 text-sm bg-background" {...field}>
                       {LANGS.map(l => <option key={l} value={l}>{l.toUpperCase()}</option>)}
                     </select>
                   </FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="pronunciation" render={({ field }) => (
-                  <FormItem><FormLabel>Pronunciation</FormLabel><FormControl><Input {...field} placeholder="Phonetic" /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>发音</FormLabel><FormControl><Input {...field} placeholder="Phonetic" /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="category" render={({ field }) => (
                   <FormItem><FormLabel>{t("learn.category")}</FormLabel><FormControl><Input {...field} placeholder="e.g. 日常用语" /></FormControl><FormMessage /></FormItem>
@@ -181,15 +255,15 @@ export default function AdminWords() {
                   </FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="exampleSentence" render={({ field }) => (
-                  <FormItem className="sm:col-span-2"><FormLabel>Example Sentence</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className="sm:col-span-2"><FormLabel>例句</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="exampleTranslation" render={({ field }) => (
-                  <FormItem className="sm:col-span-2"><FormLabel>Example Translation (ZH)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className="sm:col-span-2"><FormLabel>例句翻译（中文）</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="isPublished" render={({ field }) => (
                   <FormItem className="flex items-center gap-2 sm:col-span-2">
                     <FormControl><input type="checkbox" checked={Boolean(field.value)} onChange={e => field.onChange(e.target.checked)} className="h-4 w-4 accent-primary" /></FormControl>
-                    <FormLabel className="!mt-0">Publish immediately</FormLabel>
+                    <FormLabel className="!mt-0">立即发布</FormLabel>
                   </FormItem>
                 )} />
                 <div className="sm:col-span-2 flex gap-3">
@@ -217,32 +291,22 @@ export default function AdminWords() {
             </div>
             <div className="space-y-1.5">
               <Label>CSV Data (include header row)</Label>
-              <Textarea
-                rows={10}
-                placeholder={CSV_EXAMPLE}
-                value={bulkText}
-                onChange={e => setBulkText(e.target.value)}
-                className="font-mono text-xs"
-              />
+              <Textarea rows={10} placeholder={CSV_EXAMPLE} value={bulkText} onChange={e => setBulkText(e.target.value)} className="font-mono text-xs" />
             </div>
             <div className="flex gap-3 items-center">
               <Button onClick={handleBulkUpload} disabled={bulkLoading || !bulkText.trim()}>
                 <Upload className="w-4 h-4 mr-1" />
                 {bulkLoading ? t("common.loading") : "Import"}
               </Button>
-              <Button variant="outline" onClick={() => setBulkText(CSV_EXAMPLE)}>Load Example</Button>
+              <Button variant="outline" onClick={() => setBulkText(CSV_EXAMPLE)}>加载示例</Button>
             </div>
             {bulkResult && (
               <div className={`flex items-start gap-2 rounded-md p-3 text-sm ${bulkResult.inserted > 0 ? "bg-green-50 text-green-800 dark:bg-green-950/30 dark:text-green-300" : "bg-destructive/10 text-destructive"}`}>
                 <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-medium">{bulkResult.inserted} words imported successfully</p>
-                  {(bulkResult as any).skipped > 0 && (
-                    <p className="text-xs mt-1">{(bulkResult as any).skipped} duplicate(s) skipped</p>
-                  )}
-                  {bulkResult.errors?.length > 0 && (
-                    <p className="text-xs mt-1">{bulkResult.errors.length} row(s) skipped due to validation errors</p>
-                  )}
+                  {(bulkResult as any).skipped > 0 && <p className="text-xs mt-1">{(bulkResult as any).skipped} duplicate(s) skipped</p>}
+                  {bulkResult.errors?.length > 0 && <p className="text-xs mt-1">{bulkResult.errors.length} row(s) skipped due to errors</p>}
                 </div>
               </div>
             )}
@@ -250,24 +314,84 @@ export default function AdminWords() {
         </Card>
       )}
 
-      {/* Filters */}
+      {/* List View */}
       {activeTab === "list" && (
         <>
-          <div className="flex gap-3 flex-wrap">
+          {/* Language + Search filters */}
+          <div className="flex gap-2 flex-wrap items-center">
             {LANGS.map((l) => (
-              <button
-                key={l}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${lang === l ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
-                onClick={() => { setLang(l); setPage(1); }}
-              >
-                {l.toUpperCase()}
-              </button>
+              <button key={l}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${lang === l ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+                onClick={() => { setLang(l); setCategoryFilter(""); setPage(1); setSelected(new Set()); }}
+              >{l.toUpperCase()}</button>
             ))}
+            {categories.length > 0 && (
+              <select className="border rounded-lg px-3 py-1.5 text-sm bg-background" value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(1); setSelected(new Set()); }}>
+                <option value="">全部分类</option>
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            )}
             <div className="relative flex-1 min-w-48">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input className="pl-9" placeholder={t("common.search")} value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+              <Input className="pl-9" placeholder={t("common.search")} value={search} onChange={e => { setSearch(e.target.value); setPage(1); setSelected(new Set()); }} />
             </div>
           </div>
+
+          {/* Selection action bar */}
+          {selected.size > 0 && (
+            <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl px-4 py-2.5">
+              <CheckSquare className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium text-primary">已选 {selected.size} 个单词</span>
+              <div className="flex gap-2 ml-auto">
+                <Button size="sm" variant="outline" onClick={() => setSelected(new Set())}><X className="w-3.5 h-3.5 mr-1" />取消选择</Button>
+                <Button size="sm" variant="destructive" onClick={handleBulkDelete}><Trash2 className="w-3.5 h-3.5 mr-1" />删除选中</Button>
+              </div>
+            </div>
+          )}
+
+          {/* Tool bar: stats + bulk actions */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm text-muted-foreground">{pagination ? `共 ${pagination.total} 个单词` : ""}</span>
+            <div className="ml-auto flex gap-2">
+              <Button size="sm" variant="outline" className="text-amber-600 border-amber-300 hover:bg-amber-50" onClick={handleDeleteDuplicates}>
+                <Layers className="w-3.5 h-3.5 mr-1" />清除重复单词
+              </Button>
+              <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => setShowBulkFilter(!showBulkFilter)}>
+                <AlertTriangle className="w-3.5 h-3.5 mr-1" />按模块删除
+              </Button>
+            </div>
+          </div>
+
+          {/* Bulk filter delete panel */}
+          {showBulkFilter && (
+            <Card className="border-destructive/30 bg-destructive/5">
+              <CardContent className="pt-4 space-y-3">
+                <p className="text-xs font-medium text-destructive">按语言/分类批量删除（操作不可撤销）</p>
+                <div className="flex gap-4 flex-wrap">
+                  <div className="space-y-1">
+                    <Label className="text-xs">语言</Label>
+                    <select className="border rounded-md px-3 py-1.5 text-sm bg-background" value={bulkFilterLang}
+                      onChange={e => { setBulkFilterLang(e.target.value); setBulkFilterCategory(""); }}>
+                      {LANGS.map(l => <option key={l} value={l}>{l.toUpperCase()}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">分类（留空=删除该语言全部单词）</Label>
+                    <select className="border rounded-md px-3 py-1.5 text-sm bg-background" value={bulkFilterCategory} onChange={e => setBulkFilterCategory(e.target.value)}>
+                      <option value="">全部分类</option>
+                      {bulkCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="destructive" onClick={handleDeleteByFilter}>
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />确认删除
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowBulkFilter(false)}>取消</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Table */}
           <Card>
@@ -279,8 +403,18 @@ export default function AdminWords() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="text-left px-4 py-3 font-medium">Word</th>
-                        <th className="text-left px-4 py-3 font-medium">Pronunciation</th>
+                        <th className="px-3 py-3 w-10">
+                          <button onClick={toggleAll} title={allSelected ? "取消全选" : "全选当前页"}>
+                            {allSelected
+                              ? <CheckSquare className="w-4 h-4 text-primary" />
+                              : selected.size > 0 && allIds.some((id: number) => selected.has(id))
+                                ? <CheckSquare className="w-4 h-4 text-primary/50" />
+                                : <Square className="w-4 h-4 text-muted-foreground" />
+                            }
+                          </button>
+                        </th>
+                        <th className="text-left px-4 py-3 font-medium">单词</th>
+                        <th className="text-left px-4 py-3 font-medium">发音</th>
                         <th className="text-left px-4 py-3 font-medium">中文释义</th>
                         <th className="text-left px-4 py-3 font-medium">{t("learn.category")}</th>
                         <th className="text-left px-4 py-3 font-medium">{t("common.status")}</th>
@@ -289,17 +423,21 @@ export default function AdminWords() {
                     </thead>
                     <tbody>
                       {words.length === 0 ? (
-                        <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">{t("common.no_results")}</td></tr>
+                        <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">{t("common.no_results")}</td></tr>
                       ) : words.map((w: any) => (
-                        <tr key={w.id} className="border-b hover:bg-muted/30 transition-colors">
-                          <td className="px-4 py-3 font-medium">{w.word}</td>
-                          <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{w.pronunciation ?? "—"}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{w.meaningZh ?? "—"}</td>
-                          <td className="px-4 py-3">{w.category ? <Badge variant="secondary" className="text-xs">{w.category}</Badge> : "—"}</td>
-                          <td className="px-4 py-3"><Badge variant={w.isPublished ? "default" : "outline"} className="text-xs">{w.isPublished ? t("admin.publish") : "Draft"}</Badge></td>
-                          <td className="px-4 py-3 flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="w-7 h-7"
-                              onClick={() => setEditWord(w)}>
+                        <tr key={w.id} className={`border-b transition-colors ${selected.has(w.id) ? "bg-primary/5" : "hover:bg-muted/30"}`}>
+                          <td className="px-3 py-2.5">
+                            <button onClick={() => toggleOne(w.id)}>
+                              {selected.has(w.id) ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4 text-muted-foreground" />}
+                            </button>
+                          </td>
+                          <td className="px-4 py-2.5 font-medium">{w.word}</td>
+                          <td className="px-4 py-2.5 text-muted-foreground font-mono text-xs">{w.pronunciation ?? "—"}</td>
+                          <td className="px-4 py-2.5 text-muted-foreground">{w.meaningZh ?? "—"}</td>
+                          <td className="px-4 py-2.5">{w.category ? <Badge variant="secondary" className="text-xs">{w.category}</Badge> : "—"}</td>
+                          <td className="px-4 py-2.5"><Badge variant={w.isPublished ? "default" : "outline"} className="text-xs">{w.isPublished ? t("admin.publish") : "Draft"}</Badge></td>
+                          <td className="px-4 py-2.5 flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => setEditWord(w)}>
                               <Pencil className="w-3.5 h-3.5" />
                             </Button>
                             <Button variant="ghost" size="icon" className="w-7 h-7 text-destructive hover:text-destructive"
@@ -318,9 +456,13 @@ export default function AdminWords() {
 
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-center gap-3">
-              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Previous</Button>
-              <span className="text-sm text-muted-foreground">Page {page} / {pagination.totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page >= pagination.totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
+              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground">第 {page} / {pagination.totalPages} 页</span>
+              <Button variant="outline" size="sm" disabled={page >= pagination.totalPages} onClick={() => setPage(p => p + 1)}>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
           )}
         </>
@@ -330,10 +472,7 @@ export default function AdminWords() {
       <EditWordDialog
         word={editWord}
         onClose={() => setEditWord(null)}
-        onSaved={() => {
-          setEditWord(null);
-          queryClient.invalidateQueries({ queryKey: getGetWordsQueryKey({ language_code: lang }) });
-        }}
+        onSaved={() => { setEditWord(null); invalidate(); }}
       />
     </div>
   );
@@ -344,38 +483,30 @@ function EditWordDialog({ word, onClose, onSaved }: { word: any; onClose: () => 
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<any>(null);
-  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-  useState(() => {
-    if (word) setForm({ ...word });
-  });
-
+  useState(() => { if (word) setForm({ ...word }); });
   if (!word) return null;
 
-  const initial = word;
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((prev: any) => ({ ...prev, [k]: e.target.value }));
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/admin/words/${initial.id}`, {
-        method: "PUT",
-        credentials: "include",
+      const res = await fetch(`${BASE}/api/admin/words/${word.id}`, {
+        method: "PUT", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form ?? initial),
+        body: JSON.stringify(form ?? word),
       });
       if (!res.ok) throw new Error("Failed");
       toast({ title: t("admin.save") + " ✓" });
       onSaved();
     } catch {
       toast({ title: "Failed to save", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  const current = form ?? initial;
+  const current = form ?? word;
 
   return (
     <Dialog open={!!word} onOpenChange={v => !v && onClose()}>
@@ -396,7 +527,7 @@ function EditWordDialog({ word, onClose, onSaved }: { word: any; onClose: () => 
           </div>
           <div className="flex items-center gap-2 col-span-2">
             <input type="checkbox" id="ep-pub" checked={Boolean(current.isPublished)} onChange={e => setForm((p: any) => ({ ...p, isPublished: e.target.checked }))} className="accent-primary" />
-            <Label htmlFor="ep-pub" className="text-sm !mt-0">Published</Label>
+            <Label htmlFor="ep-pub" className="text-sm !mt-0">已发布</Label>
           </div>
         </div>
         <div className="flex gap-2 pt-2">

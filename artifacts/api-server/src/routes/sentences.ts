@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { db, sceneSentencesTable, complexSentencesTable } from "@workspace/db";
 import {
   GetSceneSentencesQueryParams,
@@ -164,6 +164,135 @@ router.post("/admin/complex-sentences/bulk", async (req, res): Promise<void> => 
   }
   const inserted = await db.insert(complexSentencesTable).values(valid).returning();
   res.status(201).json({ inserted: inserted.length, errors });
+});
+
+// ── Admin list endpoints (all, including drafts) ─────────────────────────────
+
+router.get("/admin/scene-sentences", async (req, res): Promise<void> => {
+  const { language_code, scene_name, search, page: pageStr, limit: limitStr } = req.query as Record<string, string>;
+  const page = Math.max(1, Number(pageStr) || 1);
+  const limit = Math.min(200, Math.max(1, Number(limitStr) || 50));
+  const offset = (page - 1) * limit;
+  const conditions: any[] = [];
+  if (language_code) conditions.push(eq(sceneSentencesTable.languageCode, language_code));
+  if (scene_name) conditions.push(eq(sceneSentencesTable.sceneName, scene_name));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const [data, countResult] = await Promise.all([
+    db.select().from(sceneSentencesTable).where(where).limit(limit).offset(offset).orderBy(sceneSentencesTable.id),
+    db.select({ count: sql<number>`count(*)::int` }).from(sceneSentencesTable).where(where),
+  ]);
+  const total = countResult[0]?.count ?? 0;
+  res.json({ data, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
+});
+
+router.get("/admin/complex-sentences", async (req, res): Promise<void> => {
+  const { language_code, context, page: pageStr, limit: limitStr } = req.query as Record<string, string>;
+  const page = Math.max(1, Number(pageStr) || 1);
+  const limit = Math.min(200, Math.max(1, Number(limitStr) || 50));
+  const offset = (page - 1) * limit;
+  const conditions: any[] = [];
+  if (language_code) conditions.push(eq(complexSentencesTable.languageCode, language_code));
+  if (context) conditions.push(eq(complexSentencesTable.context, context));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const [data, countResult] = await Promise.all([
+    db.select().from(complexSentencesTable).where(where).limit(limit).offset(offset).orderBy(complexSentencesTable.id),
+    db.select({ count: sql<number>`count(*)::int` }).from(complexSentencesTable).where(where),
+  ]);
+  const total = countResult[0]?.count ?? 0;
+  res.json({ data, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
+});
+
+router.get("/admin/scene-sentences/scenes", async (req, res): Promise<void> => {
+  const { language_code } = req.query as { language_code?: string };
+  const conditions: any[] = [];
+  if (language_code) conditions.push(eq(sceneSentencesTable.languageCode, language_code));
+  const result = await db
+    .selectDistinct({ sceneName: sceneSentencesTable.sceneName })
+    .from(sceneSentencesTable)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(sceneSentencesTable.sceneName);
+  res.json(result.map((r) => r.sceneName).filter(Boolean));
+});
+
+// ── Admin bulk delete ─────────────────────────────────────────────────────────
+
+router.post("/admin/scene-sentences/bulk-delete", async (req, res): Promise<void> => {
+  const { ids } = req.body as { ids: number[] };
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "ids array is required" });
+    return;
+  }
+  const deleted = await db.delete(sceneSentencesTable).where(inArray(sceneSentencesTable.id, ids)).returning({ id: sceneSentencesTable.id });
+  res.json({ deleted: deleted.length });
+});
+
+router.post("/admin/complex-sentences/bulk-delete", async (req, res): Promise<void> => {
+  const { ids } = req.body as { ids: number[] };
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "ids array is required" });
+    return;
+  }
+  const deleted = await db.delete(complexSentencesTable).where(inArray(complexSentencesTable.id, ids)).returning({ id: complexSentencesTable.id });
+  res.json({ deleted: deleted.length });
+});
+
+// ── Admin delete duplicates ───────────────────────────────────────────────────
+
+router.delete("/admin/scene-sentences/duplicates", async (req, res): Promise<void> => {
+  const { language_code } = req.query as { language_code?: string };
+  const whereClause = language_code ? `WHERE language_code = '${language_code}'` : "";
+  const result = await db.execute(sql.raw(`
+    DELETE FROM scene_sentences
+    WHERE id NOT IN (
+      SELECT MIN(id) FROM scene_sentences ${whereClause} GROUP BY LOWER(sentence), language_code, scene_name
+    )
+    ${whereClause}
+    RETURNING id
+  `));
+  const count = (result as any).rowCount ?? (result as any).rows?.length ?? 0;
+  res.json({ deleted: count });
+});
+
+router.delete("/admin/complex-sentences/duplicates", async (req, res): Promise<void> => {
+  const { language_code } = req.query as { language_code?: string };
+  const whereClause = language_code ? `WHERE language_code = '${language_code}'` : "";
+  const result = await db.execute(sql.raw(`
+    DELETE FROM complex_sentences
+    WHERE id NOT IN (
+      SELECT MIN(id) FROM complex_sentences ${whereClause} GROUP BY LOWER(sentence), language_code
+    )
+    ${whereClause}
+    RETURNING id
+  `));
+  const count = (result as any).rowCount ?? (result as any).rows?.length ?? 0;
+  res.json({ deleted: count });
+});
+
+// ── Admin delete by filter ────────────────────────────────────────────────────
+
+router.delete("/admin/scene-sentences/by-filter", async (req, res): Promise<void> => {
+  const { language_code, scene_name } = req.query as { language_code?: string; scene_name?: string };
+  if (!language_code && !scene_name) {
+    res.status(400).json({ error: "At least language_code or scene_name is required" });
+    return;
+  }
+  const conditions: any[] = [];
+  if (language_code) conditions.push(eq(sceneSentencesTable.languageCode, language_code));
+  if (scene_name) conditions.push(eq(sceneSentencesTable.sceneName, scene_name));
+  const deleted = await db.delete(sceneSentencesTable).where(and(...conditions)).returning({ id: sceneSentencesTable.id });
+  res.json({ deleted: deleted.length });
+});
+
+router.delete("/admin/complex-sentences/by-filter", async (req, res): Promise<void> => {
+  const { language_code, context } = req.query as { language_code?: string; context?: string };
+  if (!language_code) {
+    res.status(400).json({ error: "language_code is required" });
+    return;
+  }
+  const conditions: any[] = [eq(complexSentencesTable.languageCode, language_code)];
+  if (context) conditions.push(eq(complexSentencesTable.context, context));
+  const deleted = await db.delete(complexSentencesTable).where(and(...conditions)).returning({ id: complexSentencesTable.id });
+  res.json({ deleted: deleted.length });
 });
 
 export default router;
