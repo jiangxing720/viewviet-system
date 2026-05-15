@@ -14,7 +14,7 @@ import {
   useDeleteLegalArticle,
 } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, ArrowLeft, Search, Pencil, Eye, X, Globe, Sparkles, Link2, Loader2, UploadCloud, CheckCircle2, XCircle } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Search, Pencil, Eye, X, Globe, Sparkles, Link2, Loader2, UploadCloud, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import { parseMarkdown } from "@/lib/markdown";
 import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
@@ -87,8 +87,10 @@ export default function AdminLegal() {
     },
   });
 
-  const autoSlug = (title: string) =>
-    title.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, "").replace(/-+/g, "-").slice(0, 80);
+  const autoSlug = (title: string) => {
+    const ascii = title.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, "").replace(/-+/g, "-").slice(0, 60);
+    return ascii || `article-${Date.now()}`;
+  };
 
   const onSubmit = form.handleSubmit((values) => {
     const body = {
@@ -148,7 +150,7 @@ export default function AdminLegal() {
         category: data.category ?? "",
         country: data.country ?? "越南",
         coverImage: data.coverImage ?? "",
-        isPublished: false,
+        isPublished: true,
         isFeatured: false,
       });
       setEditId(null);
@@ -382,6 +384,13 @@ export default function AdminLegal() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          {a.slug && (
+                            <a href={`/legal/${a.slug}`} target="_blank" rel="noopener">
+                              <Button variant="ghost" size="icon" className="w-7 h-7 text-primary" title="查看文章">
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </Button>
+                            </a>
+                          )}
                           <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => openEdit(a)}>
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>

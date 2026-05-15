@@ -13,7 +13,7 @@ import {
   useDeleteTravelGuide,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, ArrowLeft, Search, Pencil, Eye, ChevronDown, ChevronUp, Link2, Loader2, Sparkles, UploadCloud, CheckCircle2, XCircle } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Search, Pencil, Eye, ChevronDown, ChevronUp, Link2, Loader2, Sparkles, UploadCloud, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
@@ -112,7 +112,7 @@ export default function AdminGuides() {
         summary: data.summary ?? "",
         content: data.content ?? "",
         mapEmbed: "",
-        isPublished: false,
+        isPublished: true,
         isFeatured: false,
       });
       setEditId(null);
@@ -360,6 +360,9 @@ export default function AdminGuides() {
                         {g.isFeatured && <Badge variant="secondary" className="text-xs">推荐</Badge>}
                       </div></td>
                       <td className="px-4 py-3"><div className="flex gap-1">
+                        <a href={`/guides/${g.id}`} target="_blank" rel="noopener">
+                          <Button variant="ghost" size="icon" className="w-7 h-7 text-primary" title="查看攻略"><ExternalLink className="w-3.5 h-3.5" /></Button>
+                        </a>
                         <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => openEdit(g)} data-testid={`button-edit-${g.id}`}><Pencil className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="w-7 h-7 text-destructive hover:text-destructive" onClick={() => handleDelete(g.id)} data-testid={`button-delete-${g.id}`}><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div></td>
