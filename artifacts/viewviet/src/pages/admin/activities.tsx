@@ -83,14 +83,14 @@ export default function AdminActivities() {
         endTime: values.endTime ? new Date(values.endTime).toISOString() : undefined,
       },
     };
-    createActivity.mutate(payload as any, {
+    createActivity.mutate({ data: payload as any }, {
       onSuccess: () => {
         toast({ title: "Activity published ✓" });
         form.reset();
         setTab("all");
         queryClient.invalidateQueries({ queryKey: getGetActivitiesQueryKey({}) });
       },
-      onError: () => toast({ title: "Failed", variant: "destructive" }),
+      onError: (e: any) => toast({ title: "创建失败: " + (e?.message ?? ""), variant: "destructive" }),
     });
   });
 

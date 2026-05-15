@@ -93,12 +93,12 @@ export default function AdminLegal() {
       },
     };
     if (editId) {
-      updateArticle.mutate({ id: editId, ...payload } as any, {
+      updateArticle.mutate({ id: editId, data: payload as any }, {
         onSuccess: () => { toast({ title: t("admin.save") + " ✓" }); closeForm(); queryClient.invalidateQueries({ queryKey: ["admin-legal-articles"] }); },
         onError: (e: any) => toast({ title: "Failed: " + (e?.message ?? ""), variant: "destructive" }),
       });
     } else {
-      createArticle.mutate(payload as any, {
+      createArticle.mutate({ data: payload as any }, {
         onSuccess: () => { toast({ title: t("admin.add") + " ✓" }); closeForm(); queryClient.invalidateQueries({ queryKey: ["admin-legal-articles"] }); },
         onError: (e: any) => toast({ title: "Failed: " + (e?.message ?? ""), variant: "destructive" }),
       });

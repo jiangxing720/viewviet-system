@@ -70,14 +70,14 @@ export default function AdminGuides() {
       },
     };
     if (editId) {
-      updateGuide.mutate({ id: editId, ...payload } as any, {
+      updateGuide.mutate({ id: editId, data: payload as any }, {
         onSuccess: () => { toast({ title: "攻略已更新" }); closeForm(); queryClient.invalidateQueries({ queryKey: getGetTravelGuidesQueryKey({}) }); },
-        onError: () => toast({ title: "保存失败", variant: "destructive" }),
+        onError: (e: any) => toast({ title: "保存失败: " + (e?.message ?? ""), variant: "destructive" }),
       });
     } else {
-      createGuide.mutate(payload as any, {
+      createGuide.mutate({ data: payload as any }, {
         onSuccess: () => { toast({ title: "攻略已创建" }); closeForm(); queryClient.invalidateQueries({ queryKey: getGetTravelGuidesQueryKey({}) }); },
-        onError: () => toast({ title: "保存失败", variant: "destructive" }),
+        onError: (e: any) => toast({ title: "保存失败: " + (e?.message ?? ""), variant: "destructive" }),
       });
     }
   });

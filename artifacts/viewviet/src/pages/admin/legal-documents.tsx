@@ -97,14 +97,14 @@ export default function AdminLegalDocuments() {
       contentEn: form.contentEn || undefined,
       contentLocal: form.contentLocal || undefined,
     };
-    createDoc.mutate(payload as any, {
+    createDoc.mutate({ data: payload as any }, {
       onSuccess: () => {
         toast({ title: "法律条文已创建" });
         setForm({ ...EMPTY_FORM });
         setTab("list");
         queryClient.invalidateQueries({ queryKey: getGetLegalDocumentsQueryKey({} as any) });
       },
-      onError: () => toast({ title: "创建失败", variant: "destructive" }),
+      onError: (e: any) => toast({ title: "创建失败: " + (e?.message ?? ""), variant: "destructive" }),
     });
   };
 

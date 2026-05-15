@@ -58,14 +58,14 @@ export default function AdminLawyers() {
       },
     };
     if (editId) {
-      updateLawyer.mutate({ id: editId, ...payload } as any, {
+      updateLawyer.mutate({ id: editId, data: payload as any }, {
         onSuccess: () => { toast({ title: "已更新" }); closeForm(); queryClient.invalidateQueries({ queryKey: getGetLawyersQueryKey({}) }); },
-        onError: () => toast({ title: "更新失败", variant: "destructive" }),
+        onError: (e: any) => toast({ title: "更新失败: " + (e?.message ?? ""), variant: "destructive" }),
       });
     } else {
-      createLawyer.mutate(payload as any, {
+      createLawyer.mutate({ data: payload as any }, {
         onSuccess: () => { toast({ title: "已创建" }); closeForm(); queryClient.invalidateQueries({ queryKey: getGetLawyersQueryKey({}) }); },
-        onError: () => toast({ title: "创建失败", variant: "destructive" }),
+        onError: (e: any) => toast({ title: "创建失败: " + (e?.message ?? ""), variant: "destructive" }),
       });
     }
   });
