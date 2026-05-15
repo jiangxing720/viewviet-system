@@ -180,6 +180,117 @@ router.delete("/admin/legal-articles/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
+// ── AI: Legal Article URL Import ─────────────────────────────────────────────
+
+async function fetchPage(url: string): Promise<{ plainText: string; coverImage: string }> {
+  const controller = new AbortController();
+  const tm = setTimeout(() => controller.abort(), 25000);
+  const resp = await fetch(url, {
+    signal: controller.signal,
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    },
+  });
+  clearTimeout(tm);
+  const html = await resp.text();
+  const ogImg = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+    ?? html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)
+    ?? html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
+  const coverImage = ogImg?.[1] ?? "";
+  const plainText = html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<\/?(p|div|section|article|h[1-6]|li|br|tr|blockquote|pre)[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
+    .replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, 80000);
+  return { plainText, coverImage };
+}
+
+const LEGAL_ARTICLE_AI_PROMPT = `你是专业内容编辑，专门从中文公众号文章或法律资讯网页提取结构化数据。
+
+任务：从以下网页内容提取法律文章完整信息。
+
+要求：
+1. content 必须包含完整正文，转换为 Markdown 格式（## 章节标题、- 列表、**重点** 加粗）
+2. 不得截断或省略任何段落
+3. summary 为 2-3 句话简介（50-80字），用于列表页展示
+
+返回有效 JSON（不加代码块或其他任何文字）：
+{
+  "title": "文章完整中文标题",
+  "summary": "2-3句话摘要",
+  "content": "完整正文 Markdown 格式，保留所有段落",
+  "category": "劳动法|公司注册|知识产权|税务|FDI/投资|房地产|移民签证|刑事|其他",
+  "country": "越南|泰国|马来西亚|新加坡|印度尼西亚|柬埔寨|缅甸|东南亚"
+}`;
+
+router.post("/admin/legal-articles/import-url", async (req, res): Promise<void> => {
+  const { url } = req.body as { url?: string };
+  if (!url || typeof url !== "string") { res.status(400).json({ error: "url is required" }); return; }
+  let page: { plainText: string; coverImage: string };
+  try { page = await fetchPage(url); } catch (e: any) {
+    res.status(400).json({ error: `无法访问链接: ${e?.message ?? e}` }); return;
+  }
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5.1", max_completion_tokens: 16384,
+      messages: [
+        { role: "system", content: LEGAL_ARTICLE_AI_PROMPT },
+        { role: "user", content: `请从以下网页内容提取法律文章信息：\n\n${page.plainText}` },
+      ],
+    });
+    const raw = completion.choices[0]?.message?.content ?? "";
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("AI 未返回有效 JSON");
+    res.json({ ...JSON.parse(match[0]), coverImage: page.coverImage });
+  } catch (e: any) { res.status(500).json({ error: `AI 提取失败: ${e?.message ?? e}` }); }
+});
+
+router.post("/admin/legal-articles/batch-import", async (req, res): Promise<void> => {
+  const { urls } = req.body as { urls?: string[] };
+  if (!Array.isArray(urls) || urls.length === 0) { res.status(400).json({ error: "urls array required" }); return; }
+  const succeeded: { url: string; id: number; title: string }[] = [];
+  const failed: { url: string; error: string }[] = [];
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i].trim();
+    if (!url) continue;
+    try {
+      const page = await fetchPage(url);
+      const completion = await openai.chat.completions.create({
+        model: "gpt-5.1", max_completion_tokens: 16384,
+        messages: [
+          { role: "system", content: LEGAL_ARTICLE_AI_PROMPT },
+          { role: "user", content: `请从以下网页内容提取法律文章信息：\n\n${page.plainText}` },
+        ],
+      });
+      const raw = completion.choices[0]?.message?.content ?? "";
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error("AI 未返回有效 JSON");
+      const data = JSON.parse(match[0]);
+      const slug = `art-${Date.now()}-${i}-${Math.floor(Math.random() * 9999)}`;
+      const [saved] = await db.insert(legalArticlesTable).values({
+        title: data.title ?? "未命名文章",
+        slug,
+        summary: data.summary ?? null,
+        content: data.content ?? null,
+        category: data.category ?? null,
+        country: data.country ?? null,
+        coverImage: page.coverImage || null,
+        isPublished: false,
+        isFeatured: false,
+      }).returning();
+      succeeded.push({ url, id: saved.id, title: saved.title });
+    } catch (e: any) {
+      failed.push({ url, error: e?.message ?? String(e) });
+    }
+  }
+  res.json({ succeeded, failed });
+});
+
 // ── Legal Documents ──────────────────────────────────────────────────────────
 
 router.get("/legal-documents", async (req, res): Promise<void> => {

@@ -14,7 +14,7 @@ import {
   useDeleteLegalArticle,
 } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, ArrowLeft, Search, Pencil, Eye, X, Globe, Sparkles } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Search, Pencil, Eye, X, Globe, Sparkles, Link2, Loader2, UploadCloud, CheckCircle2, XCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -52,6 +52,12 @@ export default function AdminLegal() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [previewContent, setPreviewContent] = useState<string | null>(null);
+  const [importUrl, setImportUrl] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const [showBatch, setShowBatch] = useState(false);
+  const [batchUrls, setBatchUrls] = useState("");
+  const [isBatching, setIsBatching] = useState(false);
+  const [batchResults, setBatchResults] = useState<{ succeeded: any[]; failed: any[] } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -124,19 +130,100 @@ export default function AdminLegal() {
     });
   };
 
+  const handleImportUrl = async () => {
+    if (!importUrl.trim()) return;
+    setIsImporting(true);
+    try {
+      const res = await fetch(`${BASE}/api/admin/legal-articles/import-url`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: importUrl.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "提取失败");
+      form.reset({
+        title: data.title ?? "",
+        slug: autoSlug(data.title ?? ""),
+        summary: data.summary ?? "",
+        content: data.content ?? "",
+        category: data.category ?? "",
+        country: data.country ?? "越南",
+        coverImage: data.coverImage ?? "",
+        isPublished: false,
+        isFeatured: false,
+      });
+      setEditId(null);
+      setShowForm(true);
+      setImportUrl("");
+      toast({ title: "AI 提取成功，请检查内容后保存" });
+    } catch (e: any) {
+      toast({ title: e?.message ?? "提取失败", variant: "destructive" });
+    } finally { setIsImporting(false); }
+  };
+
+  const handleBatchImport = async () => {
+    const urls = batchUrls.split("\n").map(u => u.trim()).filter(Boolean);
+    if (urls.length === 0) return;
+    setIsBatching(true);
+    setBatchResults(null);
+    try {
+      const res = await fetch(`${BASE}/api/admin/legal-articles/batch-import`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls }),
+      });
+      const data = await res.json();
+      setBatchResults(data);
+      queryClient.invalidateQueries({ queryKey: ["admin-legal-articles"] });
+    } catch (e: any) {
+      toast({ title: e?.message ?? "批量导入失败", variant: "destructive" });
+    } finally { setIsBatching(false); }
+  };
+
   const titleValue = form.watch("title");
   const contentValue = form.watch("content");
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Link href="/admin">
           <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4 mr-1" />{t("admin.dashboard")}</Button>
         </Link>
         <h1 className="text-2xl font-bold">{t("admin.legal")}</h1>
-        <Button size="sm" onClick={() => { closeForm(); setShowForm(true); }} className="ml-auto">
-          <Plus className="w-4 h-4 mr-1" />{t("admin.add")}
-        </Button>
+        <div className="ml-auto flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => { setBatchResults(null); setShowBatch(true); }}>
+            <UploadCloud className="w-4 h-4 mr-1" />批量导入
+          </Button>
+          <Button size="sm" onClick={() => { closeForm(); setShowForm(true); }}>
+            <Plus className="w-4 h-4 mr-1" />{t("admin.add")}
+          </Button>
+        </div>
+      </div>
+
+      {/* AI URL Import Panel */}
+      <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <span className="text-sm font-semibold text-primary">AI 智能导入</span>
+          <span className="text-xs text-muted-foreground">粘贴公众号或资讯网页链接，AI 自动提取全文内容</span>
+        </div>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              className="pl-9 bg-background"
+              placeholder="粘贴文章链接，例如 https://mp.weixin.qq.com/s/..."
+              value={importUrl}
+              onChange={e => setImportUrl(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && !isImporting && handleImportUrl()}
+              disabled={isImporting}
+            />
+          </div>
+          <Button onClick={handleImportUrl} disabled={isImporting || !importUrl.trim()} className="gap-1.5 shrink-0">
+            {isImporting ? <><Loader2 className="w-4 h-4 animate-spin" />提取中...</> : <><Sparkles className="w-4 h-4" />AI 提取</>}
+          </Button>
+        </div>
+        {isImporting && <p className="text-xs text-muted-foreground mt-2">正在抓取页面并调用 AI 提取全文，约 15-30 秒...</p>}
       </div>
 
       {showForm && (
@@ -321,6 +408,75 @@ export default function AdminLegal() {
           <Button variant="outline" size="sm" disabled={page >= pagination.totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
         </div>
       )}
+
+      {/* Batch Import Dialog */}
+      <Dialog open={showBatch} onOpenChange={v => { if (!isBatching) setShowBatch(v); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><UploadCloud className="w-5 h-5 text-primary" />批量导入法律文章</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">每行粘贴一个链接（公众号文章或法律资讯网页），AI 将依次提取全文并自动保存为草稿，完成后在列表中审核发布。</p>
+            {!batchResults ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label>文章链接（每行一个）</Label>
+                  <textarea
+                    className="w-full h-40 rounded-md border bg-background px-3 py-2 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder={"https://mp.weixin.qq.com/s/abc123\nhttps://mp.weixin.qq.com/s/def456\nhttps://..."}
+                    value={batchUrls}
+                    onChange={e => setBatchUrls(e.target.value)}
+                    disabled={isBatching}
+                  />
+                  <p className="text-xs text-muted-foreground">{batchUrls.split("\n").filter(u => u.trim()).length} 个链接</p>
+                </div>
+                {isBatching && (
+                  <div className="flex items-center gap-3 rounded-lg bg-primary/5 border border-primary/20 p-3">
+                    <Loader2 className="w-5 h-5 animate-spin text-primary shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">AI 批量提取中，请勿关闭此窗口</p>
+                      <p className="text-xs text-muted-foreground">每篇文章约 15-30 秒，多篇请耐心等待...</p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <Button onClick={handleBatchImport} disabled={isBatching || !batchUrls.trim()} className="gap-2">
+                    {isBatching ? <><Loader2 className="w-4 h-4 animate-spin" />导入中...</> : <><Sparkles className="w-4 h-4" />开始批量导入</>}
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowBatch(false)} disabled={isBatching}>取消</Button>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-green-600">{batchResults.succeeded.length} 篇成功</span>
+                  {batchResults.failed.length > 0 && <span className="text-sm font-medium text-destructive">{batchResults.failed.length} 篇失败</span>}
+                </div>
+                <div className="max-h-64 overflow-y-auto space-y-1.5 rounded-md border p-3">
+                  {batchResults.succeeded.map((r, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                      <span className="line-clamp-1">{r.title}</span>
+                    </div>
+                  ))}
+                  {batchResults.failed.map((r, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      <XCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-mono text-xs text-muted-foreground line-clamp-1">{r.url}</p>
+                        <p className="text-xs text-destructive">{r.error}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">已保存为草稿，请在列表中审核内容后再发布。</p>
+                <div className="flex gap-3">
+                  <Button onClick={() => { setBatchUrls(""); setBatchResults(null); setShowBatch(false); }}>完成</Button>
+                  <Button variant="outline" onClick={() => setBatchResults(null)}>继续导入</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Markdown Preview Dialog */}
       <Dialog open={!!previewContent} onOpenChange={v => !v && setPreviewContent(null)}>
