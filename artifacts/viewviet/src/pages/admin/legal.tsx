@@ -15,6 +15,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, ArrowLeft, Search, Pencil, Eye, X, Globe, Sparkles, Link2, Loader2, UploadCloud, CheckCircle2, XCircle } from "lucide-react";
+import { parseMarkdown } from "@/lib/markdown";
 import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -90,21 +91,19 @@ export default function AdminLegal() {
     title.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, "").replace(/-+/g, "-").slice(0, 80);
 
   const onSubmit = form.handleSubmit((values) => {
-    const payload = {
-      data: {
-        ...values,
-        slug: values.slug || autoSlug(values.title),
-        isPublished: Boolean((values as any).isPublished),
-        isFeatured: Boolean((values as any).isFeatured),
-      },
+    const body = {
+      ...values,
+      slug: values.slug || autoSlug(values.title),
+      isPublished: Boolean((values as any).isPublished),
+      isFeatured: Boolean((values as any).isFeatured),
     };
     if (editId) {
-      updateArticle.mutate({ id: editId, data: payload as any }, {
+      updateArticle.mutate({ id: editId, data: body as any }, {
         onSuccess: () => { toast({ title: t("admin.save") + " ✓" }); closeForm(); queryClient.invalidateQueries({ queryKey: ["admin-legal-articles"] }); },
         onError: (e: any) => toast({ title: "Failed: " + (e?.message ?? ""), variant: "destructive" }),
       });
     } else {
-      createArticle.mutate({ data: payload as any }, {
+      createArticle.mutate({ data: body as any }, {
         onSuccess: () => { toast({ title: t("admin.add") + " ✓" }); closeForm(); queryClient.invalidateQueries({ queryKey: ["admin-legal-articles"] }); },
         onError: (e: any) => toast({ title: "Failed: " + (e?.message ?? ""), variant: "destructive" }),
       });
@@ -482,9 +481,14 @@ export default function AdminLegal() {
       <Dialog open={!!previewContent} onOpenChange={v => !v && setPreviewContent(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Content Preview</DialogTitle></DialogHeader>
-          <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed border rounded-md p-4 bg-muted/30 font-mono">
-            {previewContent}
-          </div>
+          {previewContent && (() => {
+            const html = parseMarkdown(previewContent);
+            return html ? (
+              <div className="prose prose-neutral max-w-none dark:prose-invert text-foreground" dangerouslySetInnerHTML={{ __html: html }} />
+            ) : (
+              <div className="text-foreground whitespace-pre-wrap text-sm leading-relaxed">{previewContent}</div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

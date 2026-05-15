@@ -73,17 +73,15 @@ export default function AdminActivities() {
   };
 
   const onSubmit = form.handleSubmit((values) => {
-    const payload = {
-      data: {
-        ...values,
-        maxParticipants: Number(values.maxParticipants),
-        isFeatured: Boolean((values as any).isFeatured),
-        isPublished: true,
-        startTime: values.startTime ? new Date(values.startTime).toISOString() : undefined,
-        endTime: values.endTime ? new Date(values.endTime).toISOString() : undefined,
-      },
+    const body = {
+      ...values,
+      maxParticipants: Number(values.maxParticipants),
+      isFeatured: Boolean((values as any).isFeatured),
+      isPublished: true,
+      startTime: values.startTime ? new Date(values.startTime).toISOString() : undefined,
+      endTime: values.endTime ? new Date(values.endTime).toISOString() : undefined,
     };
-    createActivity.mutate({ data: payload as any }, {
+    createActivity.mutate({ data: body as any }, {
       onSuccess: () => {
         toast({ title: "Activity published ✓" });
         form.reset();

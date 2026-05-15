@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, Globe, Calendar, ArrowLeft, Building } from "lucide-react";
 import { Seo } from "@/components/seo";
 import { useState } from "react";
+import { parseMarkdown } from "@/lib/markdown";
 
 export default function LegalDocumentDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -117,9 +118,19 @@ export default function LegalDocumentDetail() {
       )}
 
       {content ? (
-        <div className="prose prose-sm max-w-none text-foreground">
-          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{content}</pre>
-        </div>
+        (() => {
+          const html = parseMarkdown(content);
+          return html ? (
+            <div
+              className="prose prose-neutral max-w-none dark:prose-invert text-foreground"
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          ) : (
+            <div className="text-foreground whitespace-pre-wrap text-sm leading-relaxed">
+              {content}
+            </div>
+          );
+        })()
       ) : (
         <div className="text-center py-12 text-muted-foreground">
           <FileText className="w-10 h-10 mx-auto mb-2 opacity-30" />

@@ -68,24 +68,22 @@ export default function AdminGuides() {
   const closeForm = () => { setShowForm(false); setEditId(null); form.reset(DEFAULT_FORM); setShowAdvanced(false); };
 
   const onSubmit = form.handleSubmit((values) => {
-    const payload = {
-      data: {
-        ...values,
-        isPublished: Boolean((values as any).isPublished),
-        isFeatured: Boolean((values as any).isFeatured),
-        content: values.content || null,
-        summary: values.summary || null,
-        titleEn: values.titleEn || null,
-        mapEmbed: values.mapEmbed || null,
-      },
+    const body = {
+      ...values,
+      isPublished: Boolean((values as any).isPublished),
+      isFeatured: Boolean((values as any).isFeatured),
+      content: values.content || null,
+      summary: values.summary || null,
+      titleEn: values.titleEn || null,
+      mapEmbed: values.mapEmbed || null,
     };
     if (editId) {
-      updateGuide.mutate({ id: editId, data: payload as any }, {
+      updateGuide.mutate({ id: editId, data: body as any }, {
         onSuccess: () => { toast({ title: "攻略已更新" }); closeForm(); queryClient.invalidateQueries({ queryKey: getGetTravelGuidesQueryKey({}) }); },
         onError: (e: any) => toast({ title: "保存失败: " + (e?.message ?? ""), variant: "destructive" }),
       });
     } else {
-      createGuide.mutate({ data: payload as any }, {
+      createGuide.mutate({ data: body as any }, {
         onSuccess: () => { toast({ title: "攻略已创建" }); closeForm(); queryClient.invalidateQueries({ queryKey: getGetTravelGuidesQueryKey({}) }); },
         onError: (e: any) => toast({ title: "保存失败: " + (e?.message ?? ""), variant: "destructive" }),
       });

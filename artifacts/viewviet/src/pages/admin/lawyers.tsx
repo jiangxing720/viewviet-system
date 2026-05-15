@@ -47,23 +47,21 @@ export default function AdminLawyers() {
   const closeForm = () => { setShowForm(false); setEditId(null); form.reset(); };
 
   const onSubmit = form.handleSubmit((values) => {
-    const payload = {
-      data: {
-        ...values,
-        photo: values.photo || undefined,
-        specialties: values.specialties ? values.specialties.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-        languages: values.languages ? values.languages.split(",").map((l) => l.trim()).filter(Boolean) : undefined,
-        isFeatured: Boolean(values.isFeatured),
-        isActive: Boolean(values.isActive),
-      },
+    const body = {
+      ...values,
+      photo: values.photo || undefined,
+      specialties: values.specialties ? values.specialties.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+      languages: values.languages ? values.languages.split(",").map((l) => l.trim()).filter(Boolean) : undefined,
+      isFeatured: Boolean(values.isFeatured),
+      isActive: Boolean(values.isActive),
     };
     if (editId) {
-      updateLawyer.mutate({ id: editId, data: payload as any }, {
+      updateLawyer.mutate({ id: editId, data: body as any }, {
         onSuccess: () => { toast({ title: "已更新" }); closeForm(); queryClient.invalidateQueries({ queryKey: getGetLawyersQueryKey({}) }); },
         onError: (e: any) => toast({ title: "更新失败: " + (e?.message ?? ""), variant: "destructive" }),
       });
     } else {
-      createLawyer.mutate({ data: payload as any }, {
+      createLawyer.mutate({ data: body as any }, {
         onSuccess: () => { toast({ title: "已创建" }); closeForm(); queryClient.invalidateQueries({ queryKey: getGetLawyersQueryKey({}) }); },
         onError: (e: any) => toast({ title: "创建失败: " + (e?.message ?? ""), variant: "destructive" }),
       });
