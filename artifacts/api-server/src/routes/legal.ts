@@ -109,6 +109,26 @@ router.get("/legal-articles/:slug", async (req, res): Promise<void> => {
   res.json({ ...article, viewCount: article.viewCount + 1 });
 });
 
+// Admin: list ALL legal articles (including drafts)
+router.get("/admin/legal-articles", async (req, res): Promise<void> => {
+  const { search, category, page: pageStr, limit: limitStr } = req.query as Record<string, string>;
+  const page = Math.max(1, Number(pageStr) || 1);
+  const limit = Math.min(100, Math.max(1, Number(limitStr) || 20));
+  const offset = (page - 1) * limit;
+
+  const conditions: any[] = [];
+  if (search) conditions.push(ilike(legalArticlesTable.title, `%${search}%`));
+  if (category) conditions.push(eq(legalArticlesTable.category, category));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [data, countResult] = await Promise.all([
+    db.select().from(legalArticlesTable).where(where).limit(limit).offset(offset).orderBy(desc(legalArticlesTable.createdAt)),
+    db.select({ count: sql<number>`count(*)::int` }).from(legalArticlesTable).where(where),
+  ]);
+  const total = countResult[0]?.count ?? 0;
+  res.json({ data, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
+});
+
 router.post("/admin/legal-articles", async (req, res): Promise<void> => {
   const parsed = CreateLegalArticleBody.safeParse(req.body);
   if (!parsed.success) {

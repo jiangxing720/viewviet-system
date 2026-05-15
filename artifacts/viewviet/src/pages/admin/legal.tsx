@@ -9,12 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  useGetLegalArticles, getGetLegalArticlesQueryKey,
   useCreateLegalArticle,
   useUpdateLegalArticle,
   useDeleteLegalArticle,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, ArrowLeft, Search, Pencil, Eye, X, Globe, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
@@ -56,10 +55,17 @@ export default function AdminLegal() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: articlesResp, isLoading } = useGetLegalArticles(
-    { search: search || undefined, page, limit: 15 },
-    { query: { queryKey: getGetLegalArticlesQueryKey({ search: search || undefined, page, limit: 15 }) } },
-  );
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const adminQKey = ["admin-legal-articles", search, page];
+  const { data: articlesResp, isLoading } = useQuery({
+    queryKey: adminQKey,
+    queryFn: async () => {
+      const p = new URLSearchParams({ page: String(page), limit: "15" });
+      if (search) p.set("search", search);
+      const res = await fetch(`${BASE}/api/admin/legal-articles?${p}`, { credentials: "include" });
+      return res.json();
+    },
+  });
   const createArticle = useCreateLegalArticle();
   const updateArticle = useUpdateLegalArticle();
   const deleteArticle = useDeleteLegalArticle();
@@ -88,13 +94,13 @@ export default function AdminLegal() {
     };
     if (editId) {
       updateArticle.mutate({ id: editId, ...payload } as any, {
-        onSuccess: () => { toast({ title: t("admin.save") + " ✓" }); closeForm(); queryClient.invalidateQueries({ queryKey: getGetLegalArticlesQueryKey({}) }); },
-        onError: () => toast({ title: "Failed", variant: "destructive" }),
+        onSuccess: () => { toast({ title: t("admin.save") + " ✓" }); closeForm(); queryClient.invalidateQueries({ queryKey: ["admin-legal-articles"] }); },
+        onError: (e: any) => toast({ title: "Failed: " + (e?.message ?? ""), variant: "destructive" }),
       });
     } else {
       createArticle.mutate(payload as any, {
-        onSuccess: () => { toast({ title: t("admin.add") + " ✓" }); closeForm(); queryClient.invalidateQueries({ queryKey: getGetLegalArticlesQueryKey({}) }); },
-        onError: () => toast({ title: "Failed", variant: "destructive" }),
+        onSuccess: () => { toast({ title: t("admin.add") + " ✓" }); closeForm(); queryClient.invalidateQueries({ queryKey: ["admin-legal-articles"] }); },
+        onError: (e: any) => toast({ title: "Failed: " + (e?.message ?? ""), variant: "destructive" }),
       });
     }
   });
@@ -113,7 +119,7 @@ export default function AdminLegal() {
 
   const handleDelete = (id: number) => {
     deleteArticle.mutate({ id }, {
-      onSuccess: () => { toast({ title: t("admin.delete") + " ✓" }); queryClient.invalidateQueries({ queryKey: getGetLegalArticlesQueryKey({}) }); },
+      onSuccess: () => { toast({ title: t("admin.delete") + " ✓" }); queryClient.invalidateQueries({ queryKey: ["admin-legal-articles"] }); },
       onError: () => toast({ title: "Failed", variant: "destructive" }),
     });
   };

@@ -86,6 +86,80 @@ router.put("/admin/words/:id", async (req, res): Promise<void> => {
   res.json(word);
 });
 
+// Admin: list ALL words (including drafts) with pagination
+router.get("/admin/words", async (req, res): Promise<void> => {
+  const { language_code, category, search, page: pageStr, limit: limitStr } = req.query as Record<string, string>;
+  const page = Math.max(1, Number(pageStr) || 1);
+  const limit = Math.min(100, Math.max(1, Number(limitStr) || 50));
+  const offset = (page - 1) * limit;
+
+  const conditions: any[] = [];
+  if (language_code) conditions.push(eq(wordsTable.languageCode, language_code));
+  if (category) conditions.push(eq(wordsTable.category, category));
+  if (search) conditions.push(ilike(wordsTable.word, `%${search}%`));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [data, countResult] = await Promise.all([
+    db.select().from(wordsTable).where(where).limit(limit).offset(offset).orderBy(wordsTable.id),
+    db.select({ count: sql<number>`count(*)::int` }).from(wordsTable).where(where),
+  ]);
+  const total = countResult[0]?.count ?? 0;
+  res.json({ data, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
+});
+
+// Admin: get categories for admin (includes drafts)
+router.get("/admin/words/categories", async (req, res): Promise<void> => {
+  const { language_code } = req.query as { language_code?: string };
+  const conditions: any[] = [sql`${wordsTable.category} IS NOT NULL`];
+  if (language_code) conditions.push(eq(wordsTable.languageCode, language_code));
+  const result = await db
+    .selectDistinct({ category: wordsTable.category })
+    .from(wordsTable)
+    .where(and(...conditions))
+    .orderBy(wordsTable.category);
+  res.json(result.map((r) => r.category).filter(Boolean));
+});
+
+// Admin: bulk delete by IDs
+router.post("/admin/words/bulk-delete", async (req, res): Promise<void> => {
+  const { ids } = req.body as { ids: number[] };
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "ids array is required" });
+    return;
+  }
+  const deleted = await db.delete(wordsTable).where(inArray(wordsTable.id, ids)).returning({ id: wordsTable.id });
+  res.json({ deleted: deleted.length });
+});
+
+// Admin: delete duplicate words (keep lowest id per word+languageCode)
+router.delete("/admin/words/duplicates", async (req, res): Promise<void> => {
+  const { language_code } = req.query as { language_code?: string };
+  const whereClause = language_code ? `WHERE language_code = '${language_code.replace(/'/g, "''")}'` : "";
+  const result = await db.execute(sql.raw(`
+    DELETE FROM words
+    WHERE id NOT IN (
+      SELECT MIN(id) FROM words ${whereClause} GROUP BY LOWER(word), language_code
+    )
+    ${whereClause}
+    RETURNING id
+  `));
+  const count = (result as any).rowCount ?? (result as any).rows?.length ?? 0;
+  res.json({ deleted: count });
+});
+
+// Admin: delete words by filter (language + optional category)
+router.delete("/admin/words/by-filter", async (req, res): Promise<void> => {
+  const { language_code, category } = req.query as { language_code?: string; category?: string };
+  if (!language_code) {
+    res.status(400).json({ error: "language_code is required" });
+    return;
+  }
+  const conditions: any[] = [eq(wordsTable.languageCode, language_code)];
+  if (category) conditions.push(eq(wordsTable.category, category));
+  const deleted = await db.delete(wordsTable).where(and(...conditions)).returning({ id: wordsTable.id });
+  res.json({ deleted: deleted.length });
+});
+
 router.post("/admin/words/bulk", async (req, res): Promise<void> => {
   const { rows } = req.body as { rows: unknown[] };
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -164,6 +238,7 @@ router.post("/admin/words/bulk", async (req, res): Promise<void> => {
   });
 });
 
+// Admin: single delete by id — MUST be after all specific /admin/words/* routes
 router.delete("/admin/words/:id", async (req, res): Promise<void> => {
   const params = DeleteWordParams.safeParse(req.params);
   if (!params.success) {
@@ -176,85 +251,6 @@ router.delete("/admin/words/:id", async (req, res): Promise<void> => {
     return;
   }
   res.sendStatus(204);
-});
-
-// Admin: list ALL words (including drafts) with pagination
-router.get("/admin/words", async (req, res): Promise<void> => {
-  const { language_code, category, search, page: pageStr, limit: limitStr } = req.query as Record<string, string>;
-  const page = Math.max(1, Number(pageStr) || 1);
-  const limit = Math.min(100, Math.max(1, Number(limitStr) || 50));
-  const offset = (page - 1) * limit;
-
-  const conditions: any[] = [];
-  if (language_code) conditions.push(eq(wordsTable.languageCode, language_code));
-  if (category) conditions.push(eq(wordsTable.category, category));
-  if (search) conditions.push(ilike(wordsTable.word, `%${search}%`));
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-
-  const [data, countResult] = await Promise.all([
-    db.select().from(wordsTable).where(where).limit(limit).offset(offset).orderBy(wordsTable.id),
-    db.select({ count: sql<number>`count(*)::int` }).from(wordsTable).where(where),
-  ]);
-  const total = countResult[0]?.count ?? 0;
-  res.json({ data, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
-});
-
-// Admin: get categories for admin (includes drafts)
-router.get("/admin/words/categories", async (req, res): Promise<void> => {
-  const { language_code } = req.query as { language_code?: string };
-  const conditions: any[] = [sql`${wordsTable.category} IS NOT NULL`];
-  if (language_code) conditions.push(eq(wordsTable.languageCode, language_code));
-  const result = await db
-    .selectDistinct({ category: wordsTable.category })
-    .from(wordsTable)
-    .where(and(...conditions))
-    .orderBy(wordsTable.category);
-  res.json(result.map((r) => r.category).filter(Boolean));
-});
-
-// Admin: bulk delete by IDs
-router.post("/admin/words/bulk-delete", async (req, res): Promise<void> => {
-  const { ids } = req.body as { ids: number[] };
-  if (!Array.isArray(ids) || ids.length === 0) {
-    res.status(400).json({ error: "ids array is required" });
-    return;
-  }
-  const deleted = await db.delete(wordsTable).where(inArray(wordsTable.id, ids)).returning({ id: wordsTable.id });
-  res.json({ deleted: deleted.length });
-});
-
-// Admin: delete duplicate words (keep lowest id per word+languageCode)
-router.delete("/admin/words/duplicates", async (req, res): Promise<void> => {
-  const { language_code } = req.query as { language_code?: string };
-
-  // First find duplicate groups
-  const conditions: any[] = [];
-  if (language_code) conditions.push(`language_code = '${language_code}'`);
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-
-  const result = await db.execute(sql.raw(`
-    DELETE FROM words
-    WHERE id NOT IN (
-      SELECT MIN(id) FROM words ${whereClause} GROUP BY LOWER(word), language_code
-    )
-    ${whereClause}
-    RETURNING id
-  `));
-  const count = (result as any).rowCount ?? (result as any).rows?.length ?? 0;
-  res.json({ deleted: count });
-});
-
-// Admin: delete words by filter (language + optional category)
-router.delete("/admin/words/by-filter", async (req, res): Promise<void> => {
-  const { language_code, category } = req.query as { language_code?: string; category?: string };
-  if (!language_code) {
-    res.status(400).json({ error: "language_code is required" });
-    return;
-  }
-  const conditions: any[] = [eq(wordsTable.languageCode, language_code)];
-  if (category) conditions.push(eq(wordsTable.category, category));
-  const deleted = await db.delete(wordsTable).where(and(...conditions)).returning({ id: wordsTable.id });
-  res.json({ deleted: deleted.length });
 });
 
 export default router;
