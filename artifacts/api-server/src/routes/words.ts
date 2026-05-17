@@ -19,7 +19,7 @@ router.get("/words", async (req, res): Promise<void> => {
   const { language_code, category, difficulty, search, page, limit } = parsed.data;
 
   const conditions = [eq(wordsTable.isPublished, true)];
-  if (language_code) conditions.push(eq(wordsTable.languageCode, language_code));
+  if (language_code) conditions.push(eq(sql`LOWER(${wordsTable.languageCode})`, language_code.toLowerCase()));
   if (category) conditions.push(eq(wordsTable.category, category));
   if (difficulty) conditions.push(eq(wordsTable.difficulty, difficulty));
   if (search) conditions.push(ilike(wordsTable.word, `%${search}%`));
@@ -43,7 +43,7 @@ router.get("/words/categories", async (req, res): Promise<void> => {
   const { language_code } = req.query as { language_code?: string };
   const baseWhere = and(eq(wordsTable.isPublished, true), sql`${wordsTable.category} IS NOT NULL`);
   const where = language_code
-    ? and(baseWhere, eq(wordsTable.languageCode, language_code))
+    ? and(baseWhere, eq(sql`LOWER(${wordsTable.languageCode})`, language_code.toLowerCase()))
     : baseWhere;
   const result = await db
     .selectDistinct({ category: wordsTable.category })
@@ -94,7 +94,7 @@ router.get("/admin/words", async (req, res): Promise<void> => {
   const offset = (page - 1) * limit;
 
   const conditions: any[] = [];
-  if (language_code) conditions.push(eq(wordsTable.languageCode, language_code));
+  if (language_code) conditions.push(eq(sql`LOWER(${wordsTable.languageCode})`, language_code.toLowerCase()));
   if (category) conditions.push(eq(wordsTable.category, category));
   if (search) conditions.push(ilike(wordsTable.word, `%${search}%`));
   const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -110,8 +110,8 @@ router.get("/admin/words", async (req, res): Promise<void> => {
 // Admin: get categories for admin (includes drafts)
 router.get("/admin/words/categories", async (req, res): Promise<void> => {
   const { language_code } = req.query as { language_code?: string };
-  const conditions: any[] = [sql`${wordsTable.category} IS NOT NULL`];
-  if (language_code) conditions.push(eq(wordsTable.languageCode, language_code));
+  const conditions: any[] = [sql`category IS NOT NULL`];
+  if (language_code) conditions.push(eq(sql`LOWER(${wordsTable.languageCode})`, language_code.toLowerCase()));
   const result = await db
     .selectDistinct({ category: wordsTable.category })
     .from(wordsTable)
@@ -154,7 +154,7 @@ router.delete("/admin/words/by-filter", async (req, res): Promise<void> => {
     res.status(400).json({ error: "language_code is required" });
     return;
   }
-  const conditions: any[] = [eq(wordsTable.languageCode, language_code)];
+  const conditions: any[] = [eq(sql`LOWER(${wordsTable.languageCode})`, language_code.toLowerCase())];
   if (category) conditions.push(eq(wordsTable.category, category));
   const deleted = await db.delete(wordsTable).where(and(...conditions)).returning({ id: wordsTable.id });
   res.json({ deleted: deleted.length });
@@ -180,7 +180,7 @@ router.post("/admin/words/bulk", async (req, res): Promise<void> => {
     valid.push({
       index: i,
       word: row.word.trim(),
-      languageCode: row.languageCode ?? "vi",
+      languageCode: (row.languageCode ?? "vi").toLowerCase(),
       pronunciation: row.pronunciation || null,
       meaningZh: row.meaningZh || null,
       meaningEn: row.meaningEn || null,

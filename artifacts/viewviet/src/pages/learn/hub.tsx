@@ -3,57 +3,13 @@ import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
 import { Seo } from "@/components/seo";
 
-const LANG_STORAGE_KEY = "vv-learn-languages";
-
-const DEFAULT_LANGUAGES = [
-  {
-    code: "vi",
-    nameKey: "learn.lang_vi",
-    descKey: "learn.lang_vi_desc",
-    photo: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=600&q=80&auto=format&fit=crop",
-    accent: "#f59e0b",
-    label: "越南语",
-    sublabel: "Tiếng Việt",
-    enabled: true,
-  },
-  {
-    code: "en",
-    nameKey: "learn.lang_en",
-    descKey: "learn.lang_en_desc",
-    photo: "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=600&q=80&auto=format&fit=crop",
-    accent: "#3b82f6",
-    label: "英语",
-    sublabel: "English",
-    enabled: true,
-  },
-  {
-    code: "zh",
-    nameKey: "learn.lang_zh",
-    descKey: "learn.lang_zh_desc",
-    photo: "https://images.unsplash.com/photo-1508804185872-d7badad00f7d?w=600&q=80&auto=format&fit=crop",
-    accent: "#ef4444",
-    label: "中文",
-    sublabel: "普通话",
-    enabled: true,
-  },
-  {
-    code: "ko",
-    nameKey: "learn.lang_ko",
-    descKey: "learn.lang_ko_desc",
-    photo: "https://images.unsplash.com/photo-1601621915196-2621bfb0cd6e?w=600&q=80&auto=format&fit=crop",
-    accent: "#8b5cf6",
-    label: "韩语",
-    sublabel: "한국어",
-    enabled: true,
-  },
-];
+import { DEFAULT_LANGS, LANG_STORAGE_KEY } from "@/lib/lang-utils";
 
 function loadLanguages() {
   try {
     const raw = localStorage.getItem(LANG_STORAGE_KEY);
     if (raw) {
       const stored = JSON.parse(raw);
-      // Merge with default nameKey/descKey for i18n
       return stored.map((l: any) => ({
         ...l,
         nameKey: `learn.lang_${l.code}`,
@@ -61,7 +17,11 @@ function loadLanguages() {
       }));
     }
   } catch {}
-  return DEFAULT_LANGUAGES;
+  return DEFAULT_LANGS.map(l => ({
+    ...l,
+    nameKey: `learn.lang_${l.code}`,
+    descKey: `learn.lang_${l.code}_desc`,
+  }));
 }
 
 function OrganicSvg() {
@@ -84,7 +44,7 @@ function OrganicSvg() {
   );
 }
 
-function LangCard({ lang }: { lang: typeof DEFAULT_LANGUAGES[0] }) {
+function LangCard({ lang }: { lang: typeof DEFAULT_LANGS[0] & { nameKey: string, descKey: string } }) {
   const { t } = useTranslation();
   return (
     <Link href={`/learn/${lang.code}/words`}>

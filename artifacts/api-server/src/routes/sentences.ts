@@ -20,7 +20,7 @@ router.get("/scene-sentences", async (req, res): Promise<void> => {
   const { language_code, scene_name, difficulty, page, limit } = parsed.data;
 
   const conditions = [eq(sceneSentencesTable.isPublished, true)];
-  if (language_code) conditions.push(eq(sceneSentencesTable.languageCode, language_code));
+  if (language_code) conditions.push(eq(sql`LOWER(${sceneSentencesTable.languageCode})`, language_code.toLowerCase()));
   if (scene_name) conditions.push(eq(sceneSentencesTable.sceneName, scene_name));
   if (difficulty) conditions.push(eq(sceneSentencesTable.difficulty, difficulty));
 
@@ -39,7 +39,7 @@ router.get("/scene-sentences", async (req, res): Promise<void> => {
 router.get("/scene-sentences/scenes", async (req, res): Promise<void> => {
   const { language_code } = req.query as { language_code?: string };
   const conditions = [eq(sceneSentencesTable.isPublished, true)];
-  if (language_code) conditions.push(eq(sceneSentencesTable.languageCode, language_code));
+  if (language_code) conditions.push(eq(sql`LOWER(${sceneSentencesTable.languageCode})`, language_code.toLowerCase()));
   const result = await db
     .selectDistinct({ sceneName: sceneSentencesTable.sceneName })
     .from(sceneSentencesTable)
@@ -67,7 +67,7 @@ router.get("/complex-sentences", async (req, res): Promise<void> => {
   const { language_code, difficulty, context, page, limit } = parsed.data;
 
   const conditions = [eq(complexSentencesTable.isPublished, true)];
-  if (language_code) conditions.push(eq(complexSentencesTable.languageCode, language_code));
+  if (language_code) conditions.push(eq(sql`LOWER(${complexSentencesTable.languageCode})`, language_code.toLowerCase()));
   if (difficulty) conditions.push(eq(complexSentencesTable.difficulty, difficulty));
   if (context) conditions.push(eq(complexSentencesTable.context, context));
 
@@ -113,7 +113,7 @@ router.post("/admin/scene-sentences/bulk", async (req, res): Promise<void> => {
     }
     valid.push({
       sentence: row.sentence.trim(),
-      languageCode: row.languageCode ?? "vi",
+      languageCode: (row.languageCode ?? "vi").toLowerCase(),
       sceneName: row.sceneName.trim(),
       pronunciation: row.pronunciation || null,
       translationZh: row.translationZh || null,
@@ -147,7 +147,7 @@ router.post("/admin/complex-sentences/bulk", async (req, res): Promise<void> => 
     }
     valid.push({
       sentence: row.sentence.trim(),
-      languageCode: row.languageCode ?? "vi",
+      languageCode: (row.languageCode ?? "vi").toLowerCase(),
       pronunciation: row.pronunciation || null,
       translationZh: row.translationZh || null,
       translationEn: row.translationEn || null,
@@ -174,7 +174,7 @@ router.get("/admin/scene-sentences", async (req, res): Promise<void> => {
   const limit = Math.min(200, Math.max(1, Number(limitStr) || 50));
   const offset = (page - 1) * limit;
   const conditions: any[] = [];
-  if (language_code) conditions.push(eq(sceneSentencesTable.languageCode, language_code));
+  if (language_code) conditions.push(eq(sql`LOWER(${sceneSentencesTable.languageCode})`, language_code.toLowerCase()));
   if (scene_name) conditions.push(eq(sceneSentencesTable.sceneName, scene_name));
   const where = conditions.length > 0 ? and(...conditions) : undefined;
   const [data, countResult] = await Promise.all([
@@ -191,7 +191,7 @@ router.get("/admin/complex-sentences", async (req, res): Promise<void> => {
   const limit = Math.min(200, Math.max(1, Number(limitStr) || 50));
   const offset = (page - 1) * limit;
   const conditions: any[] = [];
-  if (language_code) conditions.push(eq(complexSentencesTable.languageCode, language_code));
+  if (language_code) conditions.push(eq(sql`LOWER(${complexSentencesTable.languageCode})`, language_code.toLowerCase()));
   if (context) conditions.push(eq(complexSentencesTable.context, context));
   const where = conditions.length > 0 ? and(...conditions) : undefined;
   const [data, countResult] = await Promise.all([
@@ -205,7 +205,7 @@ router.get("/admin/complex-sentences", async (req, res): Promise<void> => {
 router.get("/admin/scene-sentences/scenes", async (req, res): Promise<void> => {
   const { language_code } = req.query as { language_code?: string };
   const conditions: any[] = [];
-  if (language_code) conditions.push(eq(sceneSentencesTable.languageCode, language_code));
+  if (language_code) conditions.push(eq(sql`LOWER(${sceneSentencesTable.languageCode})`, language_code.toLowerCase()));
   const result = await db
     .selectDistinct({ sceneName: sceneSentencesTable.sceneName })
     .from(sceneSentencesTable)
@@ -277,7 +277,7 @@ router.delete("/admin/scene-sentences/by-filter", async (req, res): Promise<void
     return;
   }
   const conditions: any[] = [];
-  if (language_code) conditions.push(eq(sceneSentencesTable.languageCode, language_code));
+  if (language_code) conditions.push(eq(sql`LOWER(${sceneSentencesTable.languageCode})`, language_code.toLowerCase()));
   if (scene_name) conditions.push(eq(sceneSentencesTable.sceneName, scene_name));
   const deleted = await db.delete(sceneSentencesTable).where(and(...conditions)).returning({ id: sceneSentencesTable.id });
   res.json({ deleted: deleted.length });
@@ -289,7 +289,7 @@ router.delete("/admin/complex-sentences/by-filter", async (req, res): Promise<vo
     res.status(400).json({ error: "language_code is required" });
     return;
   }
-  const conditions: any[] = [eq(complexSentencesTable.languageCode, language_code)];
+  const conditions: any[] = [eq(sql`LOWER(${complexSentencesTable.languageCode})`, language_code.toLowerCase())];
   if (context) conditions.push(eq(complexSentencesTable.context, context));
   const deleted = await db.delete(complexSentencesTable).where(and(...conditions)).returning({ id: complexSentencesTable.id });
   res.json({ deleted: deleted.length });

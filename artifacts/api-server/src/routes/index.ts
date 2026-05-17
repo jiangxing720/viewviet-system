@@ -13,6 +13,7 @@ import settingsRouter from "./settings";
 import adminUsersRouter from "./admin-users";
 import imagesRouter from "./images";
 import cardsRouter from "./cards";
+import languagesRouter from "./languages";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(dashboardRouter);
 router.use(settingsRouter);
 router.use(adminUsersRouter);
 router.use(cardsRouter);
+router.use(languagesRouter);
 
 export default router;
