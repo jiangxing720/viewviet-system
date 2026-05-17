@@ -28,6 +28,16 @@ export function useTtsVoice(lang: string) {
       const filtered = all.filter((v) =>
         v.lang.toLowerCase().startsWith(langPrefix)
       );
+      
+      // Sort: localService first, then Premium/Enhanced
+      filtered.sort((a, b) => {
+        if (a.localService !== b.localService) return a.localService ? -1 : 1;
+        const aPremium = a.name.includes("Premium") || a.name.includes("Enhanced");
+        const bPremium = b.name.includes("Premium") || b.name.includes("Enhanced");
+        if (aPremium !== bPremium) return aPremium ? -1 : 1;
+        return 0;
+      });
+      
       setVoices(filtered.length > 0 ? filtered : all);
     };
 
@@ -45,9 +55,21 @@ export function useTtsVoice(lang: string) {
   );
 
   const getVoice = useCallback((): SpeechSynthesisVoice | undefined => {
-    if (!selectedVoiceName) return undefined;
-    return window.speechSynthesis?.getVoices().find((v) => v.name === selectedVoiceName);
-  }, [selectedVoiceName]);
+    const all = window.speechSynthesis?.getVoices() ?? [];
+    if (selectedVoiceName) {
+      const found = all.find((v) => v.name === selectedVoiceName);
+      if (found) return found;
+    }
+    // Apple TTS Fix: If no voice is manually selected, DO NOT return undefined.
+    // Return the first available LOCAL voice for this language to prevent iOS from defaulting to broken cloud voices in China.
+    const langPrefix = (LANG_MAP[lang] ?? lang).slice(0, 2).toLowerCase();
+    const available = all.filter(v => v.lang.toLowerCase().startsWith(langPrefix));
+    if (available.length > 0) {
+      const local = available.find(v => v.localService);
+      return local ?? available[0];
+    }
+    return undefined;
+  }, [selectedVoiceName, lang]);
 
   const speak = useCallback(
     (text: string) => {
@@ -57,6 +79,10 @@ export function useTtsVoice(lang: string) {
       utter.lang = LANG_MAP[lang] ?? lang;
       const voice = getVoice();
       if (voice) utter.voice = voice;
+      
+      // Important: some iOS versions need a slight delay or rate tweak if switching voices
+      utter.rate = 0.95; // slightly slower for better clarity and iOS stability
+      
       window.speechSynthesis.speak(utter);
     },
     [lang, getVoice]
@@ -68,6 +94,7 @@ export function useTtsVoice(lang: string) {
       utter.lang = LANG_MAP[lang] ?? lang;
       const voice = getVoice();
       if (voice) utter.voice = voice;
+      utter.rate = 0.95;
       return utter;
     },
     [lang, getVoice]

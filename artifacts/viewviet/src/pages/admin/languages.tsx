@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Trash2, GripVertical, Save, Eye, EyeOff, Globe } from "lucide-react";
 
-import { DEFAULT_LANGS, LangConfig, LANG_STORAGE_KEY } from "@/lib/lang-utils";
+import { DEFAULT_LANGS, LangConfig, LANG_STORAGE_KEY, fetchLanguagesApi, saveLanguagesApi } from "@/lib/lang-utils";
 
 const ACCENT_PRESETS = [
   { label: "琥珀", value: "#f59e0b" },
@@ -21,40 +21,53 @@ const ACCENT_PRESETS = [
   { label: "粉", value: "#ec4899" },
 ];
 
-function loadLangs(): LangConfig[] {
-  try {
-    const raw = localStorage.getItem(LANG_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return DEFAULT_LANGS;
-}
-
-function saveLangs(langs: LangConfig[]) {
-  localStorage.setItem(LANG_STORAGE_KEY, JSON.stringify(langs));
-}
-
 export function useLearnLangs(): LangConfig[] {
-  const [langs, setLangs] = useState<LangConfig[]>(() => loadLangs());
+  const [langs, setLangs] = useState<LangConfig[]>([]);
   useEffect(() => {
-    const handler = () => setLangs(loadLangs());
+    fetchLanguagesApi().then(setLangs);
+    const handler = () => {
+      const raw = localStorage.getItem(LANG_STORAGE_KEY);
+      if (raw) {
+        try { setLangs(JSON.parse(raw)); } catch {}
+      }
+    };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
   }, []);
-  return langs.filter((l) => l.enabled);
+  // Fallback to local storage or defaults immediately while fetching
+  const initial = langs.length > 0 ? langs : (() => {
+    try {
+      const raw = localStorage.getItem(LANG_STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return DEFAULT_LANGS;
+  })();
+  return initial.filter((l: LangConfig) => l.enabled);
 }
 
 export default function AdminLanguages() {
-  const [langs, setLangs] = useState<LangConfig[]>(() => loadLangs());
+  const [langs, setLangs] = useState<LangConfig[]>([]);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newLang, setNewLang] = useState<LangConfig>({
-    code: "", label: "", sublabel: "", photo: "", accent: "#0D7377", enabled: true,
+    code: "", label: "", sublabel: "", photo: "", accent: "#0D7377", enabled: true, description: ""
   });
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
-  const handleSave = () => {
-    saveLangs(langs);
-    toast({ title: "语言设置已保存" });
+  useEffect(() => {
+    fetchLanguagesApi().then(setLangs);
+  }, []);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    const success = await saveLanguagesApi(langs);
+    setIsSaving(false);
+    if (success) {
+      toast({ title: "语言设置已成功保存到云端" });
+    } else {
+      toast({ title: "保存失败，请检查网络", variant: "destructive" });
+    }
   };
 
   const handleToggle = (i: number) => {
@@ -76,15 +89,15 @@ export default function AdminLanguages() {
       return;
     }
     setLangs((prev) => [...prev, { ...newLang }]);
-    setNewLang({ code: "", label: "", sublabel: "", photo: "", accent: "#0D7377", enabled: true });
+    setNewLang({ code: "", label: "", sublabel: "", photo: "", accent: "#0D7377", enabled: true, description: "" });
     setShowAdd(false);
     toast({ title: `已添加「${newLang.label}」` });
   };
 
-  const handleReset = () => {
-    if (!confirm("重置为默认语言列表？")) return;
+  const handleReset = async () => {
+    if (!confirm("重置为默认语言列表？这将覆盖当前的全部配置。")) return;
     setLangs(DEFAULT_LANGS);
-    saveLangs(DEFAULT_LANGS);
+    await saveLanguagesApi(DEFAULT_LANGS);
     toast({ title: "已重置为默认设置" });
   };
 
@@ -175,6 +188,10 @@ export default function AdminLanguages() {
                         <Label className="text-xs">封面图 URL（建议 Unsplash 或自己上传的图片链接）</Label>
                         <Input value={lang.photo} onChange={(e) => handleFieldChange(i, "photo", e.target.value)} placeholder="https://images.unsplash.com/..." className="h-8 text-sm" />
                       </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">学习中心简介（描述该语言的特点，如：国际通用语言...）</Label>
+                        <Input value={lang.description || ""} onChange={(e) => handleFieldChange(i, "description", e.target.value)} placeholder="一段简短的介绍语..." className="h-8 text-sm" />
+                      </div>
                       <Button size="sm" variant="outline" onClick={() => setEditIndex(null)}>完成编辑</Button>
                     </div>
                   ) : (
@@ -250,6 +267,10 @@ export default function AdminLanguages() {
               <Label className="text-xs">封面图 URL</Label>
               <Input value={newLang.photo} onChange={(e) => setNewLang(p => ({ ...p, photo: e.target.value }))} placeholder="https://images.unsplash.com/photo-..." className="h-8 text-sm" />
               <p className="text-xs text-muted-foreground">建议使用 Unsplash 高清风景照，宽高比约 4:3</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">学习中心简介</Label>
+              <Input value={newLang.description || ""} onChange={(e) => setNewLang(p => ({ ...p, description: e.target.value }))} placeholder="例：国际通用语言，连接东南亚华人社区与全球商务中心" className="h-8 text-sm" />
             </div>
             {newLang.photo && (
               <div className="w-full h-32 rounded-xl overflow-hidden bg-muted" style={{ backgroundImage: `url(${newLang.photo})`, backgroundSize: "cover", backgroundPosition: "center" }} />

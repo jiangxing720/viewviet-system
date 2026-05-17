@@ -9,7 +9,7 @@ import { useGetComplexSentences, getGetComplexSentencesQueryKey } from "@workspa
 import { Volume2, Brain, Mic } from "lucide-react";
 import { useTtsVoice } from "@/hooks/useTtsVoice";
 
-import { getLangConfig, getLangFlag } from "@/lib/lang-utils";
+import { getLangConfig, getLangFlag, useLangConfig } from "@/lib/lang-utils";
 const DIFFICULTIES = [1, 2, 3, 4, 5];
 
 function VoiceSelector({ lang }: { lang: string }) {
@@ -101,7 +101,7 @@ function KtvText({
 export default function ComplexSentences() {
   const { lang = "vi" } = useParams<{ lang: string }>();
   const { t } = useTranslation();
-  const config = getLangConfig(lang);
+  const config = useLangConfig(lang);
   const [difficulty, setDifficulty] = useState<number | undefined>();
 
   const { makeUtterance } = useTtsVoice(lang);

@@ -3,25 +3,14 @@ import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
 import { Seo } from "@/components/seo";
 
-import { DEFAULT_LANGS, LANG_STORAGE_KEY } from "@/lib/lang-utils";
+import { DEFAULT_LANGS, LANG_STORAGE_KEY, fetchLanguagesApi, LangConfig } from "@/lib/lang-utils";
 
-function loadLanguages() {
+function loadLanguagesSync(): LangConfig[] {
   try {
     const raw = localStorage.getItem(LANG_STORAGE_KEY);
-    if (raw) {
-      const stored = JSON.parse(raw);
-      return stored.map((l: any) => ({
-        ...l,
-        nameKey: `learn.lang_${l.code}`,
-        descKey: `learn.lang_${l.code}_desc`,
-      }));
-    }
+    if (raw) return JSON.parse(raw);
   } catch {}
-  return DEFAULT_LANGS.map(l => ({
-    ...l,
-    nameKey: `learn.lang_${l.code}`,
-    descKey: `learn.lang_${l.code}_desc`,
-  }));
+  return DEFAULT_LANGS;
 }
 
 function OrganicSvg() {
@@ -44,7 +33,7 @@ function OrganicSvg() {
   );
 }
 
-function LangCard({ lang }: { lang: typeof DEFAULT_LANGS[0] & { nameKey: string, descKey: string } }) {
+function LangCard({ lang }: { lang: LangConfig }) {
   const { t } = useTranslation();
   return (
     <Link href={`/learn/${lang.code}/words`}>
@@ -62,7 +51,7 @@ function LangCard({ lang }: { lang: typeof DEFAULT_LANGS[0] & { nameKey: string,
         <div className="absolute inset-0 flex flex-col justify-end p-4 gap-0.5">
           <p className="text-white font-bold text-xl leading-tight drop-shadow">{lang.label}</p>
           <p className="text-white/60 text-xs font-medium tracking-wide">{lang.sublabel}</p>
-          <p className="text-white/50 text-xs leading-snug mt-1 line-clamp-2">{t(lang.descKey)}</p>
+          <p className="text-white/50 text-xs leading-snug mt-1 line-clamp-2">{lang.description || t(`learn.lang_${lang.code}_desc`)}</p>
         </div>
         {/* Arrow */}
         <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -77,11 +66,19 @@ function LangCard({ lang }: { lang: typeof DEFAULT_LANGS[0] & { nameKey: string,
 
 export default function LearnHub() {
   const { t } = useTranslation();
-  const [languages, setLanguages] = useState(() => loadLanguages().filter((l: any) => l.enabled !== false));
+  const [languages, setLanguages] = useState<LangConfig[]>(() => loadLanguagesSync().filter(l => l.enabled));
 
-  // Reload if storage changes (admin saves)
   useEffect(() => {
-    const handler = () => setLanguages(loadLanguages().filter((l: any) => l.enabled !== false));
+    fetchLanguagesApi().then(langs => {
+      setLanguages(langs.filter(l => l.enabled));
+    });
+
+    const handler = () => {
+      const raw = localStorage.getItem(LANG_STORAGE_KEY);
+      if (raw) {
+        try { setLanguages(JSON.parse(raw).filter((l: LangConfig) => l.enabled)); } catch {}
+      }
+    };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
   }, []);

@@ -11,7 +11,7 @@ import { useGetWords, getGetWordsQueryKey, useGetWordCategories, getGetWordCateg
 import { Search, Volume2, BookOpen, Star, SlidersHorizontal, Mic } from "lucide-react";
 import { useTtsVoice } from "@/hooks/useTtsVoice";
 
-import { getLangConfig, getLangFlag } from "@/lib/lang-utils";
+import { getLangConfig, getLangFlag, useLangConfig } from "@/lib/lang-utils";
 function DifficultyStars({ level }: { level?: number | null }) {
   return (
     <div className="flex gap-0.5">
@@ -80,7 +80,7 @@ function CategoryList({
 export default function Vocabulary() {
   const { lang = "vi" } = useParams<{ lang: string }>();
   const { t } = useTranslation();
-  const config = getLangConfig(lang);
+  const config = useLangConfig(lang);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string | undefined>();
   const [page, setPage] = useState(1);
