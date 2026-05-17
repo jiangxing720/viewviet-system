@@ -89,8 +89,10 @@ export function useLangConfig(code: string): LangConfig | undefined {
 }
 
 export function getLangFlag(code: string): string {
+  if (!code) return "🌍";
+  const clean = code.trim().toLowerCase();
   const flags: Record<string, string> = {
     vi: "🇻🇳", en: "🇬🇧", zh: "🇨🇳", ko: "🇰🇷", es: "🇪🇸", th: "🇹🇭", ja: "🇯🇵", fr: "🇫🇷", de: "🇩🇪", ru: "🇷🇺"
   };
-  return flags[code] || "🌍";
+  return flags[clean] || "🌍";
 }
