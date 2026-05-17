@@ -358,9 +358,17 @@ export async function customFetch<T = unknown>(
     }
   }
 
+  // Inject session ID from localStorage to bypass third-party cookie blocking
+  if (typeof localStorage !== "undefined") {
+    const sid = localStorage.getItem("viewviet_session_id");
+    if (sid && !headers.has("x-session-id")) {
+      headers.set("x-session-id", sid);
+    }
+  }
+
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  const response = await fetch(input, { ...init, credentials: "include", method, headers });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

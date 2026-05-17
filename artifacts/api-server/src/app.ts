@@ -45,6 +45,16 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
+// Inject x-session-id header into cookie for cross-domain auth
+// (bypasses third-party cookie blocking in modern browsers)
+app.use((req, _res, next) => {
+  const headerSid = req.headers["x-session-id"] as string | undefined;
+  if (headerSid && !req.headers.cookie?.includes("connect.sid")) {
+    req.headers.cookie = `connect.sid=${headerSid}${req.headers.cookie ? "; " + req.headers.cookie : ""}`;
+  }
+  next();
+});
+
 app.use(
   session({
     secret: process.env["SESSION_SECRET"] ?? "fallback-secret-change-me",

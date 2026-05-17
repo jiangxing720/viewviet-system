@@ -62,7 +62,7 @@ export default function AdminLegal() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const BASE = (import.meta.env.VITE_API_URL as string) || "";
   const adminQKey = ["admin-legal-articles", search, page];
   const { data: articlesResp, isLoading } = useQuery({
     queryKey: adminQKey,

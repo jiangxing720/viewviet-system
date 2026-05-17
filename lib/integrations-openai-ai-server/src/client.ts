@@ -1,18 +1,13 @@
 import OpenAI from "openai";
 
-if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
-  throw new Error(
-    "AI_INTEGRATIONS_OPENAI_BASE_URL must be set. Did you forget to provision the OpenAI AI integration?",
-  );
-}
+const rawKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+const isGeminiKey = rawKey?.startsWith("AIza");
 
-if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-  throw new Error(
-    "AI_INTEGRATIONS_OPENAI_API_KEY must be set. Did you forget to provision the OpenAI AI integration?",
-  );
-}
+export const openai = rawKey
+  ? new OpenAI({
+      apiKey: rawKey,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 
+               (isGeminiKey ? "https://generativelanguage.googleapis.com/v1beta/openai/" : undefined),
+    })
+  : null;
 
-export const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});

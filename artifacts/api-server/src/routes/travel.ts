@@ -175,7 +175,7 @@ router.post("/admin/guides/import-url", async (req, res): Promise<void> => {
   }
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.1", max_completion_tokens: 16384,
+      model: "gemini-2.5-pro", max_completion_tokens: 16384,
       messages: [
         { role: "system", content: GUIDE_AI_PROMPT },
         { role: "user", content: `请从以下网页内容提取旅游攻略信息：\n\n${page.plainText}` },
@@ -199,7 +199,7 @@ router.post("/admin/guides/batch-import", async (req, res): Promise<void> => {
     try {
       const page = await fetchPage(url);
       const completion = await openai.chat.completions.create({
-        model: "gpt-5.1", max_completion_tokens: 16384,
+        model: "gemini-2.5-pro", max_completion_tokens: 16384,
         messages: [
           { role: "system", content: GUIDE_AI_PROMPT },
           { role: "user", content: `请从以下网页内容提取旅游攻略信息：\n\n${page.plainText}` },

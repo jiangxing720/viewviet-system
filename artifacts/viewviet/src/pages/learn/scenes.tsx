@@ -9,9 +9,7 @@ import { useGetSceneSentences, getGetSceneSentencesQueryKey, useGetSceneNames, g
 import { Volume2, MessageSquare, Mic } from "lucide-react";
 import { useTtsVoice } from "@/hooks/useTtsVoice";
 
-const LANG_FLAGS: Record<string, string> = { vi: "🇻🇳", en: "🇬🇧", zh: "🇨🇳", ko: "🇰🇷" };
-const LANG_NAME_KEYS: Record<string, string> = { vi: "learn.lang_vi", en: "learn.lang_en", zh: "learn.lang_zh", ko: "learn.lang_ko" };
-
+import { getLangConfig } from "@/lib/lang-utils";
 // Language label badge styles
 const TRANSLATION_BADGES: Record<string, { label: string; bg: string; text: string }> = {
   zh: { label: "中", bg: "#fef2f2", text: "#b91c1c" },
@@ -136,6 +134,7 @@ function KtvText({
 export default function SceneSentences() {
   const { lang = "vi" } = useParams<{ lang: string }>();
   const { t } = useTranslation();
+  const config = getLangConfig(lang);
   const [scene, setScene] = useState<string | undefined>();
 
   const { makeUtterance } = useTtsVoice(lang);
@@ -158,9 +157,9 @@ export default function SceneSentences() {
         <Link href={`/learn/${lang}/words`}>
           <Button variant="ghost" size="sm">{t("learn.back_words")}</Button>
         </Link>
-        <span className="text-2xl">{LANG_FLAGS[lang]}</span>
-        <h1 className="text-xl md:text-2xl font-bold">
-          {t(LANG_NAME_KEYS[lang] ?? "learn.scene_sentences")} {t("learn.scene_sentences")}
+        <span className="text-2xl">{config?.code === "vi" ? "🇻🇳" : config?.code === "en" ? "🇬🇧" : config?.code === "zh" ? "🇨🇳" : config?.code === "ko" ? "🇰🇷" : "🌍"}</span>
+        <h1 className="text-xl md:text-2xl font-bold flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+          {config ? config.label : lang.toUpperCase()} {t("learn.scene_sentences")}
         </h1>
         <Link href={`/learn/${lang}/complex`} className="ml-auto">
           <Button variant="outline" size="sm">{t("learn.complex_btn")}</Button>

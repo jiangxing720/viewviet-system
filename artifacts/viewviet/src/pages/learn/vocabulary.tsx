@@ -11,9 +11,7 @@ import { useGetWords, getGetWordsQueryKey, useGetWordCategories, getGetWordCateg
 import { Search, Volume2, BookOpen, Star, SlidersHorizontal, Mic } from "lucide-react";
 import { useTtsVoice } from "@/hooks/useTtsVoice";
 
-const LANG_FLAGS: Record<string, string> = { vi: "🇻🇳", en: "🇬🇧", zh: "🇨🇳", ko: "🇰🇷" };
-const LANG_NAME_KEYS: Record<string, string> = { vi: "learn.lang_vi", en: "learn.lang_en", zh: "learn.lang_zh", ko: "learn.lang_ko" };
-
+import { getLangConfig } from "@/lib/lang-utils";
 function DifficultyStars({ level }: { level?: number | null }) {
   return (
     <div className="flex gap-0.5">
@@ -82,6 +80,7 @@ function CategoryList({
 export default function Vocabulary() {
   const { lang = "vi" } = useParams<{ lang: string }>();
   const { t } = useTranslation();
+  const config = getLangConfig(lang);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string | undefined>();
   const [page, setPage] = useState(1);
@@ -117,8 +116,8 @@ export default function Vocabulary() {
           <Button variant="ghost" size="sm">{t("learn.back_lang")}</Button>
         </Link>
         <div className="flex items-center gap-2">
-          <span className="text-2xl">{LANG_FLAGS[lang]}</span>
-          <h1 className="text-xl md:text-2xl font-bold">{t(LANG_NAME_KEYS[lang] ?? "learn.vocabulary")} {t("learn.vocabulary")}</h1>
+          <span className="text-2xl">{config?.code === "vi" ? "🇻🇳" : config?.code === "en" ? "🇬🇧" : config?.code === "zh" ? "🇨🇳" : config?.code === "ko" ? "🇰🇷" : "🌍"}</span>
+          <h1 className="text-xl md:text-2xl font-bold">{config ? config.label : lang.toUpperCase()} {t("learn.vocabulary")}</h1>
         </div>
         <div className="flex gap-2 ml-auto">
           <Link href={`/learn/${lang}/scenes`}>

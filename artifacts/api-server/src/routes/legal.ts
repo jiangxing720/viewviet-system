@@ -238,7 +238,7 @@ router.post("/admin/legal-articles/import-url", async (req, res): Promise<void> 
   }
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.1", max_completion_tokens: 16384,
+      model: "gemini-2.5-pro", max_completion_tokens: 16384,
       messages: [
         { role: "system", content: LEGAL_ARTICLE_AI_PROMPT },
         { role: "user", content: `请从以下网页内容提取法律文章信息：\n\n${page.plainText}` },
@@ -262,7 +262,7 @@ router.post("/admin/legal-articles/batch-import", async (req, res): Promise<void
     try {
       const page = await fetchPage(url);
       const completion = await openai.chat.completions.create({
-        model: "gpt-5.1", max_completion_tokens: 16384,
+        model: "gemini-2.5-pro", max_completion_tokens: 16384,
         messages: [
           { role: "system", content: LEGAL_ARTICLE_AI_PROMPT },
           { role: "user", content: `请从以下网页内容提取法律文章信息：\n\n${page.plainText}` },
@@ -413,7 +413,7 @@ router.post("/admin/legal-documents/import-url", async (req, res): Promise<void>
   let extracted: any;
   const callAI = async () => {
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.1",
+      model: "gemini-2.5-pro",
       max_completion_tokens: 32768,
       messages: [
         { role: "system", content: systemPrompt },

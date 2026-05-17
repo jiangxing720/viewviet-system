@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-const LANGS = ["vi", "en", "zh", "ko"];
+import { useLearnLangs } from "./languages";
+const BASE = (import.meta.env.VITE_API_URL as string) || "";
 
 const SCENE_EXAMPLE = `sentence,languageCode,sceneName,pronunciation,translationZh,translationEn,translationVi,difficulty,isPublished
 Xin chào! Tôi muốn đặt bàn.,vi,餐厅,sin chào tôi muốn đặt bàn,你好！我想预定一张桌子。,Hello! I'd like to make a reservation.,Xin chào! Tôi muốn đặt bàn.,1,true`;
@@ -95,7 +95,9 @@ export default function AdminSentences() {
 
 function SceneList() {
   const { toast } = useToast();
-  const [lang, setLang] = useState("vi");
+  const langConfigs = useLearnLangs();
+  const LANGS = langConfigs.map(l => l.code);
+  const [lang, setLang] = useState(LANGS[0] || "vi");
   const [scene, setScene] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -301,7 +303,9 @@ function SceneSelect({ lang, value, onChange }: { lang: string; value: string; o
 
 function ComplexList() {
   const { toast } = useToast();
-  const [lang, setLang] = useState("vi");
+  const langConfigs = useLearnLangs();
+  const LANGS = langConfigs.map(l => l.code);
+  const [lang, setLang] = useState(LANGS[0] || "vi");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [showBulkFilter, setShowBulkFilter] = useState(false);
@@ -468,6 +472,8 @@ function ComplexList() {
 
 function BulkUpload() {
   const { toast } = useToast();
+  const langConfigs = useLearnLangs();
+  const LANGS = langConfigs.map(l => l.code);
   const [tab, setTab] = useState<"scene" | "complex">("scene");
   const [sceneCsv, setSceneCsv] = useState("");
   const [complexCsv, setComplexCsv] = useState("");

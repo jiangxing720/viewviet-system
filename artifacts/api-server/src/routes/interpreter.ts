@@ -30,7 +30,7 @@ router.post("/interpreter/translate", async (req, res): Promise<void> => {
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gemini-2.5-flash",
       max_completion_tokens: 512,
       messages: [
         {
@@ -79,7 +79,7 @@ Keep it factual, neutral, and under 150 words per language. Highlight key topics
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gemini-2.5-flash",
       max_completion_tokens: 1024,
       messages: [
         { role: "system", content: systemPrompt },

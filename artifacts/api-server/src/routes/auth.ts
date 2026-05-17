@@ -37,12 +37,15 @@ router.post("/register", async (req, res) => {
       .returning();
     req.session.userId = user.id;
     req.session.userRole = user.role;
-    res.status(201).json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      displayName: user.displayName,
-      role: user.role,
+    req.session.save(() => {
+      res.status(201).json({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        sessionId: req.sessionID ? `s:${req.sessionID}` : undefined,
+      });
     });
   } catch (err) {
     req.log.error(err, "register error");
@@ -73,12 +76,15 @@ router.post("/login", async (req, res) => {
     }
     req.session.userId = user.id;
     req.session.userRole = user.role;
-    res.json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      displayName: user.displayName,
-      role: user.role,
+    req.session.save(() => {
+      res.json({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        sessionId: req.sessionID ? `s:${req.sessionID}` : undefined,
+      });
     });
   } catch (err) {
     req.log.error(err, "login error");

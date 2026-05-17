@@ -9,9 +9,7 @@ import { useGetComplexSentences, getGetComplexSentencesQueryKey } from "@workspa
 import { Volume2, Brain, Mic } from "lucide-react";
 import { useTtsVoice } from "@/hooks/useTtsVoice";
 
-const LANG_FLAGS: Record<string, string> = { vi: "🇻🇳", en: "🇬🇧", zh: "🇨🇳", ko: "🇰🇷" };
-const LANG_NAME_KEYS: Record<string, string> = { vi: "learn.lang_vi", en: "learn.lang_en", zh: "learn.lang_zh", ko: "learn.lang_ko" };
-const DIFFICULTIES = [1, 2, 3, 4, 5];
+import { getLangConfig } from "@/lib/lang-utils";const DIFFICULTIES = [1, 2, 3, 4, 5];
 
 function VoiceSelector({ lang }: { lang: string }) {
   const { voices, selectedVoiceName, selectVoice } = useTtsVoice(lang);
@@ -102,6 +100,7 @@ function KtvText({
 export default function ComplexSentences() {
   const { lang = "vi" } = useParams<{ lang: string }>();
   const { t } = useTranslation();
+  const config = getLangConfig(lang);
   const [difficulty, setDifficulty] = useState<number | undefined>();
 
   const { makeUtterance } = useTtsVoice(lang);
@@ -119,8 +118,8 @@ export default function ComplexSentences() {
         <Link href={`/learn/${lang}/scenes`}>
           <Button variant="ghost" size="sm">{t("learn.back_scenes")}</Button>
         </Link>
-        <span className="text-2xl">{LANG_FLAGS[lang]}</span>
-        <h1 className="text-xl md:text-2xl font-bold">{t(LANG_NAME_KEYS[lang] ?? "learn.complex_sentences")} {t("learn.complex_sentences")}</h1>
+        <span className="text-2xl">{config?.code === "vi" ? "🇻🇳" : config?.code === "en" ? "🇬🇧" : config?.code === "zh" ? "🇨🇳" : config?.code === "ko" ? "🇰🇷" : "🌍"}</span>
+        <h1 className="text-xl md:text-2xl font-bold">{config ? config.label : lang.toUpperCase()} {t("learn.complex_sentences")}</h1>
       </div>
 
       {/* Voice selector */}

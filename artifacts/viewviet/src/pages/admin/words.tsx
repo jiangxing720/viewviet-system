@@ -20,9 +20,9 @@ import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
-const LANGS = ["vi", "en", "zh", "ko"];
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+import { getSessionHeaders } from "../../contexts/auth";
+import { useLearnLangs } from "./languages";
+const BASE = (import.meta.env.VITE_API_URL as string) || "";
 
 const CSV_HEADERS = ["word", "languageCode", "pronunciation", "meaningZh", "meaningEn", "meaningVi", "category", "difficulty", "isPublished", "exampleSentence", "exampleTranslation"];
 const CSV_EXAMPLE = `word,languageCode,pronunciation,meaningZh,meaningEn,meaningVi,category,difficulty,isPublished,exampleSentence,exampleTranslation
@@ -46,7 +46,7 @@ function parseCsv(text: string) {
 async function adminFetch(path: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}/api${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getSessionHeaders() },
     ...opts,
   });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Request failed");
@@ -56,7 +56,9 @@ async function adminFetch(path: string, opts?: RequestInit) {
 
 export default function AdminWords() {
   const { t } = useTranslation();
-  const [lang, setLang] = useState("vi");
+  const langConfigs = useLearnLangs();
+  const LANGS = langConfigs.map(l => l.code);
+  const [lang, setLang] = useState(LANGS[0] || "vi");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [page, setPage] = useState(1);
@@ -495,7 +497,7 @@ function EditWordDialog({ word, onClose, onSaved }: { word: any; onClose: () => 
     try {
       const res = await fetch(`${BASE}/api/admin/words/${word.id}`, {
         method: "PUT", credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getSessionHeaders() },
         body: JSON.stringify(form ?? word),
       });
       if (!res.ok) throw new Error("Failed");

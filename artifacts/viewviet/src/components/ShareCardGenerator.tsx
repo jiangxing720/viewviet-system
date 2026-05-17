@@ -15,7 +15,7 @@ interface RenderedCard {
   status: "pending" | "loading" | "done" | "error";
 }
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const BASE = (import.meta.env.VITE_API_URL as string) || "";
 
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   const lines: string[] = [];

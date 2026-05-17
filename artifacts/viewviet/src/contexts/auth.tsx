@@ -23,16 +23,28 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const BASE = (import.meta.env.VITE_API_URL as string) || "";
 
+const SESSION_KEY = "viewviet_session_id";
+
+function getSessionHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const sid = localStorage.getItem(SESSION_KEY);
+  if (sid) headers["x-session-id"] = sid;
+  return headers;
+}
+
 async function apiFetch(path: string, opts?: RequestInit) {
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(opts?.headers ?? {}) },
+    headers: { ...getSessionHeaders(), ...(opts?.headers ?? {}) },
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error ?? "Request failed");
   return data;
 }
+
+// Export for use by other pages
+export { apiFetch, getSessionHeaders, BASE, SESSION_KEY };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -41,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     apiFetch("/api/auth/me")
       .then(setUser)
-      .catch(() => setUser(null))
+      .catch(() => { setUser(null); localStorage.removeItem(SESSION_KEY); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -50,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
+    if (data.sessionId) localStorage.setItem(SESSION_KEY, data.sessionId);
     setUser(data);
   }, []);
 
@@ -58,11 +71,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       method: "POST",
       body: JSON.stringify({ username, email, password, displayName }),
     });
+    if (data.sessionId) localStorage.setItem(SESSION_KEY, data.sessionId);
     setUser(data);
   }, []);
 
   const logout = useCallback(async () => {
     await apiFetch("/api/auth/logout", { method: "POST" });
+    localStorage.removeItem(SESSION_KEY);
     setUser(null);
   }, []);
 
@@ -78,3 +93,4 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
 }
+

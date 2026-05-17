@@ -50,7 +50,7 @@ export default function AdminGuides() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const BASE = (import.meta.env.VITE_API_URL as string) || "";
 
   const { data: guidesResp, isLoading } = useGetTravelGuides(
     { search: search || undefined, page, limit: 15 },

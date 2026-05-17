@@ -1,4 +1,4 @@
-const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+const BASE = (import.meta.env.VITE_API_URL as string) || "";
 
 /**
  * Wraps any external image URL with the server-side image proxy endpoint.
