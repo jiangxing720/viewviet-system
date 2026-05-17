@@ -34,10 +34,9 @@ function VoiceSelector({ lang }: { lang: string }) {
         onChange={(e) => selectVoice(e.target.value)}
         title="选择朗读音色"
       >
-        <option value="">默认音色</option>
         {voices.map((v) => (
           <option key={v.name} value={v.name}>
-            {v.name}
+            {v.name === "online-high-quality" ? "在线高清原音 (极速推荐)" : v.name}
           </option>
         ))}
       </select>

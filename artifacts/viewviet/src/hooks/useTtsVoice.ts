@@ -13,11 +13,24 @@ const LANG_MAP: Record<string, string> = {
   ru: "ru-RU",
 };
 
+const YOUDAO_LANG_MAP: Record<string, string> = {
+  vi: "vi",
+  en: "en",
+  zh: "zh",
+  ko: "ko",
+  es: "es",
+  th: "th",
+  ja: "jap",
+  fr: "fr",
+  de: "de",
+  ru: "ru",
+};
+
 export function useTtsVoice(lang: string) {
   const storageKey = `vv-voice-${lang}`;
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceName, setSelectedVoiceNameState] = useState<string>(
-    () => localStorage.getItem(storageKey) ?? ""
+    () => localStorage.getItem(storageKey) ?? "online-high-quality"
   );
 
   useEffect(() => {
@@ -38,7 +51,7 @@ export function useTtsVoice(lang: string) {
         return 0;
       });
       
-      setVoices(filtered.length > 0 ? filtered : all);
+      setVoices(filtered);
     };
 
     load();
@@ -56,12 +69,10 @@ export function useTtsVoice(lang: string) {
 
   const getVoice = useCallback((): SpeechSynthesisVoice | undefined => {
     const all = window.speechSynthesis?.getVoices() ?? [];
-    if (selectedVoiceName) {
+    if (selectedVoiceName && selectedVoiceName !== "online-high-quality") {
       const found = all.find((v) => v.name === selectedVoiceName);
       if (found) return found;
     }
-    // Apple TTS Fix: If no voice is manually selected, DO NOT return undefined.
-    // Return the first available LOCAL voice for this language to prevent iOS from defaulting to broken cloud voices in China.
     const langPrefix = (LANG_MAP[lang] ?? lang).slice(0, 2).toLowerCase();
     const available = all.filter(v => v.lang.toLowerCase().startsWith(langPrefix));
     if (available.length > 0) {
@@ -73,20 +84,33 @@ export function useTtsVoice(lang: string) {
 
   const speak = useCallback(
     (text: string) => {
-      if (!window.speechSynthesis) return;
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = LANG_MAP[lang] ?? lang;
-      const voice = getVoice();
-      if (voice) utter.voice = voice;
-      
-      // Important: some iOS versions need a slight delay or rate tweak if switching voices
-      utter.rate = 0.95; // slightly slower for better clarity and iOS stability
-      
-      window.speechSynthesis.speak(utter);
+      // 1. Play Youdao Online High-Quality TTS (China-friendly, extremely reliable)
+      if (selectedVoiceName === "online-high-quality") {
+        const audioLang = YOUDAO_LANG_MAP[lang] ?? lang;
+        const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&le=${audioLang}`;
+        const audio = new Audio(url);
+        audio.play().catch(() => {
+          // Fallback to local SpeechSynthesis if Audio play is blocked
+          fallbackLocalSpeech(text);
+        });
+        return;
+      }
+
+      fallbackLocalSpeech(text);
     },
-    [lang, getVoice]
+    [lang, selectedVoiceName, getVoice]
   );
+
+  const fallbackLocalSpeech = useCallback((text: string) => {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = LANG_MAP[lang] ?? lang;
+    const voice = getVoice();
+    if (voice) utter.voice = voice;
+    utter.rate = 0.95;
+    window.speechSynthesis.speak(utter);
+  }, [lang, getVoice]);
 
   const makeUtterance = useCallback(
     (text: string): SpeechSynthesisUtterance => {
@@ -100,5 +124,16 @@ export function useTtsVoice(lang: string) {
     [lang, getVoice]
   );
 
-  return { voices, selectedVoiceName, selectVoice, speak, makeUtterance };
+  // Prepend online high quality option to voices list
+  const allVoices = [
+    {
+      name: "online-high-quality",
+      lang: lang,
+      localService: true,
+      voiceURI: "online-high-quality",
+    } as any as SpeechSynthesisVoice,
+    ...voices
+  ];
+
+  return { voices: allVoices, selectedVoiceName, selectVoice, speak, makeUtterance };
 }

@@ -21,9 +21,17 @@ export const DEFAULT_LANGS: LangConfig[] = [
 
 let cachedLangs: LangConfig[] | null = null;
 
+const getApiUrl = (path: string): string => {
+  const baseUrl = (import.meta.env as any).VITE_API_URL || "";
+  if (baseUrl) {
+    return `${baseUrl.replace(/\/+$/, "")}${path}`;
+  }
+  return path;
+};
+
 export async function fetchLanguagesApi(): Promise<LangConfig[]> {
   try {
-    const res = await fetch("/api/languages");
+    const res = await fetch(getApiUrl("/api/languages"));
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
@@ -41,7 +49,7 @@ export async function saveLanguagesApi(langs: LangConfig[]): Promise<boolean> {
     cachedLangs = langs;
     localStorage.setItem(LANG_STORAGE_KEY, JSON.stringify(langs));
     const token = localStorage.getItem("auth-token") || localStorage.getItem("vv-auth-token");
-    const res = await fetch("/api/admin/languages", {
+    const res = await fetch(getApiUrl("/api/admin/languages"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
