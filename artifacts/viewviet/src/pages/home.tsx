@@ -145,7 +145,7 @@ export default function Home() {
           <p className="text-muted-foreground text-center py-8">{t("home.no_guides")}</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {(guides as any[]).slice(0, 3).map((guide: any) => (
+            {(Array.isArray(guides) ? guides : []).slice(0, 3).map((guide: any) => (
               <Link key={guide.id} href={`/guides/${guide.id}`}>
                 <Card className="cursor-pointer overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
                   <div
@@ -181,7 +181,7 @@ export default function Home() {
             <p className="text-muted-foreground text-center py-8">{t("home.no_articles")}</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {(articles as any[]).slice(0, 4).map((article: any) => (
+              {(Array.isArray(articles) ? articles : []).slice(0, 4).map((article: any) => (
                 <Link key={article.id} href={`/legal/${article.slug}`}>
                   <Card className="cursor-pointer hover:shadow-md transition-all duration-200 p-4">
                     <div className="flex gap-3">
@@ -212,11 +212,11 @@ export default function Home() {
         </div>
         {lawyersLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{[0,1,2].map(i => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}</div>
-        ) : !(lawyers as any[])?.length ? (
+        ) : !(Array.isArray(lawyers) ? lawyers : [])?.length ? (
           <p className="text-muted-foreground text-center py-8">{t("home.no_lawyers")}</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(lawyers as any[]).slice(0, 3).map((lawyer: any) => (
+            {(Array.isArray(lawyers) ? lawyers : []).slice(0, 3).map((lawyer: any) => (
               <Link key={lawyer.id} href={`/lawyers/${lawyer.id}`}>
                 <Card className="cursor-pointer hover:shadow-md transition-all duration-200 p-4">
                   <div className="flex items-center gap-3">
@@ -258,11 +258,11 @@ export default function Home() {
           </div>
           {activitiesLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{[0,1].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}</div>
-          ) : !(activities as any[])?.length ? (
+          ) : !(Array.isArray(activities) ? activities : [])?.length ? (
             <p className="text-muted-foreground text-center py-8">{t("home.no_activities")}</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {(activities as any[]).slice(0, 4).map((activity: any) => (
+              {(Array.isArray(activities) ? activities : []).slice(0, 4).map((activity: any) => (
                 <Link key={activity.id} href={`/community/${activity.id}`}>
                   <Card className="cursor-pointer hover:shadow-md transition-all duration-200 p-4">
                     <div className="flex gap-3">

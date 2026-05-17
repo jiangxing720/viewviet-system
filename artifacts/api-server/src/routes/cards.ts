@@ -72,8 +72,7 @@ router.post("/admin/generate-card-image", async (req, res): Promise<void> => {
       quality: "standard",
       n: 1,
     });
-
-    const imageUrl = response.data[0]?.url;
+const imageUrl = response.data![0]?.url;
     if (!imageUrl) {
       res.status(500).json({ error: "No image URL returned" });
       return;
