@@ -9,7 +9,8 @@ import { useGetComplexSentences, getGetComplexSentencesQueryKey } from "@workspa
 import { Volume2, Brain, Mic } from "lucide-react";
 import { useTtsVoice } from "@/hooks/useTtsVoice";
 
-import { getLangConfig } from "@/lib/lang-utils";const DIFFICULTIES = [1, 2, 3, 4, 5];
+import { getLangConfig, getLangFlag } from "@/lib/lang-utils";
+const DIFFICULTIES = [1, 2, 3, 4, 5];
 
 function VoiceSelector({ lang }: { lang: string }) {
   const { voices, selectedVoiceName, selectVoice } = useTtsVoice(lang);
@@ -118,7 +119,7 @@ export default function ComplexSentences() {
         <Link href={`/learn/${lang}/scenes`}>
           <Button variant="ghost" size="sm">{t("learn.back_scenes")}</Button>
         </Link>
-        <span className="text-2xl">{config?.code === "vi" ? "🇻🇳" : config?.code === "en" ? "🇬🇧" : config?.code === "zh" ? "🇨🇳" : config?.code === "ko" ? "🇰🇷" : "🌍"}</span>
+        <span className="text-2xl">{getLangFlag(lang)}</span>
         <h1 className="text-xl md:text-2xl font-bold">{config ? config.label : lang.toUpperCase()} {t("learn.complex_sentences")}</h1>
       </div>
 

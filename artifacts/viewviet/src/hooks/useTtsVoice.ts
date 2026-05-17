@@ -5,6 +5,12 @@ const LANG_MAP: Record<string, string> = {
   en: "en-US",
   zh: "zh-CN",
   ko: "ko-KR",
+  es: "es-ES",
+  th: "th-TH",
+  ja: "ja-JP",
+  fr: "fr-FR",
+  de: "de-DE",
+  ru: "ru-RU",
 };
 
 export function useTtsVoice(lang: string) {
@@ -48,7 +54,7 @@ export function useTtsVoice(lang: string) {
       if (!window.speechSynthesis) return;
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = LANG_MAP[lang] ?? "en-US";
+      utter.lang = LANG_MAP[lang] ?? lang;
       const voice = getVoice();
       if (voice) utter.voice = voice;
       window.speechSynthesis.speak(utter);
@@ -59,7 +65,7 @@ export function useTtsVoice(lang: string) {
   const makeUtterance = useCallback(
     (text: string): SpeechSynthesisUtterance => {
       const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = LANG_MAP[lang] ?? "en-US";
+      utter.lang = LANG_MAP[lang] ?? lang;
       const voice = getVoice();
       if (voice) utter.voice = voice;
       return utter;

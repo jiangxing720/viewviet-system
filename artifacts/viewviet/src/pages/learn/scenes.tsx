@@ -9,7 +9,7 @@ import { useGetSceneSentences, getGetSceneSentencesQueryKey, useGetSceneNames, g
 import { Volume2, MessageSquare, Mic } from "lucide-react";
 import { useTtsVoice } from "@/hooks/useTtsVoice";
 
-import { getLangConfig } from "@/lib/lang-utils";
+import { getLangConfig, getLangFlag } from "@/lib/lang-utils";
 // Language label badge styles
 const TRANSLATION_BADGES: Record<string, { label: string; bg: string; text: string }> = {
   zh: { label: "中", bg: "#fef2f2", text: "#b91c1c" },
@@ -157,7 +157,7 @@ export default function SceneSentences() {
         <Link href={`/learn/${lang}/words`}>
           <Button variant="ghost" size="sm">{t("learn.back_words")}</Button>
         </Link>
-        <span className="text-2xl">{config?.code === "vi" ? "🇻🇳" : config?.code === "en" ? "🇬🇧" : config?.code === "zh" ? "🇨🇳" : config?.code === "ko" ? "🇰🇷" : "🌍"}</span>
+        <span className="text-2xl">{getLangFlag(lang)}</span>
         <h1 className="text-xl md:text-2xl font-bold flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
           {config ? config.label : lang.toUpperCase()} {t("learn.scene_sentences")}
         </h1>

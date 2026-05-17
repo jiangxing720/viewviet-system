@@ -11,7 +11,7 @@ import { useGetWords, getGetWordsQueryKey, useGetWordCategories, getGetWordCateg
 import { Search, Volume2, BookOpen, Star, SlidersHorizontal, Mic } from "lucide-react";
 import { useTtsVoice } from "@/hooks/useTtsVoice";
 
-import { getLangConfig } from "@/lib/lang-utils";
+import { getLangConfig, getLangFlag } from "@/lib/lang-utils";
 function DifficultyStars({ level }: { level?: number | null }) {
   return (
     <div className="flex gap-0.5">
@@ -116,7 +116,7 @@ export default function Vocabulary() {
           <Button variant="ghost" size="sm">{t("learn.back_lang")}</Button>
         </Link>
         <div className="flex items-center gap-2">
-          <span className="text-2xl">{config?.code === "vi" ? "🇻🇳" : config?.code === "en" ? "🇬🇧" : config?.code === "zh" ? "🇨🇳" : config?.code === "ko" ? "🇰🇷" : "🌍"}</span>
+          <span className="text-2xl">{getLangFlag(lang)}</span>
           <h1 className="text-xl md:text-2xl font-bold">{config ? config.label : lang.toUpperCase()} {t("learn.vocabulary")}</h1>
         </div>
         <div className="flex gap-2 ml-auto">
