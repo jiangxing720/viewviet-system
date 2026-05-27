@@ -32,7 +32,7 @@ router.post("/interpreter/translate", async (req, res): Promise<void> => {
 
   try {
     const response = await openai!.chat.completions.create({
-      model: "gemini-2.5-flash",
+      model: "gpt-4.1-nano",
       max_completion_tokens: 512,
       messages: [
         {
@@ -81,7 +81,7 @@ Keep it factual, neutral, and under 150 words per language. Highlight key topics
 
   try {
     const response = await openai!.chat.completions.create({
-      model: "gemini-2.5-flash",
+      model: "gpt-4.1-nano",
       max_completion_tokens: 1024,
       messages: [
         { role: "system", content: systemPrompt },
@@ -144,7 +144,7 @@ router.post("/interpreter/audio", async (req, res): Promise<void> => {
     }
 
     const translateResponse = await openai!.chat.completions.create({
-      model: "gemini-2.5-flash",
+      model: "gpt-4.1-nano",
       max_completion_tokens: 512,
       messages: [
         {
