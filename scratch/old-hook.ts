@@ -3,14 +3,13 @@ import { toast } from "sonner";
 
 export type LangCode = "zh" | "vi" | "en" | "ko";
 export type DirectionMode = "auto" | "a-to-b" | "b-to-a";
-export type InterpreterStatus = "idle" | "listening-a" | "listening-b" | "processing" | "speaking" | "error";
+export type InterpreterStatus = "idle" | "listening-a" | "listening-b" | "processing" | "error";
 
 export interface Exchange {
-  id: string;
   speaker: "A" | "B";
   original: string;
   translated: string;
-  targetLang: LangCode;
+  targetLang: string;
   timestamp: number;
 }
 
@@ -28,44 +27,7 @@ const BCP47: Record<LangCode, string> = {
 
 const API_BASE = (import.meta as any).env?.VITE_API_URL ?? "";
 
-function pickVoice(lang: LangCode): SpeechSynthesisVoice | null {
-  const voices = window.speechSynthesis?.getVoices() ?? [];
-  if (!voices.length) return null;
-  const target = BCP47[lang].toLowerCase();
-  const prefix = target.slice(0, 2);
-  const exactLocal = voices.find((v) => v.lang.toLowerCase() === target && v.localService);
-  if (exactLocal) return exactLocal;
-  const exactAny = voices.find((v) => v.lang.toLowerCase() === target);
-  if (exactAny) return exactAny;
-  const prefixLocal = voices.find((v) => v.lang.toLowerCase().startsWith(prefix) && v.localService);
-  if (prefixLocal) return prefixLocal;
-  const prefixAny = voices.find((v) => v.lang.toLowerCase().startsWith(prefix));
-  return prefixAny ?? null;
-}
-
-function speakAsync(text: string, lang: LangCode): Promise<void> {
-  return new Promise((resolve) => {
-    if (!window.speechSynthesis) { resolve(); return; }
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = BCP47[lang];
-    utt.rate = 0.9;
-    const applyVoice = () => {
-      const voice = pickVoice(lang);
-      if (voice) utt.voice = voice;
-    };
-    if (window.speechSynthesis.getVoices().length > 0) applyVoice();
-    else window.speechSynthesis.addEventListener("voiceschanged", applyVoice, { once: true });
-
-    let resolved = false;
-    const done = () => { if (!resolved) { resolved = true; resolve(); } };
-    utt.onend = done; utt.onerror = done;
-    window.speechSynthesis.speak(utt);
-    setTimeout(done, Math.max(text.length * 130 + 2000, 5000));
-  });
-}
-
-export function useInterpreter(initialLangA: LangCode = "zh", initialLangB: LangCode = "vi", _mode: DirectionMode = "auto", _ptt: boolean = false, autoSpeak: boolean = true) {
+export function useInterpreter(initialLangA: LangCode = "zh", initialLangB: LangCode = "vi") {
   const [status, setStatus] = useState<InterpreterStatus>("idle");
   const [langA, setLangA] = useState<LangCode>(initialLangA);
   const [langB, setLangB] = useState<LangCode>(initialLangB);
@@ -76,13 +38,12 @@ export function useInterpreter(initialLangA: LangCode = "zh", initialLangB: Lang
   const [errorMsg, setErrorMsg] = useState("");
 
   const recognitionRef = useRef<any>(null);
-  const isSpeakingTTSRef = useRef(false);
 
   // Initialize Speech Recognition
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setErrorMsg("您的浏览器不支持语音识别。请使用 Chrome。");
+      setErrorMsg("Your browser does not support Speech Recognition. Please use Chrome.");
       return;
     }
     
@@ -91,8 +52,6 @@ export function useInterpreter(initialLangA: LangCode = "zh", initialLangB: Lang
     sr.interimResults = true;
     
     sr.onresult = (event: any) => {
-      if (isSpeakingTTSRef.current) return; // ignore mic input while TTS is playing
-
       let interimTranscript = "";
       let finalTranscript = "";
 
@@ -157,29 +116,18 @@ export function useInterpreter(initialLangA: LangCode = "zh", initialLangB: Lang
       const data = await res.json();
       
       if (res.ok && data.translated) {
-        const exchange: Exchange = {
-          id: crypto.randomUUID(),
+        setExchanges((prev) => [...prev, {
           speaker,
           original: text,
           translated: data.translated,
-          targetLang: to as LangCode,
+          targetLang: to,
           timestamp: Date.now()
-        };
-        setExchanges((prev) => [...prev, exchange]);
-
-        if (autoSpeak) {
-           setStatus("speaking");
-           isSpeakingTTSRef.current = true;
-           if (recognitionRef.current) recognitionRef.current.stop(); // pause mic
-           await speakAsync(exchange.translated, exchange.targetLang);
-           isSpeakingTTSRef.current = false;
-        }
-
+        }]);
       } else {
-        toast.error("翻译失败");
+        toast.error("Translation failed.");
       }
     } catch (e) {
-      toast.error("网络异常，翻译失败");
+      toast.error("Network error during translation.");
     } finally {
       setStatus("idle");
     }
@@ -187,7 +135,6 @@ export function useInterpreter(initialLangA: LangCode = "zh", initialLangB: Lang
 
   const startListening = useCallback((speaker: "A" | "B") => {
     if (!recognitionRef.current) return;
-    if (isSpeakingTTSRef.current) return; // Don't start if TTS is speaking
     
     // Stop any existing recognition
     recognitionRef.current.stop();
@@ -213,15 +160,6 @@ export function useInterpreter(initialLangA: LangCode = "zh", initialLangB: Lang
     setStatus("idle");
   }, []);
 
-  const replay = useCallback(async (ex: Exchange) => {
-    setStatus("speaking");
-    isSpeakingTTSRef.current = true;
-    if (recognitionRef.current) recognitionRef.current.stop();
-    await speakAsync(ex.translated, ex.targetLang);
-    isSpeakingTTSRef.current = false;
-    setStatus("idle");
-  }, []);
-
   const clearHistory = () => setExchanges([]);
 
   return {
@@ -236,11 +174,6 @@ export function useInterpreter(initialLangA: LangCode = "zh", initialLangB: Lang
     errorMsg,
     startListening,
     stopListening,
-    clearHistory,
-    replay,
-    log: exchanges, // map to log for compatibility
-    interim: pendingTextA || pendingTextB,
-    pendings: [], // simplified pendings
-    permissionError: !!errorMsg
+    clearHistory
   };
 }

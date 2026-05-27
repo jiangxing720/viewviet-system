@@ -2,11 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
-  Mic, Volume2, VolumeX, Trash2, ArrowRight, X, Maximize2, Minimize2, Check, ExternalLink, RotateCw, Monitor, AlertCircle, FileText, Loader2
+  Mic, MicOff, Trash2, ArrowRight, X, Maximize2, Minimize2, Check, ExternalLink, RotateCw, Monitor
 } from "lucide-react";
 import { useInterpreter, type LangCode } from "@/hooks/use-interpreter";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 const LANGUAGES: { code: LangCode; native: string; full: string }[] = [
   { code: "zh", native: "中文", full: "Chinese" },
@@ -41,9 +40,6 @@ function LangSelect({ value, other, disabled, onChange, dark }: {
 
 export default function Interpreter() {
   const { t } = useTranslation();
-  
-  const [autoSpeak, setAutoSpeak] = useState(true);
-
   const {
     status,
     langA,
@@ -56,14 +52,12 @@ export default function Interpreter() {
     errorMsg,
     startListening,
     stopListening,
-    clearHistory,
-    replay,
-  } = useInterpreter("zh", "vi", "auto", false, autoSpeak);
+    clearHistory
+  } = useInterpreter("zh", "vi");
 
   const [flipped, setFlipped] = useState(false);
   const scrollRefA = useRef<HTMLDivElement>(null);
   const scrollRefB = useRef<HTMLDivElement>(null);
-  const [isSummarizing, setIsSummarizing] = useState(false);
 
   // Auto scroll
   useEffect(() => {
@@ -77,32 +71,10 @@ export default function Interpreter() {
 
   const handlePointerUp = () => {
     // Optionally stop listening on pointer up, or keep continuous. 
-  };
-
-  const handleGenerateSummary = async () => {
-    if (exchanges.length === 0) {
-      toast.error(t("No conversation to summarize"));
-      return;
-    }
-    setIsSummarizing(true);
-    try {
-      const res = await fetch(`${(import.meta as any).env?.VITE_API_URL ?? ""}/api/interpreter/summary`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exchanges, langA, langB })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        toast.success(t("Summary generated! Check alert for now."));
-        alert(data.summary);
-      } else {
-        toast.error(t("Failed to generate summary"));
-      }
-    } catch (e) {
-      toast.error(t("Network error"));
-    } finally {
-      setIsSummarizing(false);
-    }
+    // We will keep continuous for 1-2 seconds after, but since SpeechRecognition is continuous,
+    // we can just stop it to force the "onend" event or let it auto-stop when silence.
+    // For Tap-To-Speak it's better to let them just tap once, it listens until silence.
+    // So we don't call stopListening() here to allow natural pauses.
   };
 
   const renderSide = (speaker: "A" | "B") => {
@@ -134,22 +106,16 @@ export default function Interpreter() {
           <LangSelect 
             value={currentLang} 
             other={otherLang} 
-            disabled={status !== "idle" && status !== "error" && status !== "speaking"}
+            disabled={status !== "idle" && status !== "error"}
             onChange={setLang}
             dark={!isA}
           />
           {isA && (
-            <div className="flex gap-2 bg-white/50 backdrop-blur-md rounded-full p-1 shadow-sm">
-               <Button variant="ghost" size="icon" onClick={() => setFlipped(!flipped)} title="Flip Side B" className="text-slate-600 rounded-full">
+            <div className="flex gap-2">
+               <Button variant="ghost" size="icon" onClick={() => setFlipped(!flipped)} title="Flip Side B" className={isA ? "text-slate-600" : "text-slate-300"}>
                  <RotateCw className="w-5 h-5" />
                </Button>
-               <Button variant="ghost" size="icon" onClick={handleGenerateSummary} title="Summary" disabled={isSummarizing} className="text-slate-600 rounded-full">
-                 {isSummarizing ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />}
-               </Button>
-               <Button variant="ghost" size="icon" onClick={() => setAutoSpeak(v => !v)} title="Auto speak" className="text-slate-600 rounded-full">
-                 {autoSpeak ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-               </Button>
-               <Button variant="ghost" size="icon" onClick={clearHistory} title="Clear" className="text-slate-600 rounded-full">
+               <Button variant="ghost" size="icon" onClick={clearHistory} title="Clear" className={isA ? "text-slate-600" : "text-slate-300"}>
                  <Trash2 className="w-5 h-5" />
                </Button>
             </div>
@@ -159,21 +125,18 @@ export default function Interpreter() {
         {/* Chat History & Pending */}
         <div ref={isA ? scrollRefA : scrollRefB} className="flex-1 overflow-y-auto px-6 pt-24 pb-32 flex flex-col gap-6">
           {myExchanges.map((ex, i) => (
-            <div key={ex.id || i} className={cn("flex flex-col max-w-[85%]", ex.speaker === speaker ? "self-end items-end" : "self-start items-start")}>
+            <div key={i} className={cn("flex flex-col max-w-[85%]", ex.speaker === speaker ? "self-end items-end" : "self-start items-start")}>
               <span className={cn("text-xs font-semibold mb-1 opacity-50", !isA && "text-slate-400")}>
                 {ex.speaker === speaker ? "Me" : LANGUAGES.find(l=>l.code===otherLang)?.native}
               </span>
-              <button
-                type="button"
-                onClick={() => replay(ex)}
-                className={cn(
-                "px-5 py-4 rounded-3xl text-xl md:text-2xl font-medium shadow-sm leading-relaxed text-left",
+              <div className={cn(
+                "px-5 py-4 rounded-3xl text-xl md:text-2xl font-medium shadow-sm leading-relaxed",
                 ex.speaker === speaker 
                   ? (isA ? "bg-white text-slate-900" : "bg-slate-800 text-white")
                   : (isA ? "bg-slate-200 text-slate-800" : "bg-slate-700 text-white")
               )}>
                 {ex.speaker === speaker ? ex.original : ex.translated}
-              </button>
+              </div>
             </div>
           ))}
           
@@ -250,13 +213,10 @@ export default function Interpreter() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
         <div className={cn(
           "w-14 h-14 md:w-20 md:h-20 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300",
-          status === "processing" ? "bg-primary scale-110" : "bg-white scale-100 border-4 border-slate-100",
-          status === "speaking" && "bg-orange-400 scale-110 pulse"
+          status === "processing" ? "bg-primary scale-110" : "bg-white scale-100 border-4 border-slate-100"
         )}>
           {status === "processing" ? (
             <Loader2 className="w-6 h-6 md:w-8 md:h-8 text-white animate-spin" />
-          ) : status === "speaking" ? (
-             <Volume2 className="w-6 h-6 md:w-8 md:h-8 text-white animate-pulse" />
           ) : (
             <Monitor className="w-6 h-6 md:w-8 md:h-8 text-slate-300" />
           )}
