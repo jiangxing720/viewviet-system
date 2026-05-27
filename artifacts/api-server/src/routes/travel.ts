@@ -174,7 +174,7 @@ router.post("/admin/guides/import-url", async (req, res): Promise<void> => {
     res.status(400).json({ error: `无法访问链接: ${e?.message ?? e}` }); return;
   }
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await openai!.chat.completions.create({
       model: "gemini-2.5-pro", max_completion_tokens: 16384,
       messages: [
         { role: "system", content: GUIDE_AI_PROMPT },
@@ -198,7 +198,7 @@ router.post("/admin/guides/batch-import", async (req, res): Promise<void> => {
     if (!url) continue;
     try {
       const page = await fetchPage(url);
-      const completion = await openai.chat.completions.create({
+      const completion = await openai!.chat.completions.create({
         model: "gemini-2.5-pro", max_completion_tokens: 16384,
         messages: [
           { role: "system", content: GUIDE_AI_PROMPT },

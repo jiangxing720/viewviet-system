@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, ilike, and, inArray, sql } from "drizzle-orm";
+import { eq, ilike, and, or, inArray, sql } from "drizzle-orm";
 import { db, wordsTable } from "@workspace/db";
 import {
   GetWordsQueryParams,
@@ -22,7 +22,16 @@ router.get("/words", async (req, res): Promise<void> => {
   if (language_code) conditions.push(eq(sql`LOWER(${wordsTable.languageCode})`, language_code.toLowerCase()));
   if (category) conditions.push(eq(wordsTable.category, category));
   if (difficulty) conditions.push(eq(wordsTable.difficulty, difficulty));
-  if (search) conditions.push(ilike(wordsTable.word, `%${search}%`));
+  if (search) {
+    const like = `%${search}%`;
+    conditions.push(
+      or(
+        ilike(wordsTable.word, like),
+        ilike(wordsTable.meaningZh, like),
+        ilike(wordsTable.meaningEn, like),
+      )!
+    );
+  }
 
   const where = and(...conditions);
   const offset = (page - 1) * limit;
@@ -96,7 +105,16 @@ router.get("/admin/words", async (req, res): Promise<void> => {
   const conditions: any[] = [];
   if (language_code) conditions.push(eq(sql`LOWER(${wordsTable.languageCode})`, language_code.toLowerCase()));
   if (category) conditions.push(eq(wordsTable.category, category));
-  if (search) conditions.push(ilike(wordsTable.word, `%${search}%`));
+  if (search) {
+    const like = `%${search}%`;
+    conditions.push(
+      or(
+        ilike(wordsTable.word, like),
+        ilike(wordsTable.meaningZh, like),
+        ilike(wordsTable.meaningEn, like),
+      )!
+    );
+  }
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [data, countResult] = await Promise.all([
@@ -131,21 +149,44 @@ router.post("/admin/words/bulk-delete", async (req, res): Promise<void> => {
   res.json({ deleted: deleted.length });
 });
 
-// Admin: delete duplicate words (keep lowest id per word+languageCode)
+// Admin: delete duplicate words
+// Duplicates = same word (case-insensitive) + same language_code + same example_sentence
+// Words with different example sentences are kept even if the word text is identical.
 router.delete("/admin/words/duplicates", async (req, res): Promise<void> => {
   const { language_code } = req.query as { language_code?: string };
-  const whereClause = language_code ? `WHERE language_code = '${language_code.replace(/'/g, "''")}'` : "";
-  const result = await db.execute(sql.raw(`
-    DELETE FROM words
-    WHERE id NOT IN (
-      SELECT MIN(id) FROM words ${whereClause} GROUP BY LOWER(word), language_code
-    )
-    ${whereClause}
-    RETURNING id
-  `));
-  const count = (result as any).rowCount ?? (result as any).rows?.length ?? 0;
-  res.json({ deleted: count });
+  try {
+    let result: any;
+    if (language_code) {
+      const lang = language_code.toLowerCase();
+      result = await db.execute(
+        sql`DELETE FROM words
+            WHERE LOWER(language_code) = ${lang}
+              AND id NOT IN (
+                SELECT MIN(id)
+                FROM words
+                WHERE LOWER(language_code) = ${lang}
+                GROUP BY LOWER(word), LOWER(language_code), LOWER(COALESCE(example_sentence, ''))
+              )
+            RETURNING id`
+      );
+    } else {
+      result = await db.execute(
+        sql`DELETE FROM words
+            WHERE id NOT IN (
+              SELECT MIN(id)
+              FROM words
+              GROUP BY LOWER(word), LOWER(language_code), LOWER(COALESCE(example_sentence, ''))
+            )
+            RETURNING id`
+      );
+    }
+    const count = (result as any).rowCount ?? (result as any).rows?.length ?? 0;
+    res.json({ deleted: count });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message ?? "Internal error" });
+  }
 });
+
 
 // Admin: delete words by filter (language + optional category)
 router.delete("/admin/words/by-filter", async (req, res): Promise<void> => {
@@ -160,8 +201,32 @@ router.delete("/admin/words/by-filter", async (req, res): Promise<void> => {
   res.json({ deleted: deleted.length });
 });
 
+// Admin: batch rename a category across all words for a language
+router.post("/admin/words/rename-category", async (req, res): Promise<void> => {
+  const { language_code, oldCategory, newCategory } = req.body as {
+    language_code?: string;
+    oldCategory?: string;
+    newCategory?: string;
+  };
+  if (!oldCategory?.trim() || !newCategory?.trim()) {
+    res.status(400).json({ error: "oldCategory and newCategory are required" });
+    return;
+  }
+  const conditions: any[] = [eq(wordsTable.category, oldCategory.trim())];
+  if (language_code) {
+    conditions.push(eq(sql`LOWER(${wordsTable.languageCode})`, language_code.toLowerCase()));
+  }
+  const updated = await db
+    .update(wordsTable)
+    .set({ category: newCategory.trim() })
+    .where(and(...conditions))
+    .returning({ id: wordsTable.id });
+  res.json({ updated: updated.length });
+});
+
+
 router.post("/admin/words/bulk", async (req, res): Promise<void> => {
-  const { rows } = req.body as { rows: unknown[] };
+  const { rows, overwrite = false } = req.body as { rows: unknown[]; overwrite?: boolean };
   if (!Array.isArray(rows) || rows.length === 0) {
     res.status(400).json({ error: "rows array is required" });
     return;
@@ -198,40 +263,70 @@ router.post("/admin/words/bulk", async (req, res): Promise<void> => {
     return;
   }
 
-  // Deduplicate: fetch all existing words for the languages in this batch
+  // Fetch existing words; dedup key = languageCode + word + exampleSentence
+  // If same word exists but with a DIFFERENT example sentence → treat as NEW (not a duplicate)
   const langCodes = [...new Set(valid.map((r) => r.languageCode))];
   const existing = await db
-    .select({ word: wordsTable.word, languageCode: wordsTable.languageCode })
+    .select({ id: wordsTable.id, word: wordsTable.word, languageCode: wordsTable.languageCode, exampleSentence: wordsTable.exampleSentence })
     .from(wordsTable)
     .where(
       langCodes.length === 1
-        ? eq(wordsTable.languageCode, langCodes[0]!)
-        : sql`${wordsTable.languageCode} = ANY(${sql.raw(`ARRAY[${langCodes.map(l => `'${l}'`).join(",")}]`)})`,
+        ? eq(sql`LOWER(${wordsTable.languageCode})`, langCodes[0]!)
+        : sql`LOWER(${wordsTable.languageCode}) = ANY(${sql.raw(`ARRAY[${langCodes.map(l => `'${l}'`).join(",'")}]`)})`,
     );
 
-  const existingSet = new Set(existing.map((e) => `${e.languageCode}::${e.word.toLowerCase()}`));
+  // Map: "langcode::lower(word)::lower(exampleSentence)" -> existing row id
+  const makeKey = (lang: string, word: string, ex: string | null | undefined) =>
+    `${lang.toLowerCase()}::${word.toLowerCase()}::${(ex ?? "").toLowerCase().trim()}`;
+
+  const existingMap = new Map(
+    existing.map((e) => [makeKey(e.languageCode, e.word, e.exampleSentence), e.id])
+  );
 
   const toInsert: any[] = [];
+  const toUpdate: Array<{ id: number; data: any }> = [];
+  // Track keys processed in this batch to avoid intra-batch exact duplicates
+  const batchKeys = new Set<string>();
+
   for (const row of valid) {
-    const key = `${row.languageCode}::${row.word.toLowerCase()}`;
-    if (existingSet.has(key)) {
-      skipped.push({ index: row.index, word: row.word, reason: "duplicate" });
+    const key = makeKey(row.languageCode, row.word, row.exampleSentence);
+    if (batchKeys.has(key)) {
+      skipped.push({ index: row.index, word: row.word, reason: "duplicate in batch" });
+      continue;
+    }
+    batchKeys.add(key);
+
+    const existingId = existingMap.get(key);
+    const { index: _i, ...data } = row;
+
+    if (existingId !== undefined) {
+      if (overwrite) {
+        toUpdate.push({ id: existingId, data });
+      } else {
+        skipped.push({ index: row.index, word: row.word, reason: "duplicate" });
+      }
     } else {
-      // Add to local set to prevent duplicates within the same batch
-      existingSet.add(key);
-      const { index: _i, ...rest } = row;
-      toInsert.push(rest);
+      toInsert.push(data);
     }
   }
 
-  if (toInsert.length === 0) {
-    res.status(200).json({ inserted: 0, skipped: skipped.length, skippedWords: skipped, errors });
-    return;
+  let insertedCount = 0;
+  let updatedCount = 0;
+
+  if (toInsert.length > 0) {
+    const inserted = await db.insert(wordsTable).values(toInsert).returning();
+    insertedCount = inserted.length;
   }
 
-  const inserted = await db.insert(wordsTable).values(toInsert).returning();
+  // Process updates one by one (drizzle doesn't support bulk update with different values per row)
+  for (const { id, data } of toUpdate) {
+    await db.update(wordsTable).set(data).where(eq(wordsTable.id, id));
+    updatedCount++;
+  }
+
   res.status(201).json({
-    inserted: inserted.length,
+    inserted: insertedCount,
+    updated: updatedCount,
     skipped: skipped.length,
     skippedWords: skipped,
     errors,

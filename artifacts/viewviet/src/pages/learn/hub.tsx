@@ -36,7 +36,7 @@ function OrganicSvg() {
 function LangCard({ lang }: { lang: LangConfig }) {
   const { t } = useTranslation();
   return (
-    <Link href={`/learn/${lang.code}/words`}>
+    <Link href={`/learn/${lang.code}/pronunciation`}>
       <div className="group relative rounded-2xl overflow-hidden cursor-pointer aspect-[4/3] transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]">
         {/* Photo background */}
         <div

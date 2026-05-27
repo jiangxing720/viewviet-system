@@ -47,7 +47,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       >
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link href={isAdminRoute ? "/admin" : "/"} className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight">
-            <Globe className="h-6 w-6" />
+            <img src="/logo192.png" alt="ViewViet Logo" className="h-7 w-7 object-cover rounded shadow-sm" />
             <span>ViewViet{isAdminRoute ? " Admin" : ""}</span>
           </Link>
 
@@ -218,7 +218,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="space-y-4">
               <Link href="/" className="flex items-center gap-2 text-primary font-bold text-xl">
-                <Globe className="h-6 w-6" />
+                <img src="/logo192.png" alt="ViewViet Logo" className="h-7 w-7 object-cover rounded shadow-sm" />
                 <span>ViewViet</span>
               </Link>
               <p className="text-sm text-muted-foreground max-w-xs">

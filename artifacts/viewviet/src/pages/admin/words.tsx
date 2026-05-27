@@ -29,12 +29,32 @@ const CSV_EXAMPLE = `word,languageCode,pronunciation,meaningZh,meaningEn,meaning
 Xin chào,vi,sin chào,你好,Hello,Xin chào,日常用语,1,true,Xin chào bạn!,你好！
 Cảm ơn,vi,gảm ơn,谢谢,Thank you,Cảm ơn,日常用语,1,true,Cảm ơn rất nhiều!,非常感谢！`;
 
+/* ── RFC-4180 compliant CSV parser ─────────────────────── */
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let cur = "", inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuote) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') { inQuote = false; }
+      else { cur += ch; }
+    } else {
+      if (ch === '"') { inQuote = true; }
+      else if (ch === ',') { result.push(cur.trim()); cur = ""; }
+      else { cur += ch; }
+    }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
 function parseCsv(text: string) {
-  const lines = text.trim().split("\n");
+  const lines = text.trim().split("\n").map(l => l.replace(/\r$/, ""));
   if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map(h => h.trim());
-  return lines.slice(1).map(line => {
-    const vals = line.split(",").map(v => v.trim());
+  const headers = parseCsvLine(lines[0]);
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const vals = parseCsvLine(line);
     const row: Record<string, any> = {};
     headers.forEach((h, i) => { row[h] = vals[i] ?? ""; });
     if (row.difficulty) row.difficulty = Number(row.difficulty) || 1;
@@ -70,7 +90,13 @@ export default function AdminWords() {
   const [bulkFilterCategory, setBulkFilterCategory] = useState("");
   const [bulkText, setBulkText] = useState("");
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [bulkResult, setBulkResult] = useState<{ inserted: number; errors: any[] } | null>(null);
+  const [bulkResult, setBulkResult] = useState<{ inserted: number; updated?: number; errors: any[] } | null>(null);
+  const [overwriteMode, setOverwriteMode] = useState(false);
+  const [jumpPage, setJumpPage] = useState("");
+  const [renameOldCat, setRenameOldCat] = useState("");
+  const [renameNewCat, setRenameNewCat] = useState("");
+  const [renameLoading, setRenameLoading] = useState(false);
+  const [renameResult, setRenameResult] = useState<{ updated: number } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createWord = useCreateWord();
@@ -183,10 +209,10 @@ export default function AdminWords() {
     setBulkResult(null);
     try {
       const rows = parseCsv(bulkText);
-      const data = await adminFetch("/admin/words/bulk", { method: "POST", body: JSON.stringify({ rows }) });
+      const data = await adminFetch("/admin/words/bulk", { method: "POST", body: JSON.stringify({ rows, overwrite: overwriteMode }) });
       setBulkResult(data);
-      if (data.inserted > 0) {
-        toast({ title: `${data.inserted} 个单词已导入` });
+      if (data.inserted > 0 || (data.updated ?? 0) > 0) {
+        toast({ title: `已导入 ${data.inserted} 个，更新 ${data.updated ?? 0} 个单词` });
         invalidate();
       }
     } catch {
@@ -194,6 +220,24 @@ export default function AdminWords() {
     } finally {
       setBulkLoading(false);
     }
+  };
+
+  const handleRenameCategory = async () => {
+    if (!renameOldCat.trim() || !renameNewCat.trim()) return;
+    if (!confirm(`确认将分类「${renameOldCat}」批量重命名为「${renameNewCat}」？`)) return;
+    setRenameLoading(true); setRenameResult(null);
+    try {
+      const r = await adminFetch("/admin/words/rename-category", {
+        method: "POST",
+        body: JSON.stringify({ language_code: lang, oldCategory: renameOldCat.trim(), newCategory: renameNewCat.trim() }),
+      });
+      setRenameResult(r);
+      toast({ title: `已将 ${r.updated} 个单词的分类修正为「${renameNewCat}」` });
+      setRenameOldCat(""); setRenameNewCat("");
+      invalidate();
+    } catch (e: any) {
+      toast({ title: "操作失败", description: e.message, variant: "destructive" });
+    } finally { setRenameLoading(false); }
   };
 
   return (
@@ -295,21 +339,97 @@ export default function AdminWords() {
               <Label>CSV Data (include header row)</Label>
               <Textarea rows={10} placeholder={CSV_EXAMPLE} value={bulkText} onChange={e => setBulkText(e.target.value)} className="font-mono text-xs" />
             </div>
-            <div className="flex gap-3 items-center">
+          <div className="flex gap-3 items-center flex-wrap">
               <Button onClick={handleBulkUpload} disabled={bulkLoading || !bulkText.trim()}>
                 <Upload className="w-4 h-4 mr-1" />
                 {bulkLoading ? t("common.loading") : "Import"}
               </Button>
               <Button variant="outline" onClick={() => setBulkText(CSV_EXAMPLE)}>加载示例</Button>
+              {/* Overwrite toggle */}
+              <label className="flex items-center gap-2 cursor-pointer select-none ml-auto">
+                <div
+                  className={`relative w-10 h-5 rounded-full transition-colors ${overwriteMode ? "bg-primary" : "bg-muted-foreground/30"}`}
+                  onClick={() => setOverwriteMode(v => !v)}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${overwriteMode ? "translate-x-5" : "translate-x-0"}`} />
+                </div>
+                <span className="text-sm font-medium">
+                  {overwriteMode ? "🔄 覆盖模式（更新已有词）" : "⏭️ 跳过模式（保留已有词）"}
+                </span>
+              </label>
             </div>
+            {overwriteMode && (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700 rounded-md px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                ⚠️ <strong>覆盖模式</strong>：CSV 中与数据库同名（同语言）的词汇将被更新覆盖，新词将被插入。
+              </div>
+            )}
             {bulkResult && (
-              <div className={`flex items-start gap-2 rounded-md p-3 text-sm ${bulkResult.inserted > 0 ? "bg-green-50 text-green-800 dark:bg-green-950/30 dark:text-green-300" : "bg-destructive/10 text-destructive"}`}>
+              <div className={`flex items-start gap-2 rounded-md p-3 text-sm ${bulkResult.inserted > 0 || (bulkResult as any).updated > 0 ? "bg-green-50 text-green-800 dark:bg-green-950/30 dark:text-green-300" : "bg-destructive/10 text-destructive"}`}>
                 <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium">{bulkResult.inserted} words imported successfully</p>
-                  {(bulkResult as any).skipped > 0 && <p className="text-xs mt-1">{(bulkResult as any).skipped} duplicate(s) skipped</p>}
-                  {bulkResult.errors?.length > 0 && <p className="text-xs mt-1">{bulkResult.errors.length} row(s) skipped due to errors</p>}
+                  <p className="font-medium">{bulkResult.inserted} 个单词新增导入</p>
+                  {(bulkResult as any).updated > 0 && <p className="text-xs mt-1">✏️ {(bulkResult as any).updated} 个单词已覆盖更新</p>}
+                  {(bulkResult as any).skipped > 0 && <p className="text-xs mt-1">⏭️ {(bulkResult as any).skipped} 个重复单词已跳过</p>}
+                  {bulkResult.errors?.length > 0 && <p className="text-xs mt-1">❌ {bulkResult.errors.length} 行格式错误被跳过</p>}
                 </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Category Rename Tool */}
+      {activeTab === "bulk" && (
+        <Card className="border-amber-200 dark:border-amber-700">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-amber-700 dark:text-amber-400">🔧 分类名批量修正工具</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              将数据库中错误的分类名（如「数据合规KOE」）批量重命名为正确名称（如「数据合规」）。
+              当前语言：<strong>{lang.toUpperCase()}</strong>
+            </p>
+            <div className="flex gap-3 flex-wrap items-end">
+              <div className="space-y-1 flex-1 min-w-40">
+                <Label className="text-xs">错误分类名（从现有分类选择或手动输入）</Label>
+                <div className="flex gap-2">
+                  <select
+                    className="flex-1 border rounded-md px-3 py-2 text-sm bg-background"
+                    value={renameOldCat}
+                    onChange={e => setRenameOldCat(e.target.value)}
+                  >
+                    <option value="">— 从现有分类选择 —</option>
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <Input
+                  className="h-9 text-sm"
+                  placeholder="或手动输入错误分类名"
+                  value={renameOldCat}
+                  onChange={e => setRenameOldCat(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1 flex-1 min-w-40">
+                <Label className="text-xs">修正为（新分类名）</Label>
+                <Input
+                  className="h-9 text-sm"
+                  placeholder="e.g. 数据合规"
+                  value={renameNewCat}
+                  onChange={e => setRenameNewCat(e.target.value)}
+                />
+              </div>
+              <Button
+                size="sm"
+                className="h-9"
+                disabled={renameLoading || !renameOldCat.trim() || !renameNewCat.trim()}
+                onClick={handleRenameCategory}
+              >
+                {renameLoading ? "修正中…" : "批量修正"}
+              </Button>
+            </div>
+            {renameResult && (
+              <div className="bg-green-50 dark:bg-green-950/30 text-green-800 dark:text-green-300 text-xs rounded-md px-3 py-2">
+                ✅ 已成功修正 {renameResult.updated} 个单词的分类名
               </div>
             )}
           </CardContent>
@@ -457,7 +577,7 @@ export default function AdminWords() {
           </Card>
 
           {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
               <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
                 <ChevronLeft className="w-4 h-4" />
               </Button>
@@ -465,6 +585,31 @@ export default function AdminWords() {
               <Button variant="outline" size="sm" disabled={page >= pagination.totalPages} onClick={() => setPage(p => p + 1)}>
                 <ChevronRight className="w-4 h-4" />
               </Button>
+              {/* Jump to page */}
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground">跳转</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={pagination.totalPages}
+                  value={jumpPage}
+                  onChange={e => setJumpPage(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      const n = Math.min(pagination.totalPages, Math.max(1, Number(jumpPage)));
+                      if (!isNaN(n)) { setPage(n); setJumpPage(""); }
+                    }
+                  }}
+                  placeholder="页码"
+                  className="w-16 h-8 text-sm border rounded-md px-2 bg-background text-center"
+                />
+                <Button size="sm" variant="outline" className="h-8 px-2 text-xs"
+                  onClick={() => {
+                    const n = Math.min(pagination.totalPages, Math.max(1, Number(jumpPage)));
+                    if (!isNaN(n) && jumpPage !== "") { setPage(n); setJumpPage(""); }
+                  }}
+                >GO</Button>
+              </div>
             </div>
           )}
         </>

@@ -35,7 +35,7 @@ router.post("/admin/generate-share-cards", async (req, res): Promise<void> => {
 }`;
 
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await openai!.chat.completions.create({
       model: "gpt-4.1",
       max_completion_tokens: 4096,
       messages: [
@@ -65,7 +65,7 @@ router.post("/admin/generate-card-image", async (req, res): Promise<void> => {
   }
 
   try {
-    const response = await openai.images.generate({
+    const response = await openai!.images.generate({
       model: "dall-e-3",
       prompt: `${prompt}, NO text, NO letters, NO watermark, NO overlay`,
       size: "1024x1792",

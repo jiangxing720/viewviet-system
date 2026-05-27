@@ -43,7 +43,7 @@ export default function RegisterPage() {
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center mb-2">
             <div className="flex items-center gap-2 text-primary font-bold text-2xl">
-              <Globe className="h-7 w-7" />
+              <img src="/logo192.png" alt="ViewViet Logo" className="h-8 w-8 object-cover rounded shadow-sm" />
               <span>ViewViet</span>
             </div>
           </div>

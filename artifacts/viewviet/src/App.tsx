@@ -8,42 +8,43 @@ import Layout from "@/components/layout";
 import { AuthProvider } from "@/contexts/auth";
 import ProtectedAdminRoute from "@/components/protected-route";
 import "@/i18n";
-import { useEffect } from "react";
+import { useEffect, Suspense, lazy } from "react";
 import { useGetSettings } from "@workspace/api-client-react";
 
 // Pages
-import Home from "@/pages/home";
-import LearnHub from "@/pages/learn/hub";
-import Vocabulary from "@/pages/learn/vocabulary";
-import SceneSentences from "@/pages/learn/scenes";
-import ComplexSentences from "@/pages/learn/complex";
-import TravelGuides from "@/pages/guides";
-import GuideDetail from "@/pages/guides/detail";
-import LegalBlog from "@/pages/legal";
-import ArticleDetail from "@/pages/legal/detail";
-import Lawyers from "@/pages/lawyers";
-import LawyerDetail from "@/pages/lawyers/detail";
-import LegalDocuments from "@/pages/legal-documents";
-import LegalDocumentDetail from "@/pages/legal-documents/detail";
-import Community from "@/pages/community";
-import ActivityDetail from "@/pages/community/detail";
-import InterpreterPage from "@/pages/interpreter";
-import LoginPage from "@/pages/login";
-import RegisterPage from "@/pages/register";
-import AdminLoginPage from "@/pages/admin/login";
+const Home = lazy(() => import("@/pages/home"));
+const LearnHub = lazy(() => import("@/pages/learn/hub"));
+const Pronunciation = lazy(() => import("@/pages/learn/pronunciation"));
+const Vocabulary = lazy(() => import("@/pages/learn/vocabulary"));
+const SceneSentences = lazy(() => import("@/pages/learn/scenes"));
+const ComplexSentences = lazy(() => import("@/pages/learn/complex"));
+const TravelGuides = lazy(() => import("@/pages/guides"));
+const GuideDetail = lazy(() => import("@/pages/guides/detail"));
+const LegalBlog = lazy(() => import("@/pages/legal"));
+const ArticleDetail = lazy(() => import("@/pages/legal/detail"));
+const Lawyers = lazy(() => import("@/pages/lawyers"));
+const LawyerDetail = lazy(() => import("@/pages/lawyers/detail"));
+const LegalDocuments = lazy(() => import("@/pages/legal-documents"));
+const LegalDocumentDetail = lazy(() => import("@/pages/legal-documents/detail"));
+const Community = lazy(() => import("@/pages/community"));
+const ActivityDetail = lazy(() => import("@/pages/community/detail"));
+const InterpreterPage = lazy(() => import("@/pages/interpreter"));
+const LoginPage = lazy(() => import("@/pages/login"));
+const RegisterPage = lazy(() => import("@/pages/register"));
+const AdminLoginPage = lazy(() => import("@/pages/admin/login"));
 
 // Admin
-import AdminDashboard from "@/pages/admin/dashboard";
-import AdminWords from "@/pages/admin/words";
-import AdminSentences from "@/pages/admin/sentences";
-import AdminLegal from "@/pages/admin/legal";
-import AdminLegalDocuments from "@/pages/admin/legal-documents";
-import AdminGuides from "@/pages/admin/guides";
-import AdminLawyers from "@/pages/admin/lawyers";
-import AdminActivities from "@/pages/admin/activities";
-import AdminSettings from "@/pages/admin/settings";
-import AdminLanguages from "@/pages/admin/languages";
-import AdminUsers from "@/pages/admin/users";
+const AdminDashboard = lazy(() => import("@/pages/admin/dashboard"));
+const AdminWords = lazy(() => import("@/pages/admin/words"));
+const AdminSentences = lazy(() => import("@/pages/admin/sentences"));
+const AdminLegal = lazy(() => import("@/pages/admin/legal"));
+const AdminLegalDocuments = lazy(() => import("@/pages/admin/legal-documents"));
+const AdminGuides = lazy(() => import("@/pages/admin/guides"));
+const AdminLawyers = lazy(() => import("@/pages/admin/lawyers"));
+const AdminActivities = lazy(() => import("@/pages/admin/activities"));
+const AdminSettings = lazy(() => import("@/pages/admin/settings"));
+const AdminLanguages = lazy(() => import("@/pages/admin/languages"));
+const AdminUsers = lazy(() => import("@/pages/admin/users"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,6 +63,12 @@ function ColorSyncer() {
     const root = document.documentElement;
     if (map["theme.primary_hsl"]) root.style.setProperty("--primary", map["theme.primary_hsl"]);
     if (map["theme.accent_hsl"]) root.style.setProperty("--accent", map["theme.accent_hsl"]);
+    try {
+      localStorage.setItem("theme-colors", JSON.stringify({
+        primary: map["theme.primary_hsl"],
+        accent: map["theme.accent_hsl"]
+      }));
+    } catch (e) {}
   }, [data]);
   return null;
 }
@@ -69,76 +76,79 @@ function ColorSyncer() {
 function Router() {
   return (
     <Layout>
-      <Switch>
-        <Route path="/" component={Home} />
+      <Suspense fallback={<div className="flex h-[50vh] w-full items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div></div>}>
+        <Switch>
+          <Route path="/" component={Home} />
 
-        {/* Auth */}
-        <Route path="/login" component={LoginPage} />
-        <Route path="/register" component={RegisterPage} />
-        <Route path="/admin/login" component={AdminLoginPage} />
+          {/* Auth */}
+          <Route path="/login" component={LoginPage} />
+          <Route path="/register" component={RegisterPage} />
+          <Route path="/admin/login" component={AdminLoginPage} />
 
-        {/* Learn */}
-        <Route path="/learn" component={LearnHub} />
-        <Route path="/learn/:lang/words" component={Vocabulary} />
-        <Route path="/learn/:lang/scenes" component={SceneSentences} />
-        <Route path="/learn/:lang/complex" component={ComplexSentences} />
+          {/* Learn */}
+          <Route path="/learn" component={LearnHub} />
+          <Route path="/learn/:lang/pronunciation" component={Pronunciation} />
+          <Route path="/learn/:lang/words" component={Vocabulary} />
+          <Route path="/learn/:lang/scenes" component={SceneSentences} />
+          <Route path="/learn/:lang/complex" component={ComplexSentences} />
 
-        {/* Guides */}
-        <Route path="/guides" component={TravelGuides} />
-        <Route path="/guides/:id" component={GuideDetail} />
+          {/* Guides */}
+          <Route path="/guides" component={TravelGuides} />
+          <Route path="/guides/:id" component={GuideDetail} />
 
-        {/* Legal */}
-        <Route path="/legal" component={LegalBlog} />
-        <Route path="/legal/:slug" component={ArticleDetail} />
-        <Route path="/legal-documents" component={LegalDocuments} />
-        <Route path="/legal-documents/:slug" component={LegalDocumentDetail} />
-        <Route path="/lawyers" component={Lawyers} />
-        <Route path="/lawyers/:id" component={LawyerDetail} />
+          {/* Legal */}
+          <Route path="/legal" component={LegalBlog} />
+          <Route path="/legal/:slug" component={ArticleDetail} />
+          <Route path="/legal-documents" component={LegalDocuments} />
+          <Route path="/legal-documents/:slug" component={LegalDocumentDetail} />
+          <Route path="/lawyers" component={Lawyers} />
+          <Route path="/lawyers/:id" component={LawyerDetail} />
 
-        {/* Community */}
-        <Route path="/community" component={Community} />
-        <Route path="/community/:id" component={ActivityDetail} />
+          {/* Community */}
+          <Route path="/community" component={Community} />
+          <Route path="/community/:id" component={ActivityDetail} />
 
-        {/* Interpreter */}
-        <Route path="/interpreter" component={InterpreterPage} />
+          {/* Interpreter */}
+          <Route path="/interpreter" component={InterpreterPage} />
 
-        {/* Admin — protected */}
-        <Route path="/admin">
-          {() => <ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>}
-        </Route>
-        <Route path="/admin/words">
-          {() => <ProtectedAdminRoute><AdminWords /></ProtectedAdminRoute>}
-        </Route>
-        <Route path="/admin/sentences">
-          {() => <ProtectedAdminRoute><AdminSentences /></ProtectedAdminRoute>}
-        </Route>
-        <Route path="/admin/legal">
-          {() => <ProtectedAdminRoute><AdminLegal /></ProtectedAdminRoute>}
-        </Route>
-        <Route path="/admin/legal-documents">
-          {() => <ProtectedAdminRoute><AdminLegalDocuments /></ProtectedAdminRoute>}
-        </Route>
-        <Route path="/admin/guides">
-          {() => <ProtectedAdminRoute><AdminGuides /></ProtectedAdminRoute>}
-        </Route>
-        <Route path="/admin/lawyers">
-          {() => <ProtectedAdminRoute><AdminLawyers /></ProtectedAdminRoute>}
-        </Route>
-        <Route path="/admin/activities">
-          {() => <ProtectedAdminRoute><AdminActivities /></ProtectedAdminRoute>}
-        </Route>
-        <Route path="/admin/settings">
-          {() => <ProtectedAdminRoute><AdminSettings /></ProtectedAdminRoute>}
-        </Route>
-        <Route path="/admin/languages">
-          {() => <ProtectedAdminRoute><AdminLanguages /></ProtectedAdminRoute>}
-        </Route>
-        <Route path="/admin/users">
-          {() => <ProtectedAdminRoute><AdminUsers /></ProtectedAdminRoute>}
-        </Route>
+          {/* Admin — protected */}
+          <Route path="/admin">
+            {() => <ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>}
+          </Route>
+          <Route path="/admin/words">
+            {() => <ProtectedAdminRoute><AdminWords /></ProtectedAdminRoute>}
+          </Route>
+          <Route path="/admin/sentences">
+            {() => <ProtectedAdminRoute><AdminSentences /></ProtectedAdminRoute>}
+          </Route>
+          <Route path="/admin/legal">
+            {() => <ProtectedAdminRoute><AdminLegal /></ProtectedAdminRoute>}
+          </Route>
+          <Route path="/admin/legal-documents">
+            {() => <ProtectedAdminRoute><AdminLegalDocuments /></ProtectedAdminRoute>}
+          </Route>
+          <Route path="/admin/guides">
+            {() => <ProtectedAdminRoute><AdminGuides /></ProtectedAdminRoute>}
+          </Route>
+          <Route path="/admin/lawyers">
+            {() => <ProtectedAdminRoute><AdminLawyers /></ProtectedAdminRoute>}
+          </Route>
+          <Route path="/admin/activities">
+            {() => <ProtectedAdminRoute><AdminActivities /></ProtectedAdminRoute>}
+          </Route>
+          <Route path="/admin/settings">
+            {() => <ProtectedAdminRoute><AdminSettings /></ProtectedAdminRoute>}
+          </Route>
+          <Route path="/admin/languages">
+            {() => <ProtectedAdminRoute><AdminLanguages /></ProtectedAdminRoute>}
+          </Route>
+          <Route path="/admin/users">
+            {() => <ProtectedAdminRoute><AdminUsers /></ProtectedAdminRoute>}
+          </Route>
 
-        <Route component={NotFound} />
-      </Switch>
+          <Route component={NotFound} />
+        </Switch>
+      </Suspense>
     </Layout>
   );
 }

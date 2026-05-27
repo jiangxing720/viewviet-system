@@ -10,6 +10,7 @@ import { Volume2, MessageSquare, Mic } from "lucide-react";
 import { useTtsVoice } from "@/hooks/useTtsVoice";
 
 import { getLangConfig, getLangFlag, useLangConfig } from "@/lib/lang-utils";
+import { LanguageSwitcher } from "@/components/learn/LanguageSwitcher";
 // Language label badge styles
 const TRANSLATION_BADGES: Record<string, { label: string; bg: string; text: string }> = {
   zh: { label: "中", bg: "#fef2f2", text: "#b91c1c" },
@@ -33,20 +34,20 @@ function TranslationRow({ lang, content }: { lang: string; content: string }) {
 }
 
 function VoiceSelector({ lang }: { lang: string }) {
-  const { voices, selectedVoiceName, selectVoice } = useTtsVoice(lang);
-  if (voices.length === 0) return null;
+  const { voiceOptions, selectedVoiceName, selectVoice } = useTtsVoice(lang);
+  if (voiceOptions.length === 0) return null;
   return (
     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
       <Mic className="w-3 h-3 flex-shrink-0" />
       <select
-        className="text-xs border rounded px-2 py-1 bg-background text-foreground max-w-[180px] truncate"
+        className="text-xs border rounded px-2 py-1 bg-background text-foreground max-w-[220px] truncate"
         value={selectedVoiceName}
         onChange={(e) => selectVoice(e.target.value)}
         title="选择朗读音色"
       >
-        {voices.map((v) => (
-          <option key={v.name} value={v.name}>
-            {v.name === "online-high-quality" ? "在线高清原音 (极速推荐)" : v.name}
+        {voiceOptions.map((v) => (
+          <option key={v.id} value={v.id}>
+            {v.label}
           </option>
         ))}
       </select>
@@ -57,10 +58,12 @@ function VoiceSelector({ lang }: { lang: string }) {
 function KtvText({
   sentence,
   lang,
+  speak,
   makeUtterance,
 }: {
   sentence: string;
   lang: string;
+  speak: (text: string) => void;
   makeUtterance: (text: string) => SpeechSynthesisUtterance;
 }) {
   const [activeChar, setActiveChar] = useState(-1);
@@ -78,12 +81,15 @@ function KtvText({
   }
 
   const startKtv = useCallback(() => {
+    // Call speak() to use whichever TTS engine is selected (online or local).
+    speak(sentence);
+
+    // Also drive speechSynthesis for KTV boundary highlight animation.
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const u = makeUtterance(sentence);
     setSpeaking(true);
     setActiveChar(-1);
-
     u.onboundary = (ev) => {
       if (ev.name === "word" || ev.name === "sentence") {
         const charIdx = ev.charIndex;
@@ -96,9 +102,10 @@ function KtvText({
     u.onend = () => { setSpeaking(false); setActiveChar(-1); };
     u.onerror = () => { setSpeaking(false); setActiveChar(-1); };
     window.speechSynthesis.speak(u);
-  }, [sentence, makeUtterance, positions]);
+  }, [sentence, speak, makeUtterance, positions]);
 
   return (
+    // Must be <button> so iOS Safari treats click as a trusted user gesture
     <button
       className="w-full text-left group cursor-pointer"
       onClick={startKtv}
@@ -138,7 +145,7 @@ export default function SceneSentences() {
   const config = useLangConfig(lang);
   const [scene, setScene] = useState<string | undefined>();
 
-  const { makeUtterance } = useTtsVoice(lang);
+  const { speak, makeUtterance } = useTtsVoice(lang);
 
   const { data: scenes } = useGetSceneNames(
     { language_code: lang },
@@ -156,15 +163,28 @@ export default function SceneSentences() {
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <Link href={`/learn/${lang}/words`}>
-          <Button variant="ghost" size="sm">{t("learn.back_words")}</Button>
+          <Button variant="ghost" size="sm">{t("learn.back_words", "返回词汇")}</Button>
         </Link>
-        <span className="text-2xl">{getLangFlag(lang)}</span>
-        <h1 className="text-xl md:text-2xl font-bold flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-          {config ? config.label : lang.toUpperCase()} {t("learn.scene_sentences")}
-        </h1>
-        <Link href={`/learn/${lang}/complex`} className="ml-auto">
-          <Button variant="outline" size="sm">{t("learn.complex_btn")}</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher currentLang={lang} />
+          <h1 className="text-xl md:text-2xl font-bold flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 ml-1">
+            {config ? config.label : lang.toUpperCase()} {t("learn.scene_sentences", "情景对话")}
+          </h1>
+        </div>
+        <div className="flex gap-2 ml-auto overflow-x-auto pb-1">
+          <Link href={`/learn/${lang}/pronunciation`}>
+            <Button variant="outline" size="sm" className="whitespace-nowrap">发音</Button>
+          </Link>
+          <Link href={`/learn/${lang}/words`}>
+            <Button variant="outline" size="sm" className="whitespace-nowrap">{t("learn.vocabulary", "词汇")}</Button>
+          </Link>
+          <Link href={`/learn/${lang}/scenes`}>
+            <Button variant="default" size="sm" className="whitespace-nowrap">{t("learn.scenes_btn", "情景")}</Button>
+          </Link>
+          <Link href={`/learn/${lang}/complex`}>
+            <Button variant="outline" size="sm" className="whitespace-nowrap">{t("learn.complex_btn", "长难句")}</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Voice selector */}
@@ -210,7 +230,7 @@ export default function SceneSentences() {
             <Card key={s.id} className="hover:shadow-md transition-all duration-200">
               <CardContent className="p-3.5 space-y-2.5">
                 {/* Main sentence with KTV highlight */}
-                <KtvText sentence={s.sentence} lang={lang} makeUtterance={makeUtterance} />
+                <KtvText sentence={s.sentence} lang={lang} speak={speak} makeUtterance={makeUtterance} />
 
                 {/* Pronunciation */}
                 {s.pronunciation && (
