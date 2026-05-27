@@ -19,6 +19,9 @@ export interface PendingExchange {
   original: string;
 }
 
+// Use VITE_API_URL at build time so requests reach Render backend on Hostinger
+const API_BASE: string = (import.meta as any).env?.VITE_API_URL ?? "";
+
 const BCP47: Record<LangCode, string> = {
   zh: "zh-CN",
   en: "en-US",
@@ -26,21 +29,13 @@ const BCP47: Record<LangCode, string> = {
   ko: "ko-KR",
 };
 
-type SpeechRecognitionInstance = typeof window extends { SpeechRecognition: infer T }
-  ? T extends new () => infer R ? R : never
-  : never;
-
-function createRecognition(lang: string): SpeechRecognitionInstance | null {
-  const SR =
-    (window as any).SpeechRecognition ||
-    (window as any).webkitSpeechRecognition;
-  if (!SR) return null;
-  const sr = new SR() as any;
-  sr.lang = lang;
-  sr.continuous = true;
-  sr.interimResults = true;
-  sr.maxAlternatives = 1;
-  return sr;
+/** Detect language from text using character patterns */
+function detectLangFromText(text: string): LangCode | null {
+  if (/[\u4e00-\u9fff\u3400-\u4dbf]/.test(text)) return "zh";
+  if (/[\uac00-\ud7af\u1100-\u11ff]/.test(text)) return "ko";
+  // Vietnamese diacritics
+  if (/[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđĐ]/i.test(text)) return "vi";
+  return null;
 }
 
 function pickVoice(lang: LangCode): SpeechSynthesisVoice | null {
@@ -64,16 +59,12 @@ function speakAsync(text: string, lang: LangCode): Promise<void> {
     const utt = new SpeechSynthesisUtterance(text);
     utt.lang = BCP47[lang];
     utt.rate = 0.9;
-    const applyVoice = () => {
-      const v = pickVoice(lang);
-      if (v) utt.voice = v;
-    };
+    const applyVoice = () => { const v = pickVoice(lang); if (v) utt.voice = v; };
     if (window.speechSynthesis.getVoices().length > 0) applyVoice();
     else window.speechSynthesis.addEventListener("voiceschanged", applyVoice, { once: true });
     let done = false;
     const finish = () => { if (!done) { done = true; resolve(); } };
-    utt.onend = finish;
-    utt.onerror = finish;
+    utt.onend = finish; utt.onerror = finish;
     window.speechSynthesis.speak(utt);
     setTimeout(finish, Math.max(text.length * 130 + 2000, 6000));
   });
@@ -95,20 +86,25 @@ export function useInterpreter(
   const [permissionError, setPermissionError] = useState(false);
 
   const runRef = useRef(false);
-  const srARef = useRef<any>(null);
-  const srBRef = useRef<any>(null);
-
-  // PTT state
-  const pttSpeakerRef = useRef<"A" | "B" | null>(null);
+  const srRef = useRef<any>(null);
+  // Which language is the recognition currently listening for
+  const currentLangRef = useRef<LangCode>(langA);
+  const isTTSRef = useRef(false);
+  const pttActiveRef = useRef(false);
+  const pendingFinalRef = useRef("");
+  const finalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const langARef = useRef(langA);
   const langBRef = useRef(langB);
+  const directionRef = useRef(direction);
   const autoSpeakRef = useRef(autoSpeak);
-  const isTTSRef = useRef(false);
+  const pushToTalkRef = useRef(pushToTalk);
 
   useEffect(() => { langARef.current = langA; }, [langA]);
   useEffect(() => { langBRef.current = langB; }, [langB]);
+  useEffect(() => { directionRef.current = direction; }, [direction]);
   useEffect(() => { autoSpeakRef.current = autoSpeak; }, [autoSpeak]);
+  useEffect(() => { pushToTalkRef.current = pushToTalk; }, [pushToTalk]);
 
   const supported =
     typeof window !== "undefined" &&
@@ -117,140 +113,151 @@ export function useInterpreter(
       (window as any).webkitSpeechRecognition
     );
 
-  const translate = useCallback(
-    async (text: string, speaker: "A" | "B"): Promise<void> => {
-      if (!text.trim()) return;
+  /** Determine speaker from detected lang; fallback to current recognition lang */
+  const resolveSpeaker = useCallback((detectedLang: LangCode | null): "A" | "B" => {
+    const la = langARef.current;
+    const lb = langBRef.current;
+    if (detectedLang === la) return "A";
+    if (detectedLang === lb) return "B";
+    // Fallback: use whichever lang we were recognizing
+    return currentLangRef.current === lb ? "B" : "A";
+  }, []);
 
-      const from = speaker === "A" ? langARef.current : langBRef.current;
-      const to = speaker === "A" ? langBRef.current : langARef.current;
+  /** Switch recognition to the other language */
+  const switchLang = useCallback(() => {
+    const la = langARef.current;
+    const lb = langBRef.current;
+    const next = currentLangRef.current === la ? lb : la;
+    currentLangRef.current = next;
+    if (srRef.current) {
+      srRef.current.lang = BCP47[next];
+    }
+  }, []);
 
-      const pId = crypto.randomUUID();
-      setPendings((prev) => [...prev, { id: pId, speaker, original: text }]);
-      setActiveSpeaker(speaker);
-      setStatus("translating");
+  const restartSR = useCallback(() => {
+    if (!runRef.current || isTTSRef.current) return;
+    if (pushToTalkRef.current && !pttActiveRef.current) return;
+    try { srRef.current?.start(); } catch {}
+  }, []);
 
-      try {
-        const res = await fetch("/api/interpreter/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, from, to }),
-        });
-        const data = await res.json() as { translated?: string; error?: string };
-        const translated = data.translated ?? text;
+  const processFinal = useCallback(async (text: string) => {
+    if (!text.trim() || !runRef.current) return;
 
-        const exchange: Exchange = {
-          id: crypto.randomUUID(),
-          speaker,
-          original: text,
-          translated,
-          targetLang: to,
-          timestamp: Date.now(),
-        };
-        setLog((prev) => [...prev, exchange]);
+    const detected = detectLangFromText(text);
+    const speaker = resolveSpeaker(detected);
+    const from = speaker === "A" ? langARef.current : langBRef.current;
+    const to   = speaker === "A" ? langBRef.current : langARef.current;
 
-        if (autoSpeakRef.current && !isTTSRef.current) {
-          isTTSRef.current = true;
-          setStatus("speaking");
-          // Pause recognition while speaking to avoid feedback loop
-          srARef.current?.stop();
-          srBRef.current?.stop();
-          await speakAsync(translated, to);
-          isTTSRef.current = false;
-          // Resume recognition
-          if (runRef.current) {
-            setStatus("listening");
-            try { srARef.current?.start(); } catch {}
-            try { srBRef.current?.start(); } catch {}
-          }
-        }
-      } catch (err) {
-        console.error("Translation failed", err);
-      } finally {
-        setPendings((prev) => prev.filter((p) => p.id !== pId));
-        if (runRef.current && !isTTSRef.current) setStatus("listening");
+    setActiveSpeaker(speaker);
+    setInterim("");
+    setStatus("translating");
+
+    const pId = crypto.randomUUID();
+    setPendings((prev) => [...prev, { id: pId, speaker, original: text }]);
+
+    // Switch to other language for next utterance
+    switchLang();
+
+    try {
+      const res = await fetch(`${API_BASE}/api/interpreter/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, from, to }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { translated?: string };
+      const translated = data.translated ?? text;
+
+      const exchange: Exchange = {
+        id: crypto.randomUUID(),
+        speaker,
+        original: text,
+        translated,
+        targetLang: to,
+        timestamp: Date.now(),
+      };
+      setLog((prev) => [...prev, exchange]);
+
+      if (autoSpeakRef.current && !isTTSRef.current) {
+        isTTSRef.current = true;
+        setStatus("speaking");
+        srRef.current?.stop();
+        await speakAsync(translated, to);
+        isTTSRef.current = false;
       }
-    },
-    []
-  );
+    } catch (err) {
+      console.error("Translation failed", err);
+    } finally {
+      setPendings((prev) => prev.filter((p) => p.id !== pId));
+      if (runRef.current && !isTTSRef.current) {
+        setStatus("listening");
+        restartSR();
+      }
+    }
+  }, [resolveSpeaker, switchLang, restartSR]);
 
-  const setupRecognition = useCallback(
-    (speaker: "A" | "B", lang: LangCode) => {
-      const sr = createRecognition(BCP47[lang]);
-      if (!sr) return null;
+  const buildSR = useCallback(() => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return null;
 
-      let finalBuffer = "";
-      let finalTimer: ReturnType<typeof setTimeout> | null = null;
+    const sr = new SR() as any;
+    sr.lang = BCP47[currentLangRef.current];
+    sr.continuous = true;
+    sr.interimResults = true;
+    sr.maxAlternatives = 1;
 
-      (sr as any).onresult = (event: any) => {
-        if (!runRef.current) return;
-        if (isTTSRef.current) return;
+    sr.onresult = (event: any) => {
+      if (!runRef.current || isTTSRef.current) return;
+      if (pushToTalkRef.current && !pttActiveRef.current) return;
 
-        // In PTT mode, only accept results for the active speaker
-        if (pushToTalk && pttSpeakerRef.current !== speaker) return;
+      let interimText = "";
+      let newFinals = "";
 
-        let interimText = "";
-        let newFinals = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const r = event.results[i];
+        if (r.isFinal) newFinals += r[0].transcript;
+        else interimText += r[0].transcript;
+      }
 
-        for (let i = (event as any).resultIndex; i < (event as any).results.length; i++) {
-          const result = (event as any).results[i];
-          if (result.isFinal) {
-            newFinals += result[0].transcript;
-          } else {
-            interimText += result[0].transcript;
-          }
-        }
+      if (interimText) setInterim(interimText);
 
-        if (interimText) setInterim(interimText);
+      if (newFinals) {
+        pendingFinalRef.current += newFinals;
+        if (finalTimerRef.current) clearTimeout(finalTimerRef.current);
+        finalTimerRef.current = setTimeout(() => {
+          const toSend = pendingFinalRef.current.trim();
+          pendingFinalRef.current = "";
+          if (toSend) void processFinal(toSend);
+        }, 500);
+      }
+    };
 
-        if (newFinals) {
-          finalBuffer += newFinals;
-          // Debounce: send after 600ms of no new finals
-          if (finalTimer) clearTimeout(finalTimer);
-          finalTimer = setTimeout(() => {
-            const toSend = finalBuffer.trim();
-            finalBuffer = "";
-            setInterim("");
-            if (toSend) void translate(toSend, speaker);
-          }, 600);
-        }
-      };
+    sr.onerror = (event: any) => {
+      if (!runRef.current) return;
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        setPermissionError(true);
+        return;
+      }
+      // Try switching language on error, then restart
+      if (event.error !== "aborted" && event.error !== "no-speech") {
+        switchLang();
+      }
+      setTimeout(() => restartSR(), 400);
+    };
 
-      (sr as any).onerror = (event: any) => {
-        if (!runRef.current) return;
-        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-          setPermissionError(true);
-          return;
-        }
-        // network / no-speech errors — restart automatically
-        if (event.error !== "aborted") {
-          setTimeout(() => {
-            if (runRef.current && !isTTSRef.current) {
-              try { (sr as any).start(); } catch {}
-            }
-          }, 500);
-        }
-      };
+    sr.onend = () => {
+      if (!runRef.current || isTTSRef.current) return;
+      // Auto-switch language on each end event (natural cycling)
+      if (directionRef.current === "both") switchLang();
+      setTimeout(() => restartSR(), 200);
+    };
 
-      (sr as any).onend = () => {
-        if (!runRef.current || isTTSRef.current) return;
-        // In PTT mode only restart when this speaker is active
-        if (pushToTalk && pttSpeakerRef.current !== speaker) return;
-        setTimeout(() => {
-          if (runRef.current && !isTTSRef.current) {
-            try { (sr as any).start(); } catch {}
-          }
-        }, 200);
-      };
-
-      return sr;
-    },
-    [translate, pushToTalk]
-  );
+    return sr;
+  }, [processFinal, switchLang, restartSR]);
 
   const startSession = useCallback(async () => {
     if (!supported) return;
-
-    // Request mic permission first
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       setPermissionError(false);
@@ -259,57 +266,52 @@ export function useInterpreter(
       return;
     }
 
+    currentLangRef.current = langARef.current;
     runRef.current = true;
+    isTTSRef.current = false;
+    pttActiveRef.current = false;
+    pendingFinalRef.current = "";
+
     setRunning(true);
     setStatus("listening");
-    isTTSRef.current = false;
 
-    // Create two recognition instances — one per language
-    const srA = setupRecognition("A", langA);
-    const srB = setupRecognition("B", langB);
-    srARef.current = srA;
-    srBRef.current = srB;
+    const sr = buildSR();
+    srRef.current = sr;
 
-    if (!pushToTalk) {
-      // Auto-detect mode: both run simultaneously
-      const shouldStartA = direction === "both" || direction === "a-to-b";
-      const shouldStartB = direction === "both" || direction === "b-to-a";
-      if (shouldStartA && srA) try { (srA as any).start(); } catch {}
-      if (shouldStartB && srB) try { (srB as any).start(); } catch {}
+    if (!pushToTalkRef.current) {
+      try { sr?.start(); } catch {}
     }
-    // PTT mode: wait for user to hold button
-  }, [supported, langA, langB, direction, pushToTalk, setupRecognition]);
+  }, [supported, buildSR]);
 
   const stopSession = useCallback(() => {
     runRef.current = false;
+    isTTSRef.current = false;
+    pttActiveRef.current = false;
+    if (finalTimerRef.current) clearTimeout(finalTimerRef.current);
+    window.speechSynthesis?.cancel();
+    try { srRef.current?.stop(); } catch {}
+    srRef.current = null;
     setRunning(false);
     setStatus("idle");
     setInterim("");
-    isTTSRef.current = false;
-    window.speechSynthesis?.cancel();
-    try { srARef.current?.stop(); } catch {}
-    try { srBRef.current?.stop(); } catch {}
-    srARef.current = null;
-    srBRef.current = null;
   }, []);
 
-  // PTT: start listening for a specific speaker
+  /** PTT: hold to speak */
   const startFor = useCallback((speaker: "A" | "B") => {
     if (!runRef.current) return;
-    pttSpeakerRef.current = speaker;
+    pttActiveRef.current = true;
+    const lang = speaker === "A" ? langARef.current : langBRef.current;
+    currentLangRef.current = lang;
     setActiveSpeaker(speaker);
-    const sr = speaker === "A" ? srARef.current : srBRef.current;
-    if (sr) {
-      try { (sr as any).start(); } catch {}
-      setStatus("listening");
-    }
+    if (srRef.current) srRef.current.lang = BCP47[lang];
+    try { srRef.current?.start(); } catch {}
+    setStatus("listening");
   }, []);
 
-  // PTT: release button
+  /** PTT: release */
   const stopListening = useCallback(() => {
-    pttSpeakerRef.current = null;
-    try { srARef.current?.stop(); } catch {}
-    try { srBRef.current?.stop(); } catch {}
+    pttActiveRef.current = false;
+    try { srRef.current?.stop(); } catch {}
     setStatus("idle");
   }, []);
 
@@ -322,24 +324,12 @@ export function useInterpreter(
     setPendings([]);
   }, []);
 
-  useEffect(() => {
-    return () => { stopSession(); };
-  }, [stopSession]);
+  useEffect(() => () => { stopSession(); }, [stopSession]);
 
   return {
-    running,
-    status,
-    log,
-    pendings,
-    interim,
-    activeSpeaker,
-    permissionError,
-    supported,
-    start: startSession,
-    stop: stopSession,
-    startFor,
-    stopListening,
-    replay,
-    clearLog,
+    running, status, log, pendings, interim, activeSpeaker,
+    permissionError, supported,
+    start: startSession, stop: stopSession,
+    startFor, stopListening, replay, clearLog,
   };
 }

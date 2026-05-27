@@ -1,1 +1,0 @@
-const e="https://out-bound-lex.onrender.com";function n(t){return t?t.startsWith("data:")||t.startsWith("blob:")||!t.startsWith("http://")&&!t.startsWith("https://")?t:`${e}/api/proxy-image?url=${encodeURIComponent(t)}`:""}export{n as p};
