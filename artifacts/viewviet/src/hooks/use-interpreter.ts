@@ -1,322 +1,179 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 
-export type LangCode = "zh" | "en" | "vi" | "ko";
-export type InterpreterStatus = "idle" | "listening" | "translating" | "speaking";
-export type DirectionMode = "both" | "a-to-b" | "b-to-a";
+export type LangCode = "zh" | "vi" | "en" | "ko";
+export type DirectionMode = "auto" | "a-to-b" | "b-to-a";
+export type InterpreterStatus = "idle" | "listening-a" | "listening-b" | "processing" | "error";
 
 export interface Exchange {
-  id: string;
   speaker: "A" | "B";
   original: string;
   translated: string;
-  targetLang: LangCode;
+  targetLang: string;
   timestamp: number;
 }
 
 export interface PendingExchange {
-  id: string;
+  text: string;
   speaker: "A" | "B";
-  original: string;
 }
 
-const BCP47: Record<LangCode, string> = { zh: "zh-CN", en: "en-US", vi: "vi-VN", ko: "ko-KR" };
+const BCP47: Record<LangCode, string> = {
+  zh: "zh-CN",
+  vi: "vi-VN",
+  en: "en-US",
+  ko: "ko-KR",
+};
 
-function pickVoice(lang: LangCode): SpeechSynthesisVoice | null {
-  const voices = window.speechSynthesis?.getVoices() ?? [];
-  if (!voices.length) return null;
-  const target = BCP47[lang].toLowerCase();
-  const prefix = target.slice(0, 2);
-  const exactLocal = voices.find((v) => v.lang.toLowerCase() === target && v.localService);
-  if (exactLocal) return exactLocal;
-  const exactAny = voices.find((v) => v.lang.toLowerCase() === target);
-  if (exactAny) return exactAny;
-  const prefixLocal = voices.find((v) => v.lang.toLowerCase().startsWith(prefix) && v.localService);
-  if (prefixLocal) return prefixLocal;
-  const prefixAny = voices.find((v) => v.lang.toLowerCase().startsWith(prefix));
-  return prefixAny ?? null;
-}
+const API_BASE = (import.meta as any).env?.VITE_API_URL ?? "";
 
-function speakAsync(text: string, lang: LangCode): Promise<void> {
-  return new Promise((resolve) => {
-    if (!window.speechSynthesis) { resolve(); return; }
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = BCP47[lang];
-    utt.rate = 0.9;
-    const applyVoice = () => {
-      const voice = pickVoice(lang);
-      if (voice) utt.voice = voice;
-    };
-    if (window.speechSynthesis.getVoices().length > 0) applyVoice();
-    else window.speechSynthesis.addEventListener("voiceschanged", applyVoice, { once: true });
-
-    let resolved = false;
-    const done = () => { if (!resolved) { resolved = true; resolve(); } };
-    utt.onend = done; utt.onerror = done;
-    window.speechSynthesis.speak(utt);
-    setTimeout(done, Math.max(text.length * 130 + 2000, 5000));
-  });
-}
-
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      resolve(result.split(",")[1]);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-export function useInterpreter(
-  langA: LangCode, langB: LangCode,
-  direction: DirectionMode = "both", pushToTalk = false, autoSpeak = false,
-) {
-  const [running, setRunning] = useState(false);
+export function useInterpreter(initialLangA: LangCode = "zh", initialLangB: LangCode = "vi") {
   const [status, setStatus] = useState<InterpreterStatus>("idle");
-  const [log, setLog] = useState<Exchange[]>([]);
-  const [pendings, setPendings] = useState<PendingExchange[]>([]);
-  const [interim, setInterim] = useState("");
-  const [activeSpeaker, setActiveSpeaker] = useState<"A" | "B">("A");
-  const [permissionError, setPermissionError] = useState(false);
-
-  const runRef = useRef(false);
-  const streamRef = useRef<MediaStream | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const [langA, setLangA] = useState<LangCode>(initialLangA);
+  const [langB, setLangB] = useState<LangCode>(initialLangB);
   
-  // VAD refs
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const vadIntervalRef = useRef<number | null>(null);
-  const speakingRef = useRef(false);
-  const silenceStartRef = useRef(0);
-  const pttModeRef = useRef(pushToTalk);
+  const [exchanges, setExchanges] = useState<Exchange[]>([]);
+  const [pendingTextA, setPendingTextA] = useState("");
+  const [pendingTextB, setPendingTextB] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  // Sync refs
-  const langARef = useRef(langA);
-  const langBRef = useRef(langB);
-  
-  // Audio playback block to prevent mic from hearing the TTS
-  const isSpeakingTTSRef = useRef(false);
+  const recognitionRef = useRef<any>(null);
 
-  useEffect(() => { langARef.current = langA; }, [langA]);
-  useEffect(() => { langBRef.current = langB; }, [langB]);
-  useEffect(() => { pttModeRef.current = pushToTalk; }, [pushToTalk]);
-
-  const processAudioChunk = async (blob: Blob) => {
-    if (!runRef.current) return;
-    try {
-      setStatus("translating");
-      const base64 = await blobToBase64(blob);
-      // We use webm format natively if supported
-      const format = "webm"; // MediaRecorder defaults to webm on Chrome/Firefox
-      
-      const pId = crypto.randomUUID();
-      setPendings(prev => [...prev, { id: pId, speaker: "A", original: "Audio processing..." }]);
-
-      const res = await fetch(`${(import.meta as any).env?.VITE_API_URL ?? ""}/api/interpreter/audio`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          audioBase64: base64,
-          format,
-          langA: langARef.current,
-          langB: langBRef.current
-        }),
-      });
-
-      setPendings(prev => prev.filter(p => p.id !== pId));
-
-      if (res.ok) {
-        const data = await res.json();
-        if (!data.empty && data.original) {
-          const exchange: Exchange = {
-            id: crypto.randomUUID(),
-            speaker: data.speaker,
-            original: data.original,
-            translated: data.translated,
-            targetLang: data.targetLang as LangCode,
-            timestamp: Date.now()
-          };
-          setActiveSpeaker(data.speaker);
-          setLog(prev => [...prev, exchange]);
-
-          if (autoSpeak) {
-            isSpeakingTTSRef.current = true;
-            setStatus("speaking");
-            await speakAsync(exchange.translated, exchange.targetLang);
-            isSpeakingTTSRef.current = false;
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Audio processing failed", e);
-    } finally {
-      if (runRef.current && !isSpeakingTTSRef.current) {
-        setStatus("listening");
-      }
+  // Initialize Speech Recognition
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setErrorMsg("Your browser does not support Speech Recognition. Please use Chrome.");
+      return;
     }
-  };
-
-  const setupVAD = (stream: MediaStream) => {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    audioCtxRef.current = ctx;
-    const source = ctx.createMediaStreamSource(stream);
-    const analyser = ctx.createAnalyser();
-    analyser.minDecibels = -70;
-    source.connect(analyser);
-    analyserRef.current = analyser;
-
-    const data = new Uint8Array(analyser.frequencyBinCount);
     
-    vadIntervalRef.current = window.setInterval(() => {
-      if (!runRef.current || isSpeakingTTSRef.current || pttModeRef.current) {
-        speakingRef.current = false;
-        return;
-      }
-      
-      analyser.getByteFrequencyData(data);
-      let sum = 0;
-      for (let i = 0; i < data.length; i++) sum += data[i];
-      const avg = sum / data.length;
+    const sr = new SpeechRecognition();
+    sr.continuous = true;
+    sr.interimResults = true;
+    
+    sr.onresult = (event: any) => {
+      let interimTranscript = "";
+      let finalTranscript = "";
 
-      // Simple threshold
-      if (avg > 5) {
-        speakingRef.current = true;
-        silenceStartRef.current = 0;
-        setInterim("Listening...");
-      } else {
-        if (speakingRef.current) {
-          if (!silenceStartRef.current) {
-            silenceStartRef.current = Date.now();
-          } else if (Date.now() - silenceStartRef.current > 1500) {
-            // Silence for 1.5 seconds -> trigger stop to send chunk
-            speakingRef.current = false;
-            silenceStartRef.current = 0;
-            setInterim("");
-            if (recorderRef.current && recorderRef.current.state === "recording") {
-              recorderRef.current.stop(); // will trigger onstop and restart
-            }
-          }
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
         } else {
-           if (Date.now() - silenceStartRef.current > 1500) setInterim("");
+          interimTranscript += event.results[i][0].transcript;
         }
       }
-    }, 100);
-  };
 
-  const startSession = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      setPermissionError(false);
-      setRunning(true);
-      runRef.current = true;
-      setStatus(pushToTalk ? "idle" : "listening");
+      const activeSpeaker = sr.activeSpeaker as "A" | "B";
+      
+      if (activeSpeaker === "A") {
+        setPendingTextA(finalTranscript || interimTranscript);
+      } else {
+        setPendingTextB(finalTranscript || interimTranscript);
+      }
 
-      setupVAD(stream);
+      if (finalTranscript) {
+        handleTranslation(finalTranscript, activeSpeaker);
+      }
+    };
 
-      const startRecorder = () => {
-        if (!runRef.current) return;
-        const options = { mimeType: 'audio/webm;codecs=opus' };
-        let recorder: MediaRecorder;
-        try {
-          recorder = new MediaRecorder(stream, options);
-        } catch(e) {
-          recorder = new MediaRecorder(stream);
-        }
-        
-        recorderRef.current = recorder;
-        chunksRef.current = [];
+    sr.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      if (event.error !== "no-speech") {
+        setStatus("idle");
+      }
+    };
 
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) chunksRef.current.push(e.data);
-        };
+    sr.onend = () => {
+      setStatus((prev) => {
+        if (prev.startsWith("listening")) return "idle";
+        return prev;
+      });
+    };
 
-        recorder.onstop = () => {
-          if (chunksRef.current.length > 0) {
-            const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
-            processAudioChunk(blob);
-            chunksRef.current = [];
-          }
-          if (runRef.current && !pttModeRef.current) {
-             // small delay to prevent rapid spinning
-             setTimeout(() => {
-                if (runRef.current && !isSpeakingTTSRef.current) startRecorder();
-             }, 50);
-          }
-        };
+    recognitionRef.current = sr;
 
-        if (!pttModeRef.current) recorder.start();
-      };
-
-      startRecorder();
-
-    } catch (err) {
-      console.error(err);
-      setPermissionError(true);
-      stopSession();
-    }
-  };
-
-  const stopSession = useCallback(() => {
-    runRef.current = false;
-    setRunning(false);
-    setStatus("idle");
-    setInterim("");
-    
-    if (vadIntervalRef.current) clearInterval(vadIntervalRef.current);
-    if (audioCtxRef.current) audioCtxRef.current.close().catch(()=>{});
-    
-    if (recorderRef.current && recorderRef.current.state !== "inactive") {
-      recorderRef.current.stop();
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-    }
+    return () => {
+      sr.stop();
+    };
   }, []);
 
-  const startFor = (speaker: "A" | "B") => {
-    if (!runRef.current || !streamRef.current) return;
-    // For PTT mode, we start recording immediately
-    setActiveSpeaker(speaker);
-    if (recorderRef.current && recorderRef.current.state === "inactive") {
-       recorderRef.current.start();
-       setStatus("listening");
+  const handleTranslation = async (text: string, speaker: "A" | "B") => {
+    setStatus("processing");
+    const from = speaker === "A" ? langA : langB;
+    const to = speaker === "A" ? langB : langA;
+    
+    // Clear pending text
+    if (speaker === "A") setPendingTextA("");
+    else setPendingTextB("");
+
+    try {
+      const res = await fetch(`${API_BASE}/api/interpreter/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, from, to }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.translated) {
+        setExchanges((prev) => [...prev, {
+          speaker,
+          original: text,
+          translated: data.translated,
+          targetLang: to,
+          timestamp: Date.now()
+        }]);
+      } else {
+        toast.error("Translation failed.");
+      }
+    } catch (e) {
+      toast.error("Network error during translation.");
+    } finally {
+      setStatus("idle");
     }
   };
 
-  const stopListening = () => {
-    // For PTT mode, we stop recording
-    if (recorderRef.current && recorderRef.current.state === "recording") {
-       recorderRef.current.stop();
-       setStatus("idle");
+  const startListening = useCallback((speaker: "A" | "B") => {
+    if (!recognitionRef.current) return;
+    
+    // Stop any existing recognition
+    recognitionRef.current.stop();
+    
+    setTimeout(() => {
+      try {
+        const langCode = speaker === "A" ? langA : langB;
+        recognitionRef.current.lang = BCP47[langCode] || "en-US";
+        recognitionRef.current.activeSpeaker = speaker; // custom property
+        recognitionRef.current.start();
+        setStatus(speaker === "A" ? "listening-a" : "listening-b");
+        setErrorMsg("");
+      } catch (e) {
+        console.error("Failed to start recognition:", e);
+      }
+    }, 100);
+  }, [langA, langB]);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
     }
-  };
+    setStatus("idle");
+  }, []);
 
-  const replay = (exchange: Exchange) => {
-    void speakAsync(exchange.translated, exchange.targetLang);
-  };
-
-  const clearLog = () => {
-    setLog([]);
-    setPendings([]);
-  };
-
-  // Ensure stop on unmount
-  useEffect(() => {
-    return () => {
-      stopSession();
-    };
-  }, [stopSession]);
+  const clearHistory = () => setExchanges([]);
 
   return {
-    running, status, log, pendings, interim, activeSpeaker,
-    permissionError, start: startSession, stop: stopSession, 
-    startFor, stopListening, replay, clearLog,
-    supported: !!window.MediaRecorder,
+    status,
+    langA,
+    langB,
+    setLangA,
+    setLangB,
+    exchanges,
+    pendingA: pendingTextA,
+    pendingB: pendingTextB,
+    errorMsg,
+    startListening,
+    stopListening,
+    clearHistory
   };
 }

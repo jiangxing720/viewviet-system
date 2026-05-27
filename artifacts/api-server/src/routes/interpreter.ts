@@ -1,9 +1,14 @@
 import { Router } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import OpenAI from "openai";
 import { toFile } from "openai";
 import { Buffer } from "node:buffer";
 
 const router = Router();
+
+const whisperClient = process.env.WHISPER_API_KEY 
+  ? new OpenAI({ apiKey: process.env.WHISPER_API_KEY, baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL }) 
+  : openai;
 
 interface Exchange {
   speaker: "A" | "B";
@@ -115,7 +120,7 @@ router.post("/interpreter/audio", async (req, res): Promise<void> => {
     const audioBuffer = Buffer.from(audioBase64, "base64");
     const file = await toFile(audioBuffer, `audio.${format}`);
 
-    const response = (await openai!.audio.transcriptions.create({
+    const response = (await whisperClient!.audio.transcriptions.create({
       file,
       model: "whisper-1",
       response_format: "verbose_json",
