@@ -2,10 +2,11 @@ import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
-  Mic, MicOff, Trash2, ArrowRight, X, Maximize2, Minimize2, Check, ExternalLink, RotateCw, Monitor
+  Mic, MicOff, Trash2, RotateCw, Monitor, AlertCircle, FileText, Loader2, StopCircle
 } from "lucide-react";
 import { useInterpreter, type LangCode } from "@/hooks/use-interpreter";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const LANGUAGES: { code: LangCode; native: string; full: string }[] = [
   { code: "zh", native: "中文", full: "Chinese" },
@@ -40,58 +41,69 @@ function LangSelect({ value, other, disabled, onChange, dark }: {
 
 export default function Interpreter() {
   const { t } = useTranslation();
+  
+  const [langA, setLangA] = useState<LangCode>("zh");
+  const [langB, setLangB] = useState<LangCode>("vi");
+
   const {
-    status,
-    langA,
-    langB,
-    setLangA,
-    setLangB,
-    exchanges,
-    pendingA,
-    pendingB,
-    errorMsg,
-    startListening,
-    stopListening,
-    clearHistory
-  } = useInterpreter("zh", "vi");
+    running, status, log, pendings, interim, activeSpeaker,
+    permissionError, start, stop, clearLog
+  } = useInterpreter(langA, langB, "both", false, false);
 
   const [flipped, setFlipped] = useState(false);
   const scrollRefA = useRef<HTMLDivElement>(null);
   const scrollRefB = useRef<HTMLDivElement>(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
 
   // Auto scroll
   useEffect(() => {
     if (scrollRefA.current) scrollRefA.current.scrollTop = scrollRefA.current.scrollHeight;
     if (scrollRefB.current) scrollRefB.current.scrollTop = scrollRefB.current.scrollHeight;
-  }, [exchanges, pendingA, pendingB]);
+  }, [log, pendings, interim]);
 
-  const handlePointerDown = (speaker: "A" | "B") => {
-    startListening(speaker);
-  };
-
-  const handlePointerUp = () => {
-    // Optionally stop listening on pointer up, or keep continuous. 
-    // We will keep continuous for 1-2 seconds after, but since SpeechRecognition is continuous,
-    // we can just stop it to force the "onend" event or let it auto-stop when silence.
-    // For Tap-To-Speak it's better to let them just tap once, it listens until silence.
-    // So we don't call stopListening() here to allow natural pauses.
+  const handleGenerateSummary = async () => {
+    if (log.length === 0) {
+      toast.error(t("No conversation to summarize"));
+      return;
+    }
+    setIsSummarizing(true);
+    try {
+      const res = await fetch(`${(import.meta as any).env?.VITE_API_URL ?? ""}/api/interpreter/summary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ exchanges: log, langA, langB })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Just show it in an alert or push it to log as a system message
+        toast.success(t("Summary generated! Check console or alert for now."));
+        alert(data.summary);
+      } else {
+        toast.error(t("Failed to generate summary"));
+      }
+    } catch (e) {
+      toast.error(t("Network error"));
+    } finally {
+      setIsSummarizing(false);
+    }
   };
 
   const renderSide = (speaker: "A" | "B") => {
     const isA = speaker === "A";
-    const isActive = status === (isA ? "listening-a" : "listening-b");
-    const pendingText = isA ? pendingA : pendingB;
     const currentLang = isA ? langA : langB;
     const otherLang = isA ? langB : langA;
     const setLang = isA ? setLangA : setLangB;
     
-    // Side A is usually light/reddish, Side B is dark/yellowish
+    // Side A is light, Side B is dark
     const bgClass = isA ? "bg-slate-50" : "bg-slate-900";
     const textClass = isA ? "text-slate-900" : "text-white";
     const activeRing = isA ? "ring-red-500/40" : "ring-amber-500/40";
-    const pulseBg = isA ? "bg-red-500" : "bg-amber-500";
+    
+    // Animate ring if this is the active speaker and we are actively translating
+    const isActive = running && (activeSpeaker === speaker) && (status === "listening" || status === "translating");
 
-    const myExchanges = exchanges.filter(e => e.speaker === speaker || e.targetLang === currentLang);
+    const myExchanges = log.filter(e => e.speaker === speaker || e.targetLang === currentLang);
+    const myPendings = pendings.filter(p => p.speaker === speaker);
 
     return (
       <div 
@@ -106,16 +118,19 @@ export default function Interpreter() {
           <LangSelect 
             value={currentLang} 
             other={otherLang} 
-            disabled={status !== "idle" && status !== "error"}
+            disabled={running}
             onChange={setLang}
             dark={!isA}
           />
           {isA && (
-            <div className="flex gap-2">
-               <Button variant="ghost" size="icon" onClick={() => setFlipped(!flipped)} title="Flip Side B" className={isA ? "text-slate-600" : "text-slate-300"}>
+            <div className="flex gap-2 bg-white/50 backdrop-blur-md rounded-full p-1 shadow-sm">
+               <Button variant="ghost" size="icon" onClick={() => setFlipped(!flipped)} title="Flip Side B" className="text-slate-600 rounded-full">
                  <RotateCw className="w-5 h-5" />
                </Button>
-               <Button variant="ghost" size="icon" onClick={clearHistory} title="Clear" className={isA ? "text-slate-600" : "text-slate-300"}>
+               <Button variant="ghost" size="icon" onClick={handleGenerateSummary} title="Summary" disabled={isSummarizing} className="text-slate-600 rounded-full">
+                 {isSummarizing ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />}
+               </Button>
+               <Button variant="ghost" size="icon" onClick={clearLog} title="Clear" className="text-slate-600 rounded-full">
                  <Trash2 className="w-5 h-5" />
                </Button>
             </div>
@@ -123,9 +138,9 @@ export default function Interpreter() {
         </div>
 
         {/* Chat History & Pending */}
-        <div ref={isA ? scrollRefA : scrollRefB} className="flex-1 overflow-y-auto px-6 pt-24 pb-32 flex flex-col gap-6">
+        <div ref={isA ? scrollRefA : scrollRefB} className="flex-1 overflow-y-auto px-6 pt-24 pb-32 flex flex-col gap-6 scroll-smooth">
           {myExchanges.map((ex, i) => (
-            <div key={i} className={cn("flex flex-col max-w-[85%]", ex.speaker === speaker ? "self-end items-end" : "self-start items-start")}>
+            <div key={ex.id || i} className={cn("flex flex-col max-w-[85%]", ex.speaker === speaker ? "self-end items-end" : "self-start items-start")}>
               <span className={cn("text-xs font-semibold mb-1 opacity-50", !isA && "text-slate-400")}>
                 {ex.speaker === speaker ? "Me" : LANGUAGES.find(l=>l.code===otherLang)?.native}
               </span>
@@ -140,45 +155,22 @@ export default function Interpreter() {
             </div>
           ))}
           
-          {/* Pending Text */}
-          {pendingText && (
-            <div className="flex flex-col max-w-[85%] self-end items-end animate-in fade-in slide-in-from-bottom-2">
-               <span className={cn("text-xs font-semibold mb-1 opacity-50", !isA && "text-slate-400")}>Listening...</span>
-               <div className={cn(
-                  "px-5 py-4 rounded-3xl text-xl md:text-2xl font-medium shadow-sm leading-relaxed border-2 border-dashed",
-                  isA ? "border-slate-300 bg-white" : "border-slate-600 bg-slate-800 text-white"
-               )}>
-                  {pendingText}
+          {/* Pending / Interim Text */}
+          {myPendings.map(p => (
+            <div key={p.id} className="flex flex-col max-w-[85%] self-end items-end animate-pulse">
+               <div className={cn("px-5 py-4 rounded-3xl text-xl md:text-2xl font-medium shadow-sm opacity-60", isA ? "bg-white text-slate-900" : "bg-slate-800 text-white")}>
+                 {p.original}
                </div>
             </div>
-          )}
-        </div>
+          ))}
 
-        {/* Giant Mic Button */}
-        <div className="absolute bottom-0 left-0 w-full p-6 md:p-8 flex justify-center bg-gradient-to-t from-black/20 to-transparent">
-          <button
-            onPointerDown={(e) => { e.preventDefault(); handlePointerDown(speaker); }}
-            onPointerUp={(e) => { e.preventDefault(); handlePointerUp(); }}
-            onContextMenu={(e) => e.preventDefault()}
-            className={cn(
-              "group relative flex items-center justify-center w-24 h-24 md:w-32 md:h-32 rounded-full shadow-2xl transition-all select-none touch-none",
-              isActive ? pulseBg : (isA ? "bg-white" : "bg-slate-800"),
-              isActive ? "scale-110" : "hover:scale-105 active:scale-95"
-            )}
-          >
-            {isActive && (
-              <span className={cn("absolute inset-0 rounded-full animate-ping opacity-75", pulseBg)} />
-            )}
-            <Mic className={cn(
-              "w-10 h-10 md:w-14 md:h-14 transition-colors z-10",
-              isActive ? "text-white" : (isA ? "text-slate-400" : "text-slate-500")
-            )} />
-            {!isActive && (
-              <span className={cn("absolute -top-10 text-sm font-bold whitespace-nowrap opacity-50 uppercase tracking-widest", isA ? "text-slate-600" : "text-slate-400")}>
-                Tap to speak
-              </span>
-            )}
-          </button>
+          {interim && activeSpeaker === speaker && (
+             <div className="flex flex-col max-w-[85%] self-end items-end animate-in fade-in slide-in-from-bottom-2">
+               <div className={cn("px-5 py-4 rounded-3xl text-xl md:text-2xl font-medium shadow-sm border-2 border-dashed", isA ? "border-slate-300 bg-white" : "border-slate-600 bg-slate-800 text-white")}>
+                 {interim}
+               </div>
+             </div>
+          )}
         </div>
       </div>
     );
@@ -188,11 +180,10 @@ export default function Interpreter() {
     <div className="fixed inset-0 bg-black flex flex-col md:flex-row overflow-hidden font-sans touch-none select-none">
       
       {/* ERROR OVERLAY */}
-      {errorMsg && (
+      {permissionError && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2 font-medium">
           <AlertCircle className="w-5 h-5" />
-          {errorMsg}
-          <button onClick={() => window.location.reload()} className="ml-2 bg-white/20 hover:bg-white/30 rounded px-2 py-1 text-xs uppercase">Reload</button>
+          Microphone Permission Denied
         </div>
       )}
       
@@ -209,18 +200,29 @@ export default function Interpreter() {
         {renderSide("A")}
       </div>
 
-      {/* Center Divider / Processing Indicator */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
-        <div className={cn(
-          "w-14 h-14 md:w-20 md:h-20 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300",
-          status === "processing" ? "bg-primary scale-110" : "bg-white scale-100 border-4 border-slate-100"
-        )}>
-          {status === "processing" ? (
-            <Loader2 className="w-6 h-6 md:w-8 md:h-8 text-white animate-spin" />
-          ) : (
-            <Monitor className="w-6 h-6 md:w-8 md:h-8 text-slate-300" />
+      {/* Central Floating Action Button */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30">
+        <button
+           onClick={running ? stop : start}
+           className={cn(
+             "relative w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300",
+             running ? "bg-red-500 hover:bg-red-600 scale-110" : "bg-primary hover:bg-primary/90 scale-100",
+             "border-4 border-white/20 backdrop-blur-md"
+           )}
+        >
+          {running && status === "listening" && (
+            <span className="absolute inset-0 rounded-full animate-ping opacity-50 bg-red-500" />
           )}
-        </div>
+          {running && status === "translating" && (
+            <span className="absolute inset-0 rounded-full animate-pulse opacity-80 bg-orange-500" />
+          )}
+          
+          {running ? (
+             status === "translating" ? <Loader2 className="w-8 h-8 text-white animate-spin z-10" /> : <StopCircle className="w-10 h-10 text-white z-10" />
+          ) : (
+             <Mic className="w-10 h-10 text-white z-10" />
+          )}
+        </button>
       </div>
 
     </div>
